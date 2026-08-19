@@ -32,7 +32,13 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. Running `docker-compose up -d postgres qdrant opa` is the only setup step, and it brings all three services up healthy on ports 5432/6333/8181.
   2. The repo has a documented structure and a worktree/branching convention in place, satisfying Rule 10 (no two agents editing the same critical file) before any Stage 1 ticket starts.
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
+
+Plans:
+- [ ] 01-01-PLAN.md — Tracer: one-command bring-up proven end-to-end with Postgres, plus the mechanical ENV-01 health gate (wave 1)
+- [ ] 01-02-PLAN.md — Repo scaffold (D-01 four tiers), root README, and BRANCHING.md Rule 10 file-ownership allocation — SENT-0-01 (wave 1)
+- [ ] 01-03-PLAN.md — Qdrant on a curl-capable derived image and OPA on the debug tag, both healthy with real HTTP probes — SENT-0-02 (wave 2)
+- [ ] 01-04-PLAN.md — Named-volume persistence proof (D-05) and cold-start gate from destroyed volumes, plus infra/README.md (wave 3)
 
 ### Phase 2: Foundation
 **Goal**: The full schema, seed data, policy layer, API skeleton, orchestration skeleton, frontend shell, and WebSocket pattern are all in place, giving Phase 3's real agents a real substrate to build on. (Build-Map Stage 1, Gate: "schema loads, seed data present, one Rego rule evaluates via raw OPA REST call, API skeleton returns 200 on `/api/health`.")
@@ -138,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Environment | 0/TBD | Not started | - |
+| 1. Environment | 0/4 | Planned | - |
 | 2. Foundation | 0/TBD | Not started | - |
 | 3. Intelligence & Retrieval | 0/TBD | Not started | - |
 | 4. Evidence & Impact | 0/TBD | Not started | - |
