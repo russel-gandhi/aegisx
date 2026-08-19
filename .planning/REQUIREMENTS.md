@@ -111,50 +111,49 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | Inspection Readiness Simulator | User: "nobody notices" if removed — Tier 3, deferred to v2 |
 | Multi-provider LLM routing (full) | Single working provider path proves the C1 loop; full router adds cost without proving core value |
 | Full A1/A3–A6 agent breadth | Only A2 Compliance is required for the minimum killer demo; others are v2 expansion |
-| Direct mapping to Sentinel-Build-Map.md ticket IDs | User chose independent phase derivation; Build-Map stays a reference for ticket-level contracts, not the roadmap source |
 | Fancy frontend polish (FSM animations, Trust Centre, ALCOA+ UI, guided demo) | User's own Tier 3 classification — build only after Tier 1/2 are solid |
 
 ## Traceability
 
-Populated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENV-01 | TBD | Pending |
-| ENV-02 | TBD | Pending |
-| ENV-03 | TBD | Pending |
-| ENV-04 | TBD | Pending |
-| POL-01 | TBD | Pending |
-| POL-02 | TBD | Pending |
-| ORC-01 | TBD | Pending |
-| ORC-02 | TBD | Pending |
-| ORC-03 | TBD | Pending |
-| EVID-01 | TBD | Pending |
-| EVID-02 | TBD | Pending |
-| EVID-03 | TBD | Pending |
-| EVID-04 | TBD | Pending |
-| GRAPH-01 | TBD | Pending |
-| GRAPH-02 | TBD | Pending |
-| GRAPH-03 | TBD | Pending |
-| REM-01 | TBD | Pending |
-| REM-02 | TBD | Pending |
-| REM-03 | TBD | Pending |
-| REM-04 | TBD | Pending |
-| SAFE-01 | TBD | Pending |
-| SAFE-02 | TBD | Pending |
-| AUDIT-01 | TBD | Pending |
-| AUDIT-02 | TBD | Pending |
-| AUDIT-03 | TBD | Pending |
-| UI-01 | TBD | Pending |
-| UI-02 | TBD | Pending |
-| UI-03 | TBD | Pending |
-| UI-04 | TBD | Pending |
+| ENV-01 | Phase 1 | Pending |
+| ENV-02 | Phase 2 | Pending |
+| ENV-03 | Phase 2 | Pending |
+| ENV-04 | Phase 2 | Pending |
+| POL-01 | Phase 2 | Pending |
+| POL-02 | Phase 2 | Pending |
+| ORC-01 | Phase 2 | Pending |
+| UI-01 | Phase 2 | Pending |
+| ORC-02 | Phase 3 | Pending |
+| ORC-03 | Phase 3 | Pending |
+| EVID-01 | Phase 3 | Pending |
+| EVID-02 | Phase 3 | Pending |
+| EVID-04 | Phase 3 | Pending |
+| EVID-03 | Phase 4 | Pending |
+| GRAPH-01 | Phase 4 | Pending |
+| GRAPH-02 | Phase 4 | Pending |
+| GRAPH-03 | Phase 4 | Pending |
+| SAFE-01 | Phase 5 | Pending |
+| SAFE-02 | Phase 5 | Pending |
+| AUDIT-01 | Phase 5 | Pending |
+| AUDIT-02 | Phase 5 | Pending |
+| AUDIT-03 | Phase 5 | Pending |
+| REM-01 | Phase 5 | Pending |
+| REM-02 | Phase 5 | Pending |
+| REM-03 | Phase 5 | Pending |
+| REM-04 | Phase 5 | Pending |
+| UI-02 | Phase 5 | Pending |
+| UI-03 | Phase 6 | Pending |
+| UI-04 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 29 total
-- Mapped to phases: 0 (pending roadmap creation)
-- Unmapped: 29 ⚠️
+- Mapped to phases: 29/29 ✓
+- Unmapped: 0
+
+**Phases with no v1 requirements:** Phase 7 (Integration & Hardening) and Phase 8 (Freeze) carry no v1 requirement mappings — they validate/harden the capabilities delivered in Phases 1–6 and correspond to the v2 Hardening items (HARD-01 through HARD-06) above, per Sentinel-Build-Map.md Stages 6–7.
 
 ---
 *Requirements defined: 2026-08-19*
-*Last updated: 2026-08-19 after initial definition*
+*Last updated: 2026-08-19 after roadmap revision (8 phases mapped 1:1 onto Sentinel-Build-Map.md Stage 0-7, superseding the earlier independently-derived 6-phase roadmap; 29/29 v1 requirements re-mapped, 100% coverage)*

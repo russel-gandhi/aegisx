@@ -63,7 +63,7 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Full v1 build per the Bible (not a reduced demo slice) | User chose to plan the full system, ordered by the Tier 1/2/3 demo hierarchy so any cut point still demos well | — Pending |
-| GSD roadmap phases re-derived independently from REQUIREMENTS.md rather than mapped 1:1 onto Sentinel-Build-Map.md stages | User's explicit choice; Build-Map remains a reference for ticket-level contracts | — Pending |
+| GSD roadmap phases mapped 1:1 onto Sentinel-Build-Map.md's Stage 0-7 (superseded initial decision to re-derive independently) | User reversed the earlier decision after seeing the independently-derived roadmap; wants phase order and ticket contracts to follow the Build-Map directly | — Pending |
 | Skip GSD's domain research step | Stack and architecture are already fully decided and justified in the Bible; research would be redundant | — Pending |
 | Core value = C1 Evidence Verification + Finding→Evidence→Verification loop, not the full agentic system | User's explicit differentiation thesis: "we use AI to investigate, but we do not blindly trust AI" | — Pending |
 
