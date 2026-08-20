@@ -77,7 +77,15 @@ Plans:
   3. C1 Evidence & Grounding Verifier fans in and calls `calculate_confidence()` against the real DB record and real OPA evaluation (never a mock), returning VERIFIED with a confidence score for a true claim.
   4. Feeding C1 a claim that contradicts DB/OPA truth demonstrably returns `INSUFFICIENT_EVIDENCE` (contradiction case explicitly tested).
   5. The backend hero loop runs end to end: submitting "Is GXP-MFG-DEMO-01 audit ready?" drives A0 → A2 → C1 and produces a verified finding sourced entirely from real DB/OPA state.
-**Plans**: TBD
+**Plans**: 6 plans in 5 waves
+
+Plans:
+- [ ] 03-01-PLAN.md — Shared infrastructure: multi-provider LLM router (Bible §8), asyncpg Postgres pool, `.env.example` key placeholders, Section 2 schemas (wave 1)
+- [ ] 03-02-PLAN.md — TRACER: thinnest end-to-end hero path — A2's periodic-evaluation check → real `AgentFinding` → C1 `calculate_confidence()` on real DB + real OPA — SENT-2-02/2-12 (wave 2)
+- [ ] 03-03-PLAN.md — A0 Orchestrator intent classification + hard 2000ms fallback, plus minimal-but-real A1/A3–A6 fan-out targets — SENT-2-01 (wave 3)
+- [ ] 03-04-PLAN.md — A2's remaining two deterministic checks + additive URS seed fixture (D-05) — SENT-2-02 (wave 3)
+- [ ] 03-05-PLAN.md — C1 Critical review: unit/negative/edge/integration coverage + engineered contradiction fixture — SENT-2-12 (wave 4)
+- [ ] 03-06-PLAN.md — Hero-loop integration test: one `ainvoke()` on the literal query, real DB + real OPA (wave 5)
 
 ### Phase 4: Evidence & Impact
 **Goal**: The NetworkX evidence graph builds from live Postgres state and Blast Radius traversal returns correct downstream-impacted nodes, both wired into the browser, and a verified finding renders as a real evidence card. (Build-Map Stage 3, Gate: "NetworkX graph builds from live Postgres state; Blast Radius returns correct downstream nodes for a seeded change record.")
@@ -156,7 +164,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. Environment | 0/4 | Planned | - |
 | 2. Foundation | 0/8 | Planned | - |
-| 3. Intelligence & Retrieval | 0/TBD | Not started | - |
+| 3. Intelligence & Retrieval | 0/6 | Planned | - |
 | 4. Evidence & Impact | 0/TBD | Not started | - |
 | 5. Safety & Remediation | 0/TBD | Not started | - |
 | 6. Product Experience | 0/TBD | Not started | - |
