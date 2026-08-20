@@ -19,9 +19,15 @@ object in wave 2, sequentially after this plan merges.
 This module imports nothing from `app.graph` or `app.opa_client` — those
 do not exist until wave 2 — so it has no import-time database, OPA, or
 network dependency and can be imported with every Compose service stopped.
+
+Plan 02-07 registers exactly one further route here: the
+`/api/copilot/stream/{session_id}` WebSocket router from `app.ws.copilot`.
+See that module's docstring for the wire contract.
 """
 
 from fastapi import FastAPI
+
+from app.ws.copilot import router as copilot_ws_router
 
 app = FastAPI(
     title="GxP Sentinel",
@@ -31,6 +37,8 @@ app = FastAPI(
         "thesis — see GxP-Sentinel-Project-Bible-v6.md Section 1."
     ),
 )
+
+app.include_router(copilot_ws_router)
 
 
 @app.get("/api/health")
