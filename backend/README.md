@@ -24,3 +24,44 @@ FastAPI + LangGraph application tier (D-01).
 No LLM call in this tier may ever evaluate a compliance threshold, an RBAC decision, or a prompt-injection judgment. Those checks run in Python, Rego (via the OPA client), or NetworkX only — never inside a generative model call. See `CLAUDE.md` and Bible Section 1.3's decision table before choosing an implementation method for any check that lands in this tier.
 
 This tier is intentionally empty until Stage 1 (ROADMAP Phase 2) begins.
+
+## Local setup (Stage 1)
+
+### Environment
+
+Create a **project-local** virtual environment before installing anything. This machine's bare `pip` on `PATH` resolves to `C:\Anaconda3` — a global environment shared across unrelated projects — so the bare `pip`/`python -m pip` outside a venv must never be used to install this project's dependencies.
+
+```bash
+python -m venv backend/.venv
+backend/.venv/Scripts/python -m pip install -r backend/requirements.txt
+```
+
+Note `python`, not `python3` — that is what resolves on this machine. `backend/.venv/` is gitignored; it must never appear in `git status`.
+
+### Run
+
+From inside `backend/`:
+
+```bash
+backend/.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+```
+
+### Test
+
+From inside `backend/`:
+
+```bash
+backend/.venv/Scripts/python -m pytest -x
+```
+
+### Health check
+
+`GET /api/health` returns `200` with the exact body `{"status": "ok"}`. With the server running per the command above, verify against the live process (this machine uses `node -e "fetch(...)"` rather than `curl`, matching the convention `infra/health-check.sh` established — `curl` is unreliable under Windows Git Bash):
+
+```bash
+node -e "fetch('http://127.0.0.1:8000/api/health').then(r=>r.json().then(j=>{console.log(r.status, JSON.stringify(j))}))"
+```
+
+### Why the backend runs host-side this phase
+
+The backend runs as a host-side process (`uvicorn` invoked directly), not as a `docker-compose.yml` service, for the duration of this phase — see `02-RESEARCH.md` Open Question 1. This means `docker-compose.yml` needs no change for this plan, and no BRANCHING.md §5 shared-file PR is triggered by standing up the FastAPI skeleton.
