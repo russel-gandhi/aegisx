@@ -41,6 +41,12 @@ Plans MUST include a live-mocked-HTTP test path (e.g. `respx`/`httpx` mock trans
 - Must demonstrably return `INSUFFICIENT_EVIDENCE` when an LLM claim contradicts DB/OPA truth — this contradiction case needs an explicit, engineered test fixture (a claim that says the opposite of what the seeded data / Rego evaluation shows).
 - Per CLAUDE.md Rule 6, C1 needs unit + negative + edge-case + integration coverage, not a smoke test — same bar as phase 2's Rego bundle.
 
+### Resolved: RESEARCH.md Open Questions (decided autonomously, operator away)
+
+**Open Question 1 — `verify_urs_approved` positive-path fixture:** Seed one additional minimal `documents` row with `doc_type='URS'` in an additive seed-data task (extends, does not replace, phase 2's `infra/postgres/seed/001_seed.sql` — follow the same idempotent `INSERT ... ON CONFLICT` style already established there). A Critical-adjacent agent (A2 feeds C1, a Critical ticket) should not ship with an untested positive path when a one-row fixture closes the gap cheaply.
+
+**Open Question 2 — ALCOA 8-vs-9 constant in `calculate_confidence()`:** Use **9**, not the Bible's literal `8`. Rationale: CLAUDE.md itself states "ALCOA+ 9-dimension scoring (16.12)" as a settled project fact, and `app.schemas.ALCOAScore` (already shipped, phase 2) has 9 boolean fields — both independent sources agree on 9, against the Bible's one stale `8` literal in the `calculate_confidence()` formula. Implement as `(9 - alcoa_score) * 10` where `alcoa_score` is the count of true fields in the 9-field `ALCOAScore`. Record this as a Bible deviation in a `BIBLE-DEVIATIONS.md`-style file for this phase (same pattern as `policies/BIBLE-DEVIATIONS.md`), routed to SENT-7-05, preserving every other constant/threshold in the formula unchanged. This is a genuine correction (stale literal vs. the project's own explicitly-stated 9-dimension model), not a redesign.
+
 ### Claude's Discretion
 - Exact module/file layout under `backend/app/` for the LLM router, A0/A2/C1 implementations, and any minimal A1/A3–A6 placeholders — follow the existing `backend/app/graph/state.py` skeleton from phase 2 and extend it rather than restructuring.
 - Whether A1/A3–A6 get a shared minimal implementation pattern or individually tailored ones — keep them genuinely functional (real LLM call + degraded fallback) but proportionate to their v2-territory status; do not over-invest relative to A0/A2/C1.
