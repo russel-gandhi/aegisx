@@ -9,7 +9,7 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 ### Environment
 
-- [ ] **ENV-01**: `docker-compose up -d postgres qdrant opa` brings up all three services healthy on ports 5432/6333/8181
+- [x] **ENV-01**: `docker-compose up -d postgres qdrant opa` brings up all three services healthy on ports 5432/6333/8181
 - [ ] **ENV-02**: Postgres schema (full DDL from Bible Section 4.1) is loaded with FK constraints verified
 - [ ] **ENV-03**: Synthetic seed data for `GXP-MFG-DEMO-01` and `BUS-IT-DEMO-02` is populated, including deliberately-injected findings (e.g. overdue `DataSync Solutions` supplier)
 - [ ] **ENV-04**: FastAPI skeleton with Pydantic schemas (`AgentFinding`, `ActionProposal`, `AgentState`) is importable and `/api/health` returns 200
@@ -117,7 +117,7 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ENV-01 | Phase 1 | Pending |
+| ENV-01 | Phase 1 | Complete |
 | ENV-02 | Phase 2 | Pending |
 | ENV-03 | Phase 2 | Pending |
 | ENV-04 | Phase 2 | Pending |
@@ -148,6 +148,7 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | UI-04 | Phase 6 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 29 total
 - Mapped to phases: 29/29 ✓
 - Unmapped: 0
