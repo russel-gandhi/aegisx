@@ -10,18 +10,18 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 ### Environment
 
 - [x] **ENV-01**: `docker-compose up -d postgres qdrant opa` brings up all three services healthy on ports 5432/6333/8181
-- [ ] **ENV-02**: Postgres schema (full DDL from Bible Section 4.1) is loaded with FK constraints verified
-- [ ] **ENV-03**: Synthetic seed data for `GXP-MFG-DEMO-01` and `BUS-IT-DEMO-02` is populated, including deliberately-injected findings (e.g. overdue `DataSync Solutions` supplier)
-- [ ] **ENV-04**: FastAPI skeleton with Pydantic schemas (`AgentFinding`, `ActionProposal`, `AgentState`) is importable and `/api/health` returns 200
+- [x] **ENV-02**: Postgres schema (full DDL from Bible Section 4.1) is loaded with FK constraints verified
+- [x] **ENV-03**: Synthetic seed data for `GXP-MFG-DEMO-01` and `BUS-IT-DEMO-02` is populated, including deliberately-injected findings (e.g. overdue `DataSync Solutions` supplier)
+- [x] **ENV-04**: FastAPI skeleton with Pydantic schemas (`AgentFinding`, `ActionProposal`, `AgentState`) is importable and `/api/health` returns 200
 
 ### Deterministic Policy Layer
 
-- [ ] **POL-01**: All 10 Rego rules from Bible Section 3.3 are implemented and independently unit-tested via `opa test` against positive and negative fixtures
-- [ ] **POL-02**: `evaluate_opa_policy()` calls the real OPA REST endpoint; `python_fallback_rules()` stub exists for when OPA is unreachable
+- [x] **POL-01**: All 10 Rego rules from Bible Section 3.3 are implemented and independently unit-tested via `opa test` against positive and negative fixtures
+- [x] **POL-02**: `evaluate_opa_policy()` calls the real OPA REST endpoint; `python_fallback_rules()` stub exists for when OPA is unreachable
 
 ### Agent Orchestration
 
-- [ ] **ORC-01**: LangGraph `StateGraph` compiles with the exact topology `C2 → A0 → [A1…A6 in parallel via Send] → C1 → A7 → C3`
+- [x] **ORC-01**: LangGraph `StateGraph` compiles with the exact topology `C2 → A0 → [A1…A6 in parallel via Send] → C1 → A7 → C3`
 - [ ] **ORC-02**: A0 Orchestrator classifies intent and fans out to a subset of A1–A6; on a 2000ms timeout it falls back to the full `["A1".."A6"]` set (tested explicitly)
 - [ ] **ORC-03**: A2 Compliance Agent produces real `AgentFinding` output via deterministic checks (`verify_urs_approved`, `verify_periodic_eval_current`, `verify_test_traceability`)
 
@@ -58,7 +58,7 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 ### Frontend Shell
 
-- [ ] **UI-01**: React + TypeScript + Vite + Tailwind app boots with routing scaffolded and a React Flow canvas mounted
+- [x] **UI-01**: React + TypeScript + Vite + Tailwind app boots with routing scaffolded and a React Flow canvas mounted
 - [ ] **UI-02**: `/api/copilot/stream/{session_id}` WebSocket accepts a connection and streams live agent state end-to-end
 - [ ] **UI-03**: Command Centre dashboard shows a readiness dial and health mini-cards
 - [ ] **UI-04**: Ask GxP Copilot page provides chat + live agent topology visualization
@@ -118,13 +118,13 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | ENV-01 | Phase 1 | Complete |
-| ENV-02 | Phase 2 | Pending |
-| ENV-03 | Phase 2 | Pending |
-| ENV-04 | Phase 2 | Pending |
-| POL-01 | Phase 2 | Pending |
-| POL-02 | Phase 2 | Pending |
-| ORC-01 | Phase 2 | Pending |
-| UI-01 | Phase 2 | Pending |
+| ENV-02 | Phase 2 | Complete |
+| ENV-03 | Phase 2 | Complete |
+| ENV-04 | Phase 2 | Complete |
+| POL-01 | Phase 2 | Complete |
+| POL-02 | Phase 2 | Complete |
+| ORC-01 | Phase 2 | Complete |
+| UI-01 | Phase 2 | Complete |
 | ORC-02 | Phase 3 | Pending |
 | ORC-03 | Phase 3 | Pending |
 | EVID-01 | Phase 3 | Pending |
