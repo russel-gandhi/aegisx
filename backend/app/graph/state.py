@@ -1,0 +1,240 @@
+"""
+LangGraph orchestration skeleton for GxP Sentinel.
+
+Ticket: SENT-1-06 | Requirement: ORC-01
+Source: GxP-Sentinel-Project-Bible-v6.md Section 1.2 (lines 97-196) —
+transcribed as the implementation, not reinterpreted; the Bible is the
+source of truth (CLAUDE.md Rule 14).
+
+This module defines the fixed request topology:
+
+    C2 -> A0 -> [A1...A6 in parallel via Send] -> C1 -> A7 -> C3
+
+Every one of the eleven nodes is intentionally a stub in this phase (Phase
+2 / Foundation). Phase 3+ replaces each stub body with a real agent, real
+evidence retrieval, and real OPA evaluation, without changing this
+topology — every future agent is a node substitution inside this same
+graph, not a redesign of it.
+
+Graph-state types vs. application-layer types (Bible Section 1.2 vs.
+Section 4.3; see also 02-RESEARCH.md Pitfall 6): the `TypedDict` classes
+defined here (`AgentFinding`, `ActionProposal`, `AgentState`) are the
+graph-state representation used inside the LangGraph orchestration hot
+path, chosen for zero per-step validation overhead. `app.schemas` holds
+the Pydantic `BaseModel` representation of the same concepts, used for
+runtime validation at the FastAPI request/response boundary. These are
+deliberately two different Python types with the same field names, not a
+single type shared across tiers. Neither module imports the other;
+conversion between them happens explicitly at the API boundary (e.g.
+`schemas.AgentFinding(**typed_dict_instance)`).
+
+Deterministic-first constraint (Bible Section 1.3, CLAUDE.md): C2 (Policy
+& Safety Gateway), C1 (Evidence & Grounding Verifier), and C3 (Action
+Gateway) are decision nodes that Bible Section 1.3 permanently forbids an
+LLM from occupying — C2 makes the RBAC/injection-detection call, C1 makes
+the evidence-verification call, and C3 makes the action-category routing
+call, and all three must stay deterministic Python/Rego/graph-traversal
+logic forever, not just at this stub stage. No node in this module may
+ever contain an LLM client call, a database call, or an OPA call; those
+belong in the real agent implementations that replace these stubs in
+later phases, and even there they must route through the nodes this
+constraint permits (Python, Rego, NetworkX) — never through a model
+occupying C2, C1, or C3 directly.
+"""
+
+import operator
+from typing import Annotated, Any, Dict, List, Sequence, TypedDict
+
+from langchain_core.messages import BaseMessage
+from langgraph.graph import END, StateGraph
+
+# `Send` moved from `langgraph.constants` to `langgraph.types` between the
+# Bible's LangGraph 0.x-era sample and the pinned langgraph==1.2.11 here.
+# `langgraph.types.Send` is the current (non-deprecated) location; the
+# `langgraph.constants` import still works on 1.2.11 but emits
+# `LangGraphDeprecatedSinceV10` and is slated for removal in V2.0. Resolved
+# at import time rather than hard-coding one path, so this module keeps
+# working across that migration without an edit.
+try:
+    from langgraph.types import Send
+except ImportError:  # pragma: no cover - exercised only on older langgraph
+    from langgraph.constants import Send  # Bible's original import path
+
+# `add_messages` similarly may live at either `langgraph.graph.message`
+# (the Bible's path, still current on 1.2.11) or the shorter
+# `langgraph.graph` re-export. Both resolved successfully against the
+# pinned version; `langgraph.graph.message` is used first since it is the
+# more specific, version-stable path.
+try:
+    from langgraph.graph.message import add_messages
+except ImportError:  # pragma: no cover - exercised only if the submodule moves
+    from langgraph.graph import add_messages
+
+
+class AgentFinding(TypedDict):
+    """Graph-state finding shape. See module docstring: distinct from
+    `app.schemas.AgentFinding` (a `pydantic.BaseModel`)."""
+
+    finding_id: str
+    claim: str
+    regulatory_citations: List[str]
+    confidence_score: str
+    evidence_ids: List[str]
+    alcoa_score: Dict[str, bool]
+    model_attribution: str
+
+
+class ActionProposal(TypedDict):
+    """Graph-state action-proposal shape. See module docstring: distinct
+    from `app.schemas.ActionProposal` (a `pydantic.BaseModel`)."""
+
+    action_type: str
+    target_system: str
+    payload: Dict[str, Any]
+    justification: str
+
+
+class AgentState(TypedDict):
+    """The state object threaded through every node in the graph.
+
+    `findings` and `proposed_actions` are each annotated with the
+    accumulating list-concatenation reducer from the stdlib `operator`
+    module (see the field annotations below): six specialist branches
+    (A1-A6) run concurrently and each returns `{"findings": [...]}`.
+    Without that reducer, LangGraph's default last-writer-wins merge
+    would silently discard five of six branches' findings at the C1
+    fan-in — a failure that would present as C1 verifying a suspiciously
+    small evidence set, not as an error. `messages` carries the
+    `add_messages` reducer for the same reason, following LangGraph's
+    standard message-accumulation convention.
+    """
+
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    system_id: str
+    user_intent: str
+    active_agents: List[str]
+    findings: Annotated[List[AgentFinding], operator.add]
+    proposed_actions: Annotated[List[ActionProposal], operator.add]
+    verification_results: Dict[str, Any]
+    final_synthesis: str
+
+
+# --- Eleven stub node coroutines -------------------------------------------
+# Every node below is a literal-returning stub for this phase. None of them
+# performs an LLM call, a database call, or an OPA/network call. C2, C1, and
+# C3 in particular must stay this way permanently (see module docstring).
+
+
+async def safety_gateway_c2(state: AgentState) -> Dict[str, Any]:
+    """C2 - Policy & Safety Gateway. Stub: admits every request. Real RBAC
+    and deterministic-regex injection detection land in Phase 5
+    (SAFE-01/02, SENT-4-01/4-02) — deterministic Python only, never an LLM."""
+    return {"user_intent": "safe"}
+
+
+async def orchestrator_a0(state: AgentState) -> Dict[str, Any]:
+    """A0 - Orchestrator/Supervisor. Stub: always selects the full agent
+    set. Phase 3's real A0 narrows this via intent classification, and its
+    2000ms timeout fallback (ORC-02) also repopulates this same full set —
+    a data change routed through the unchanged `route_specialists` fan-out
+    below, not a topology change."""
+    return {"active_agents": ["A1", "A2", "A3", "A4", "A5", "A6"]}
+
+
+async def system_knowledge_a1(state: AgentState) -> Dict[str, Any]:
+    """A1 - System Knowledge (Qdrant RAG). Stub: no findings."""
+    return {"findings": []}
+
+
+async def compliance_a2(state: AgentState) -> Dict[str, Any]:
+    """A2 - Compliance Agent. Stub: no findings."""
+    return {"findings": []}
+
+
+async def risk_a3(state: AgentState) -> Dict[str, Any]:
+    """A3 - Risk Agent. Stub: no findings."""
+    return {"findings": []}
+
+
+async def change_a4(state: AgentState) -> Dict[str, Any]:
+    """A4 - Change Agent. Stub: no findings."""
+    return {"findings": []}
+
+
+async def incident_a5(state: AgentState) -> Dict[str, Any]:
+    """A5 - Incident Agent. Stub: no findings."""
+    return {"findings": []}
+
+
+async def access_a6(state: AgentState) -> Dict[str, Any]:
+    """A6 - Access Agent. Stub: no findings."""
+    return {"findings": []}
+
+
+async def evidence_verifier_c1(state: AgentState) -> Dict[str, Any]:
+    """C1 - Evidence & Grounding Verifier. Stub: always verified. This is
+    the product's deterministic-verification thesis node; its real
+    implementation (Phase 3, SENT-2-12) must stay deterministic Python
+    consuming real DB/OPA state — never an LLM occupying this node."""
+    return {"verification_results": {"verified": True}}
+
+
+async def remediation_a7(state: AgentState) -> Dict[str, Any]:
+    """A7 - Remediation. Stub: no proposed actions. Real synthesis of
+    `ActionProposal`/CAPA narratives (Phase 5, SENT-4-05) is LLM-generated
+    from already-verified findings only, per Bible Section 1.3."""
+    return {"proposed_actions": []}
+
+
+async def action_gateway_c3(state: AgentState) -> Dict[str, Any]:
+    """C3 - Action Gateway. Stub: fixed completion message. Real routing
+    (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED,
+    Phase 5 SENT-4-03) is deterministic Python — never an LLM occupying
+    this node."""
+    return {"final_synthesis": "Execution complete. Actions queued for approval."}
+
+
+def route_specialists(state: AgentState) -> List[Send]:
+    """A0's fan-out: one `Send` per entry in `active_agents`.
+
+    This is what makes ORC-02's Phase 3 subset routing (and its 2000ms
+    timeout fallback to the full six-agent set) a data change against
+    `active_agents` rather than a topology change here — narrowing or
+    widening the list changes the fan-out with no edit to this function
+    or to the graph edges below.
+    """
+    return [
+        Send(agent_name, {"messages": state["messages"], "system_id": state["system_id"]})
+        for agent_name in state["active_agents"]
+    ]
+
+
+# --- Graph assembly (Bible Section 1.2 order, exact node ids) --------------
+
+graph = StateGraph(AgentState)
+graph.add_node("C2", safety_gateway_c2)
+graph.add_node("A0", orchestrator_a0)
+graph.add_node("A1", system_knowledge_a1)
+graph.add_node("A2", compliance_a2)
+graph.add_node("A3", risk_a3)
+graph.add_node("A4", change_a4)
+graph.add_node("A5", incident_a5)
+graph.add_node("A6", access_a6)
+graph.add_node("C1", evidence_verifier_c1)
+graph.add_node("A7", remediation_a7)
+graph.add_node("C3", action_gateway_c3)
+
+graph.set_entry_point("C2")
+graph.add_edge("C2", "A0")
+graph.add_conditional_edges("A0", route_specialists, ["A1", "A2", "A3", "A4", "A5", "A6"])
+for _agent in ["A1", "A2", "A3", "A4", "A5", "A6"]:
+    graph.add_edge(_agent, "C1")
+graph.add_edge("C1", "A7")
+graph.add_edge("A7", "C3")
+graph.add_edge("C3", END)
+
+# `graph` (the uncompiled builder) is exported alongside `compiled_graph`
+# deliberately: the topology tests assert against the builder's node and
+# edge collections directly, which is a far more direct and
+# version-stable assertion than parsing a rendered diagram.
+compiled_graph = graph.compile()
