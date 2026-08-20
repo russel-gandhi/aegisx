@@ -1,6 +1,39 @@
+import { useEffect, useRef, useState } from 'react'
 import AgentTopologyCanvas from '../components/AgentTopologyCanvas'
+import { connectCopilotStream, type CopilotStreamFrame } from '../lib/ws'
+
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+
+// A value generated once per mount is sufficient for this plan's contract
+// -- nothing yet correlates a session id with a server-side record. Real
+// session issuance is Phase 5's job (C2 RBAC, SENT-4-01).
+function generateSessionId(): string {
+  return `copilot-${Math.random().toString(36).slice(2, 10)}`
+}
 
 export default function Copilot() {
+  const [status, setStatus] = useState<ConnectionStatus>('connecting')
+  const [frames, setFrames] = useState<CopilotStreamFrame[]>([])
+  const sessionIdRef = useRef(generateSessionId())
+
+  useEffect(() => {
+    const handle = connectCopilotStream(sessionIdRef.current, {
+      onOpen: () => setStatus('connected'),
+      onFrame: (frame) => {
+        setFrames((prev) => [...prev, frame])
+        if (frame.event === 'connected') {
+          handle.send('test-event')
+        }
+      },
+      onError: () => setStatus('error'),
+      onClose: () => setStatus('disconnected'),
+    })
+
+    return () => {
+      handle.close()
+    }
+  }, [])
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-100">Ask GxP Copilot</h1>
@@ -9,6 +42,22 @@ export default function Copilot() {
         pipeline. The canvas below visualizes live agent execution state as a question moves
         through orchestration, evidence verification, and remediation.
       </p>
+
+      <div className="mt-6 rounded border border-slate-800 bg-slate-900/50 p-4">
+        <p className="text-sm text-slate-300">
+          Connection status: <span data-testid="ws-status">{status}</span>
+        </p>
+        <ul className="mt-2 space-y-1 text-sm text-slate-400" data-testid="ws-frames">
+          {frames.map((frame, i) => (
+            <li key={i}>
+              {frame.event === 'connected'
+                ? `connected (session ${frame.session_id})`
+                : `echo: ${frame.payload}`}
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <div className="mt-6">
         <AgentTopologyCanvas />
       </div>

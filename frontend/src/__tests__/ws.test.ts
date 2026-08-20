@@ -1,5 +1,12 @@
+import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { connectCopilotStream } from '../lib/ws'
+import Copilot from '../pages/Copilot'
+
+// This file is .ts, not .tsx (per the plan's declared file_modified path),
+// so component trees below are built with createElement rather than JSX.
 
 /**
  * Stub WebSocket, substituted for globalThis.WebSocket so this suite runs
@@ -95,5 +102,33 @@ describe('connectCopilotStream', () => {
     expect(StubWebSocket.instances[0].url).toBe(
       'wss://deployed.example.com/api/copilot/stream/demo-session-1',
     )
+  })
+})
+
+describe('Copilot page WebSocket lifecycle', () => {
+  it('opens exactly one connection on mount and closes it on unmount, and renders received frames', async () => {
+    const { unmount } = render(
+      createElement(MemoryRouter, { initialEntries: ['/copilot'] }, createElement(Copilot)),
+    )
+
+    expect(StubWebSocket.instances).toHaveLength(1)
+    const socket = StubWebSocket.instances[0]
+
+    socket.onopen?.()
+    socket.emitMessage(JSON.stringify({ event: 'connected', session_id: 'x' }))
+    // The page sends 'test-event' back in response to the connected frame.
+    expect(socket.sentMessages).toContain('test-event')
+
+    socket.emitMessage(JSON.stringify({ event: 'echo', payload: 'test-event' }))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ws-status')).toHaveTextContent('connected')
+    })
+    expect(screen.getByTestId('ws-frames').textContent).toContain('echo: test-event')
+
+    expect(socket.closed).toBe(false)
+    unmount()
+    expect(socket.closed).toBe(true)
+    expect(StubWebSocket.instances).toHaveLength(1)
   })
 })
