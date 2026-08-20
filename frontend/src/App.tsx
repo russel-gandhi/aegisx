@@ -1,11 +1,41 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import PrototypeBanner from './components/PrototypeBanner'
+import NavBar from './components/NavBar'
+import { routes } from './routes'
+
+function NotFound() {
+  return (
+    <div>
+      <h1 className="text-2xl font-semibold text-slate-100">Page not found</h1>
+      <p className="mt-2 text-slate-400">There's nothing at this address.</p>
+    </div>
+  )
+}
+
+// Factored out from <App> so the test suite can drive it with a MemoryRouter instead of
+// the BrowserRouter used at runtime, without duplicating the route table wiring.
+export function AppShell() {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <PrototypeBanner />
+      <NavBar />
+      <main className="p-6">
+        <Routes>
+          {routes.map(({ path, Component }) => (
+            <Route key={path} path={path} element={<Component />} />
+          ))}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+    </div>
+  )
+}
+
 function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-8 text-center">
-        <h1 className="text-2xl font-semibold">GxP Sentinel</h1>
-        <p className="mt-2 text-slate-400">Application shell scaffolded — routing lands next.</p>
-      </div>
-    </div>
+    <BrowserRouter>
+      <AppShell />
+    </BrowserRouter>
   )
 }
 
