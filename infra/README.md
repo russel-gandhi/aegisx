@@ -97,6 +97,84 @@ healthy.
   - `gxp-sentinel-qdrant@sha256:8978c042c54cb416546aef2d9c088856b2a86dafca6043828a3f21b3b758e865`
   - `gxp-sentinel-opa@sha256:34fce9fc78d426e40e428a635e71f608237738c81038f1eaab2aa824eb082e6c`
 
+## Data tier (Stage 1)
+
+Stage 1 (SENT-1-01/SENT-1-02) added the Postgres data tier on top of the empty
+container skeleton Phase 1 left behind: the full Bible Section 4.1 schema (27
+tables, 21 foreign keys) and a re-runnable seed script for both demo systems.
+
+**The single most likely point of confusion in this tier:** the postgres
+image only executes `infra/postgres/initdb/001_schema.sql` **when its data
+directory is empty**. Editing the DDL and simply restarting the container
+(`docker compose restart postgres`, or even `docker compose up -d postgres`
+again) does nothing — Postgres already has a populated data directory and
+skips `/docker-entrypoint-initdb.d` entirely. Applying a schema change
+always requires destroying the volume first:
+
+```bash
+docker compose down -v --remove-orphans
+docker compose up -d --wait
+```
+
+`down -v` also destroys the `qdrant_data` volume alongside `postgres_data` —
+this is harmless at this stage, since nothing has been ingested into Qdrant
+yet, but it is worth knowing before reaching for `-v` out of habit.
+
+### Full data-tier reset, in order
+
+```bash
+docker compose down -v --remove-orphans
+docker compose up -d --wait
+bash infra/apply-seed.sh
+bash infra/verify-schema.sh
+bash infra/verify-seed.sh
+```
+
+### Why the seed lives outside `initdb/`
+
+`infra/postgres/seed/001_seed.sql` is **not** bind-mounted into the
+container the way `infra/postgres/initdb/` is. Seeding is a deliberate
+operator action (`bash infra/apply-seed.sh`), not part of environment
+bring-up — a cold start yields a clean, correctly-shaped, empty database,
+rather than silently re-materialising demo data every time the volume is
+destroyed and recreated. `infra/apply-seed.sh` streams the seed file into
+the container over stdin, and every `INSERT` in it carries
+`ON CONFLICT (id) DO NOTHING`, so re-running it is always safe.
+
+### The 10 injected gaps
+
+The seed data purpose-builds `GXP-MFG-DEMO-01` to fail exactly ten Rego
+checks, so the compliance agents (Phase 3+) always have something real to
+find. `BUS-IT-DEMO-02` is the healthy comparator and triggers none of them.
+Rule IDs below are cited from `GxP-Sentinel-Project-Bible-v6.md` Section
+3.3 (CLAUDE.md Rule 13 — regulatory/rule citations never come from model
+recall):
+
+| Record | Rego rule triggered |
+|---|---|
+| `DOC-2026-OM-99` (O&M doc, status DRAFT) | `ANNEX11-S4-DOC-001` |
+| `AR-2026-05` (access review, 98 days overdue) | `ANNEX11-S12-ACC-001` |
+| `RSK-2024-11` (risk review expired) | `ICH-Q9-RSK-001` |
+| `INC-849201` (P1 incident, no RCA) | `ANNEX11-S13-INC-001` |
+| `URS-042` / `TC-2026-042` (traceability gap) | `ANNEX11-S4-TRC-001` |
+| `SUP-2026-01` (supplier reassessment overdue) | `ANNEX11-S3-SUP-001` |
+| `PE-2024-01` (periodic evaluation overdue) | `ANNEX11-S11-PE-001` |
+| `GXP-MFG-DEMO-01.last_backup_test_ns` (backup restore test stale) | `ANNEX11-S16-BCK-001` |
+| `ACC-2026-99` (orphaned privileged account) | `ANNEX11-S12-ACC-002` |
+| `CR-2026-089` / `CA-2026-089-1` (change closed with open action) | `ANNEX11-S10-CHG-001` |
+
+### Nanosecond epoch columns
+
+Every column ending `_ns` (e.g. `last_backup_test_ns`, `scheduled_date_ns`,
+`due_date_ns`) is a **nanosecond**-epoch `BIGINT`, not seconds or
+milliseconds — the Rego rules in `policies/` compute against them with
+`time.now_ns()` / `time.diff(...)`. Any future code that generates one of
+these values must multiply seconds by `1_000_000_000` (equivalently,
+`1000000000`). `infra/verify-seed.sh` includes a guard that fails if any
+seeded `_ns` value falls below nanosecond magnitude, but nothing enforces
+this for values generated later by application code — get the multiplier
+right at the source.
+
 ## Troubleshooting
 
 Two failure modes were actually hit and fixed during this phase (not hypothetical) —
