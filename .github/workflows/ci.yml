@@ -1,0 +1,185 @@
+# SENT-1-09 — CI test runner.
+#
+# Design principle: this workflow invokes the same developer-facing gate
+# scripts documented in infra/README.md, backend/README.md, and
+# frontend/README.md rather than re-implementing their assertions in YAML.
+# A workflow that maintains its own separate idea of what "passing" means
+# drifts from the local one, and a green badge stops meaning anything.
+#
+# Supply-chain note (threat T-02-35): every `uses:` below is a first-party
+# `actions/` reference, pinned to a resolved major tag rather than a
+# remembered/guessed version. The stronger control — pinning each action to
+# a full commit SHA instead of a movable major tag — is the upgrade path if
+# this repository ever handles anything beyond synthetic demo data; it is
+# not applied here because the tradeoff (unreadable diffs on every action
+# bump, for a hackathon project with no real GxP data) isn't worth it yet.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-and-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      # Copy the committed template rather than hand-rolling a bespoke env
+      # block, so a drifted .env.example fails CI too, not only humans.
+      - name: Create .env from the committed template
+        run: |
+          cp .env.example .env
+          sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=ci_only_not_a_real_secret/" .env
+
+      # Bring up all three services (not only the two Stage 1 strictly
+      # needs) — ENV-01's gate is "all three healthy from one command", and
+      # skipping Qdrant here would let a regression in that gate through
+      # unnoticed. This also exercises both derived image builds
+      # (infra/qdrant/Dockerfile, infra/opa/Dockerfile).
+      - name: Bring up the Compose stack
+        run: docker compose up -d --wait
+
+      - name: ENV-01 health gate
+        run: bash infra/health-check.sh
+
+      # Data tier, in the order that makes each gate's failure point at one
+      # cause: schema first (initdb has just run on this cold `up`, nothing
+      # is seeded yet), then seed, then re-verify the seed.
+      - name: Schema gate
+        run: bash infra/verify-schema.sh
+
+      - name: Apply seed
+        run: bash infra/apply-seed.sh
+
+      - name: Seed gate
+        run: bash infra/verify-seed.sh
+
+      # Policy tier. opa-gate.sh runs `opa test` via `docker compose exec`
+      # against the running container and then probes the REST endpoint —
+      # no `opa` binary needs to be on the runner's PATH.
+      - name: Rego policy gate
+        run: bash policies/opa-gate.sh
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      # A runner is already a disposable, isolated environment — no
+      # backend/.venv here. The venv exists locally solely to defend
+      # against this machine's global Anaconda pip shadowing `python -m
+      # pip`, a hazard that does not exist on a GitHub-hosted runner. CI
+      # therefore invokes `python` directly, while the commands documented
+      # in backend/README.md go through `backend/.venv/Scripts/python` — a
+      # Linux runner has no `Scripts/` directory, so copying that command
+      # verbatim here would fail.
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Backend test suite
+        working-directory: backend
+        run: python -m pytest -x -q
+
+      # The two live end-to-end checks that only a running server can
+      # prove — the two clauses of the phase gate this workflow is
+      # responsible for machine-verifying on every PR (plans 02-03, 02-07).
+      - name: Start uvicorn
+        working-directory: backend
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          echo $! > /tmp/uvicorn.pid
+
+      - name: Wait for uvicorn to bind
+        run: |
+          for i in $(seq 1 30); do
+            if node -e "require('net').connect(8000,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))" >/dev/null 2>&1; then
+              echo "uvicorn is up after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "uvicorn never bound to 127.0.0.1:8000 within 30s" >&2
+          exit 1
+
+      - name: Live /api/health probe
+        run: |
+          node -e "
+          fetch('http://127.0.0.1:8000/api/health')
+            .then(r => r.json().then(j => { console.log(r.status, JSON.stringify(j)); process.exit(r.status === 200 && j.status === 'ok' ? 0 : 1); }))
+            .catch(e => { console.error(e); process.exit(1); });
+          "
+
+      - name: Live WebSocket echo probe
+        run: |
+          node -e "
+          const ws = new WebSocket('ws://127.0.0.1:8000/api/copilot/stream/ci-gate');
+          let step = 0;
+          ws.addEventListener('open', () => {});
+          ws.addEventListener('message', (ev) => {
+            const frame = JSON.parse(ev.data);
+            if (step === 0 && frame.event === 'connected') {
+              step = 1;
+              ws.send('ci-test-event');
+            } else if (step === 1 && frame.event === 'echo' && frame.payload === 'ci-test-event') {
+              console.log('WS ECHO OK');
+              ws.close();
+              process.exit(0);
+            } else {
+              console.error('unexpected frame', frame);
+              process.exit(1);
+            }
+          });
+          ws.addEventListener('error', (e) => { console.error('WS ERROR', e); process.exit(1); });
+          setTimeout(() => { console.error('WS probe timed out'); process.exit(1); }, 10000);
+          "
+
+      - name: Stop uvicorn
+        if: always()
+        run: kill "$(cat /tmp/uvicorn.pid)" 2>/dev/null || true
+
+      # A red run whose only output is "verify-schema.sh exited 1" costs an
+      # hour to diagnose; the same run with the stack's logs attached costs
+      # a minute.
+      - name: Dump Compose logs on failure
+        if: failure()
+        run: docker compose logs
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # `ci`, not `install` — installs the committed lockfile exactly, so a
+      # transitive-dependency drift fails the build instead of silently
+      # entering it (threat T-02-SC).
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Test
+        working-directory: frontend
+        run: npm test
