@@ -52,7 +52,17 @@ Plans:
   3. FastAPI boots with all Section 4.3 Pydantic schemas (`AgentFinding`, `ActionProposal`, `AgentState`) typed and importable, and `/api/health` returns 200.
   4. The LangGraph `StateGraph` compiles with stub node returns (empty findings acceptable at this stage), its edges matching the `C2 → A0 → [A1…A6 via Send] → C1 → A7 → C3` topology exactly.
   5. The React/Vite/Tailwind app boots with routing scaffolded for all 7 pages and a React Flow canvas mounted with placeholder nodes, and `/api/copilot/stream/{session_id}` accepts a WebSocket connection and echoes a test event end-to-end (backend → browser).
-**Plans**: TBD
+**Plans**: 8 plans in 3 waves
+
+Plans:
+- [ ] 02-01-PLAN.md — Postgres DDL (27 tables, 21 FKs) + Section 5 seed data with the 10 injected gaps — SENT-1-01, SENT-1-02 (wave 1)
+- [ ] 02-02-PLAN.md — All 10 Rego rules in Rego v1 syntax + `opa test` fixtures, Critical review — SENT-1-03 (wave 1)
+- [ ] 02-03-PLAN.md — FastAPI skeleton, Section 4.3 Pydantic schemas, `/api/health`, pytest harness — SENT-1-05 (wave 1)
+- [ ] 02-04-PLAN.md — React/Vite/Tailwind v4 shell, 8 Section 11 routes, React Flow v12 canvas — SENT-1-07 (wave 1)
+- [ ] 02-05-PLAN.md — `evaluate_opa_policy()` against the live sidecar + `python_fallback_rules()` stub — SENT-1-04 (wave 2)
+- [ ] 02-06-PLAN.md — LangGraph `StateGraph` skeleton with structural topology assertions — SENT-1-06 (wave 2)
+- [ ] 02-07-PLAN.md — `/api/copilot/stream/{session_id}` WebSocket route + browser client — SENT-1-08 (wave 2)
+- [ ] 02-08-PLAN.md — GitHub Actions CI running every schema, seed, Rego, backend, and frontend gate — SENT-1-09 (wave 3)
 **UI hint**: yes
 
 ### Phase 3: Intelligence & Retrieval
@@ -145,7 +155,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Environment | 0/4 | Planned | - |
-| 2. Foundation | 0/TBD | Not started | - |
+| 2. Foundation | 0/8 | Planned | - |
 | 3. Intelligence & Retrieval | 0/TBD | Not started | - |
 | 4. Evidence & Impact | 0/TBD | Not started | - |
 | 5. Safety & Remediation | 0/TBD | Not started | - |
