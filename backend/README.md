@@ -190,3 +190,35 @@ Plan 03-05 brought `backend/app/agents/c1_verifier.py` to the Critical-review ba
 **`calculate_confidence()`'s constants are fixed by transcription, not tunable.** The starting score (`100`), the `x10` per-missing-dimension penalty, the `-100` policy-contradiction penalty, the `80`/`50`/`0` HIGH/MEDIUM/LOW/INSUFFICIENT_EVIDENCE threshold ladder, and `ALCOA_DIMENSION_COUNT = 9` are all unchanged by this plan — see Deviation 7 above for the 9-dimension correction's own rationale (D-06), not restated here. This plan proves the transcription against real state in both directions; it does not improve the arithmetic (03-RESEARCH.md "Don't Hand-Roll" — the algorithm is the product's differentiator).
 
 **What this phase does not claim.** The confidence mechanism above is proven against real Postgres rows and real OPA policy evaluation, in both the corroborating and the contradicting direction, plus both outage directions. It does **not** prove that a live LLM's claims would grade sensibly end to end, because no provider key was configured this phase (03-RESEARCH.md Pitfall 6) — every fixture in `test_c1_verifier.py` is a finding dict built directly, not narrated by a real model call. Setting a provider key (`GEMINI_API_KEY` et al.) and re-running the hero tracer against a live model remains the outstanding operator follow-up, tracked since plan 03-01's `user_setup`.
+
+## Phase 3 backend hero loop
+
+Plan 03-06 closes the Phase 3 gate: `backend/tests/test_hero_loop.py` is the phase's reviewable EVID-04 evidence (ROADMAP.md Phase 3 success criterion 5). Run it with Postgres and OPA up and both seed scripts applied:
+
+```bash
+bash infra/health-check.sh
+bash infra/apply-seed.sh
+cd backend && .venv/Scripts/python -m pytest tests/test_hero_loop.py -k hero -q
+```
+
+Nine tests, three named scenarios, all driving one `compiled_graph.ainvoke()` call over the literal query `"Is GXP-MFG-DEMO-01 audit ready?"`:
+
+- **Fully-mocked run against `GXP-MFG-DEMO-01`** (six test functions) — A0 classifies to the full agent set (naming A2), fanning out to A2 plus the five other real specialists. A2's periodic-evaluation and traceability findings are graded from the real seeded `PE-2024-01` row (provenance-checked back against the live database, `due_date_ns == 1704067200000000000`) and a real OPA evaluation, scoring `MEDIUM`. Every finding's `model_attribution` names a real provider model id, never `deterministic-fallback`.
+- **Discrimination control against the healthy `BUS-IT-DEMO-02`** — the same invocation grades every finding `INSUFFICIENT_EVIDENCE`, proving the loop refuses as well as verifies (T-03-29).
+- **Keyless run** — every provider key removed; A0 falls back to the full six-agent set, every finding's `model_attribution` is the `deterministic-fallback` marker, and the periodic-evaluation entry still grades `MEDIUM`, because C1 makes no model call at all (D-01).
+
+A ninth test calls `run_c1({"findings": []})` directly and asserts an empty `verification_results` mapping — C1 never fabricates a bare verified default.
+
+**What is live, what is mocked.** The compiled LangGraph `StateGraph`, Postgres, and the OPA sidecar are all live in every scenario above — never mocked, never monkeypatched (`app.db.DATABASE_URL` / `app.opa_client.OPA_URL` do not appear as `monkeypatch.setattr` targets anywhere in this module). The one mocked layer is the LLM provider transport: the fully-mocked scenario installs respx routes for all four providers (Gemini, DeepSeek, Groq, OpenRouter), with Gemini's route resolved by inspecting the outgoing request body (A0's classification prompt vs. every other Gemini caller's narration prompt share the identical `generateContent` URL — see `test_hero_loop.py`'s module docstring).
+
+**What this phase does not claim, restated for this test specifically.** No provider API key was configured during this phase. Every claim the loop graded above was either produced from a mocked provider response (the fully-mocked and discrimination-control scenarios) or from a deterministic template (the keyless scenario) — never from a live model call. The wire contract (request shape, response parsing, `model_id` attribution) and the confidence mechanism (`calculate_confidence()` against real DB/OPA state) are both proven. Live classification quality (does Gemini actually route a given query to a sensible agent subset) and live narration quality (does the synthesized `claim` text read as a coherent, accurate compliance finding) are **not** proven — a summary claiming this loop "works end to end" without that qualification would be wrong.
+
+To close that gap, set `GEMINI_API_KEY` (and optionally `DEEPSEEK_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`) in the repo-root `.env` file (per `.env.example`; `app.db`/`app.llm_router` both call `load_dotenv()`), then:
+
+```bash
+cd backend && .venv/Scripts/python -m pytest tests/test_hero_loop.py -q
+```
+
+and invoke the loop once against a live provider to confirm A0's classification picks a sensible agent subset and A2's narration reads as a coherent compliance finding — the one claim the automated suite above cannot make.
+
+`verification_results` is the shape Phase 4's Assurance Card UI reads its data from — see "AgentFinding conventions (Phase 3)" above for the full field-by-field contract; not restated here.
