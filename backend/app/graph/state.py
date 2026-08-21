@@ -49,6 +49,18 @@ call of its own; those calls live entirely inside the delegate modules
 under `app.agents`. C2, C1, and C3 remain permanently closed to model
 occupancy — `app.agents.c1_verifier` is deterministic Python only, and
 C2/C3 stay stubs until Phase 5.
+
+Phase 3 update (plan 03-03): `orchestrator_a0` and the five remaining
+specialist stub bodies (`system_knowledge_a1`, `risk_a3`, `change_a4`,
+`incident_a5`, `access_a6`) now delegate to real implementations in
+`app.agents.a0_orchestrator.run_a0` and `app.agents.minimal_specialists`
+respectively. A0's narrowed-or-full `active_agents` list flows through the
+unchanged `route_specialists` fan-out below exactly as a data change, per
+this module's own long-standing docstring claim — `route_specialists` and
+the graph-assembly block are byte-identical to Phase 2. `remediation_a7`,
+`safety_gateway_c2`, and `action_gateway_c3` remain deliberately stubbed:
+A7 lands in Phase 5 (SENT-4-05), and C2/C3 are Phase 5 deterministic
+gateways (SENT-4-01/4-02/4-03).
 """
 
 import operator
@@ -79,8 +91,9 @@ try:
 except ImportError:  # pragma: no cover - exercised only if the submodule moves
     from langgraph.graph import add_messages
 
-# Phase 3 (plan 03-02): the only two node bodies this module delegates to a
+# Phase 3 (plans 03-02, 03-03): every node body this module delegates to a
 # real implementation. Imported at module top level per plan instruction.
+from app.agents.a0_orchestrator import run_a0
 from app.agents.a2_compliance import run_a2
 from app.agents.c1_verifier import run_c1
 
@@ -147,12 +160,15 @@ async def safety_gateway_c2(state: AgentState) -> Dict[str, Any]:
 
 
 async def orchestrator_a0(state: AgentState) -> Dict[str, Any]:
-    """A0 - Orchestrator/Supervisor. Stub: always selects the full agent
-    set. Phase 3's real A0 narrows this via intent classification, and its
-    2000ms timeout fallback (ORC-02) also repopulates this same full set —
+    """A0 - Orchestrator/Supervisor. Delegates to
+    `app.agents.a0_orchestrator.run_a0` (Phase 3, plan 03-03, ORC-02): one
+    real intent-classification call through the LLM router, narrowing
+    `active_agents` to the classified subset, with a hard 2000ms
+    `asyncio.wait_for` timeout that falls back to the full six-agent set —
     a data change routed through the unchanged `route_specialists` fan-out
-    below, not a topology change."""
-    return {"active_agents": ["A1", "A2", "A3", "A4", "A5", "A6"]}
+    below, not a topology change. This module performs no LLM call
+    itself."""
+    return await run_a0(state)
 
 
 async def system_knowledge_a1(state: AgentState) -> Dict[str, Any]:
