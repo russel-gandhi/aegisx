@@ -31,7 +31,7 @@ MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1
 **Known blocker:** no LLM provider API keys configured (Gemini/DeepSeek/Groq/OpenRouter) — built with honest degraded-mode fallback + respx-mocked wire-contract tests; live LLM quality needs operator-supplied keys to verify.
 
 - [x] Context, research, plan (6 plans / 5 waves)
-- [ ] **Wave 1 (03-01)** — LLM router (`llm_router.py`) + Postgres client (`db.py`) — *in progress, resuming after interrupted session*
+- [x] **Wave 1 (03-01)** — LLM router (`llm_router.py`) + Postgres client (`db.py`), 47/47 tests passing. Found & fixed 2 real Windows asyncpg/pytest event-loop bugs; recorded 3 Bible deviations (deepseek-reasoner retired, openrouter model string, Gemini key-env alias).
 - [ ] Wave 2 (03-02) — hero tracer: one A2 check → real `AgentFinding` → C1 `calculate_confidence()`
 - [ ] Wave 3 (03-03, 03-04 parallel) — A0 classification + fallback; remaining A2 checks + URS seed fixture
 - [ ] Wave 4 (03-05) — C1 Critical-review coverage (unit/negative/edge/integration + contradiction fixture)
