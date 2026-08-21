@@ -28,6 +28,13 @@ import os
 from typing import Optional
 
 import asyncpg
+from dotenv import load_dotenv
+
+# docker-compose injects POSTGRES_USER/PASSWORD/DB and DATABASE_URL is meant
+# to mirror them locally via .env — but nothing else in the process loads
+# .env into os.environ, so running pytest/uvicorn directly (outside
+# docker-compose) silently fell back to the wrong-password default below.
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +45,17 @@ logger = logging.getLogger(__name__)
 # opa_client.OPA_URL's 127.0.0.1-not-localhost rationale: 127.0.0.1
 # sidesteps IPv6-first resolution that makes "localhost" intermittently
 # slow to connect on Windows.
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:5432/sentinel"
+#
+# DATABASE_URL itself is not required in .env: if unset, it is derived from
+# POSTGRES_USER/PASSWORD/DB (the same vars docker-compose.yml already reads
+# to create the container) so the two can never silently drift apart. An
+# explicit DATABASE_URL, when present, still wins outright.
+DATABASE_URL = os.getenv("DATABASE_URL") or (
+    "postgresql://{user}:{password}@127.0.0.1:5432/{db}".format(
+        user=os.getenv("POSTGRES_USER", "sentinel"),
+        password=os.getenv("POSTGRES_PASSWORD", "sentinel"),
+        db=os.getenv("POSTGRES_DB", "sentinel"),
+    )
 )
 
 _pool: Optional[asyncpg.Pool] = None

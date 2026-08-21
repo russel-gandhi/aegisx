@@ -40,7 +40,10 @@ import os
 from typing import Any, Dict, Optional
 
 import httpx
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
