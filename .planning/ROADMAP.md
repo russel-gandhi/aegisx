@@ -98,7 +98,14 @@ Plans:
   2. Blast Radius traversal answers the graph questions from Section 14.3 correctly for a seeded change record, returning the correct set of downstream-impacted tests, controls, and systems.
   3. The evidence graph renders in-browser via React Flow from the `/api/systems/{id}/evidence-graph` endpoint, and the Blast Radius UI visually displays the impact radius wired to that traversal.
   4. A verified finding renders as an Assurance Card showing CLAIM / EVIDENCE / RULE / DETERMINISTIC CHECK / CONFIDENCE, sourced entirely from server-trusted data, never LLM-generated UI.
-**Plans**: TBD
+**Plans**: 5 plans in 4 waves
+
+Plans:
+- [ ] 04-01-PLAN.md — TRACER: thinnest end-to-end evidence-graph slice — live Postgres → NetworkX → cache tables → rebuild/read endpoints → React Flow on `/blast-radius` — SENT-3-01, SENT-3-02 (wave 1)
+- [ ] 04-02-PLAN.md — Full node/edge coverage from domain tables + the `change_affects` junction table, seed fixture and schema gates, to the SENT-3-01 Critical-review bar (wave 2)
+- [ ] 04-03-PLAN.md — Assurance Card: `/api/systems/{id}/assurance-cards` + reusable `AssuranceCard` component on the `/findings` Evidence Investigation route — SENT-3-05 (wave 2)
+- [ ] 04-04-PLAN.md — Blast Radius traversal answering Bible §14.3's nine Graph Questions + its endpoint, to the SENT-3-03 Critical-review bar (wave 3)
+- [ ] 04-05-PLAN.md — Blast Radius UI: node click-through, impact panel, and the finding→blast-radius integration link — SENT-3-04 (wave 4)
 **UI hint**: yes
 
 ### Phase 5: Safety & Remediation
@@ -165,7 +172,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Environment | 0/4 | Planned | - |
 | 2. Foundation | 0/8 | Planned | - |
 | 3. Intelligence & Retrieval | 0/6 | Planned | - |
-| 4. Evidence & Impact | 0/TBD | Not started | - |
+| 4. Evidence & Impact | 0/5 | Planned | - |
 | 5. Safety & Remediation | 0/TBD | Not started | - |
 | 6. Product Experience | 0/TBD | Not started | - |
 | 7. Integration & Hardening | 0/TBD | Not started | - |
