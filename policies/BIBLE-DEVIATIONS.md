@@ -2,7 +2,7 @@
 
 This file records every point where `policies/gxp_rules.rego` and
 `policies/gxp_rules_test.rego` depart from the literal text of
-`GxP-Sentinel-Project-Bible-v6.md` Section 3.3 (lines 406-546).
+`AegisX-AI-Project-Bible-v6.md` Section 3.3 (lines 406-546).
 
 **Per CLAUDE.md ("when bible content and a ticket contract disagree, the
 bible wins" / "drift is reconciled explicitly"), this file is input to

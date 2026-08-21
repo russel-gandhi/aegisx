@@ -399,8 +399,8 @@ services:
 - `[VERIFIED: Docker Hub Registry API — hub.docker.com/v2/repositories/openpolicyagent/opa/tags]` — current OPA tag list and publish dates, read this session
 - `[VERIFIED: github.com/qdrant/qdrant/Dockerfile — raw file read this session]` — confirms runtime base image (`debian:13-slim`) and exact installed package set (no curl/wget/nc)
 - `[VERIFIED: github.com/open-policy-agent/opa/Makefile — raw file read this session]` — confirms default tag builds from `chainguard/static:latest` (distroless) and `-debug` tag builds from `chainguard/busybox:latest`
-- `GxP-Sentinel-Project-Bible-v6.md` Section 3.2 (OPA compose config, superseded per State of the Art), Section 12 (API table), Section 13 (Hour 0-2 environment setup verification), Section 16.11 Rule 10 (branching)
-- `Sentinel-Build-Map.md` Stage 0 (SENT-0-01, SENT-0-02 contracts)
+- `AegisX-AI-Project-Bible-v6.md` Section 3.2 (OPA compose config, superseded per State of the Art), Section 12 (API table), Section 13 (Hour 0-2 environment setup verification), Section 16.11 Rule 10 (branching)
+- `AegisX-Build-Map.md` Stage 0 (SENT-0-01, SENT-0-02 contracts)
 
 ### Secondary (MEDIUM confidence)
 - `[CITED: openpolicyagent.org/docs/deploy/docker]` — `/health` endpoint recommended for readiness/liveness probing

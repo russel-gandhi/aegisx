@@ -12,7 +12,7 @@ None stated as `## Decisions` — CONTEXT.md places everything under Claude's Di
 
 ### Claude's Discretion
 All implementation choices are at Claude's discretion, guided by:
-- The Bible's DDL, Pydantic models, and Rego rule specs (Section references in Sentinel-Build-Map.md ticket contracts) are the source of truth for schema/API shape — do not invent alternative schemas.
+- The Bible's DDL, Pydantic models, and Rego rule specs (Section references in AegisX-Build-Map.md ticket contracts) are the source of truth for schema/API shape — do not invent alternative schemas.
 - BRANCHING.md §4 Stage 1 file ownership table governs which paths belong to which ticket — respect it so parallel plan waves in this phase don't collide on files.
 - Deterministic-first constraint (CLAUDE.md, Bible §1.3) applies from this phase forward: no LLM evaluates compliance/RBAC/injection decisions, even in skeleton form.
 - SENT-1-03 (Rego rules) and SENT-1-06 (LangGraph StateGraph design) are Critical-review-level tickets per BRANCHING.md — plan and execute with correspondingly stronger test coverage (unit + negative + edge-case + integration), not a smoke test.
@@ -138,7 +138,7 @@ cd frontend && npm install -D tailwindcss @tailwindcss/vite && npm install @xyfl
 
 ## Postgres Schema
 
-**Source: Bible Section 4.1, lines 587–828 [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:587-828, read directly this session].** Transcribe this DDL **verbatim** into `infra/postgres/initdb/` (per BRANCHING.md §4, SENT-1-01 owns this path; per `docker-compose.yml:14`, anything in `infra/postgres/initdb/` is bind-mounted to `/docker-entrypoint-initdb.d` and runs automatically on a fresh Postgres volume).
+**Source: Bible Section 4.1, lines 587–828 [VERIFIED: AegisX-AI-Project-Bible-v6.md:587-828, read directly this session].** Transcribe this DDL **verbatim** into `infra/postgres/initdb/` (per BRANCHING.md §4, SENT-1-01 owns this path; per `docker-compose.yml:14`, anything in `infra/postgres/initdb/` is bind-mounted to `/docker-entrypoint-initdb.d` and runs automatically on a fresh Postgres volume).
 
 ### Ticket-vs-Bible discrepancy — resolved in favor of the Bible
 
@@ -382,7 +382,7 @@ CREATE TABLE sessions (
 
 ## Seed Data
 
-**Source: Bible Section 5, lines 939–997 [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:939-997, read directly this session].** Owned by SENT-1-02, lands in `infra/postgres/seed/` per BRANCHING.md §4 (a directory separate from `initdb/`, since Postgres image auto-runs everything in `initdb/` — seed data should be a deliberately-invoked script, not bundled into the auto-init path, so `docker-compose down -v` / cold-start cycles don't silently re-seed without the operator choosing to).
+**Source: Bible Section 5, lines 939–997 [VERIFIED: AegisX-AI-Project-Bible-v6.md:939-997, read directly this session].** Owned by SENT-1-02, lands in `infra/postgres/seed/` per BRANCHING.md §4 (a directory separate from `initdb/`, since Postgres image auto-runs everything in `initdb/` — seed data should be a deliberately-invoked script, not bundled into the auto-init path, so `docker-compose down -v` / cold-start cycles don't silently re-seed without the operator choosing to).
 
 ```sql
 -- GXP-MFG-DEMO-01 (Unhealthy)
@@ -440,7 +440,7 @@ This is the **entire** seed script — Section 5 seeds only `GXP-MFG-DEMO-01`'s 
 
 ## Rego Policy Layer
 
-**Source: Bible Section 3.3, lines 406–546 (all 10 rules) and Section 3.4, lines 548–579 (Python integration) [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:406-579, read directly this session].**
+**Source: Bible Section 3.3, lines 406–546 (all 10 rules) and Section 3.4, lines 548–579 (Python integration) [VERIFIED: AegisX-AI-Project-Bible-v6.md:406-579, read directly this session].**
 
 ### CRITICAL pitfall: Bible's Rego syntax is v0, the running OPA is v1-default
 
@@ -517,7 +517,7 @@ OPA's own convention: `opa test <policy-dir>` recursively runs any `*_test.rego`
 
 ## FastAPI Skeleton
 
-**Source: Bible Section 4.3 (Pydantic models, lines 834-937) and Section 12 (API table, lines 1404-1420) [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:834-937,1404-1420, read directly this session].**
+**Source: Bible Section 4.3 (Pydantic models, lines 834-937) and Section 12 (API table, lines 1404-1420) [VERIFIED: AegisX-AI-Project-Bible-v6.md:834-937,1404-1420, read directly this session].**
 
 `/api/health` contract per Section 12's own table: `GET /api/health` → `{"status": "ok"}`. This is the literal, exact response shape:
 
@@ -654,7 +654,7 @@ Only `/api/health` needs to be *live and returning 200* for the phase gate. Sect
 
 ## LangGraph StateGraph Skeleton
 
-**Source: Bible Section 1.2, lines 97-196 [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:97-196, read directly this session].** SENT-1-06's contract is explicit: "compiles with stub node returns (empty findings ok at this stage); edges match the topology exactly." Transcribe the Bible's code sample **as the actual implementation**, not as a reference to reimplement differently — every node in this phase is intentionally a stub:
+**Source: Bible Section 1.2, lines 97-196 [VERIFIED: AegisX-AI-Project-Bible-v6.md:97-196, read directly this session].** SENT-1-06's contract is explicit: "compiles with stub node returns (empty findings ok at this stage); edges match the topology exactly." Transcribe the Bible's code sample **as the actual implementation**, not as a reference to reimplement differently — every node in this phase is intentionally a stub:
 
 ```python
 # Source: Bible Section 1.2 — verbatim
@@ -755,7 +755,7 @@ compiled_graph = graph.compile()
 
 ## Frontend Shell
 
-**Source: Bible Section 11 (lines 1368-1420) [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:1368-1420, read directly this session] and `frontend/README.md` ("7+ pages").**
+**Source: Bible Section 11 (lines 1368-1420) [VERIFIED: AegisX-AI-Project-Bible-v6.md:1368-1420, read directly this session] and `frontend/README.md` ("7+ pages").**
 
 ### Discrepancy resolved: 8 documented pages, not 7
 
@@ -795,7 +795,7 @@ export default defineConfig({
 
 ## WebSocket Pattern
 
-**Source: Bible Section 12 API table (line 1415: `WS | /api/copilot/stream/{session_id} | None | Stream | Streams agent execution state`) and Section 11.2 [VERIFIED: GxP-Sentinel-Project-Bible-v6.md:1370,1378,1415, read directly this session].** SENT-1-08's contract for this phase is minimal: "accepts a connection and echoes a test event end-to-end (backend → browser)" — a real echo, not real LangGraph `astream_events` streaming (that requires the real agents from Phase 3).
+**Source: Bible Section 12 API table (line 1415: `WS | /api/copilot/stream/{session_id} | None | Stream | Streams agent execution state`) and Section 11.2 [VERIFIED: AegisX-AI-Project-Bible-v6.md:1370,1378,1415, read directly this session].** SENT-1-08's contract for this phase is minimal: "accepts a connection and echoes a test event end-to-end (backend → browser)" — a real echo, not real LangGraph `astream_events` streaming (that requires the real agents from Phase 3).
 
 **Backend (FastAPI native WebSocket, no extra package needed — `fastapi`/`starlette` ships `WebSocket` support):**
 ```python
@@ -824,7 +824,7 @@ No auth/session validation is required at this stage (`session_id` is a path par
 
 ## Plan / Wave Decomposition Recommendation
 
-Respecting BRANCHING.md §4's file-ownership table (each ticket owns disjoint paths, so collision is already prevented by allocation) and the explicit dependencies (`Sentinel-Build-Map.md:37`: "SENT-1-04 depends on SENT-1-03. SENT-1-06 depends on SENT-1-05."):
+Respecting BRANCHING.md §4's file-ownership table (each ticket owns disjoint paths, so collision is already prevented by allocation) and the explicit dependencies (`AegisX-Build-Map.md:37`: "SENT-1-04 depends on SENT-1-03. SENT-1-06 depends on SENT-1-05."):
 
 **Wave 1 — no dependencies, 4 fully parallel plans:**
 - SENT-1-01 (Postgres DDL → `infra/postgres/initdb/`)
@@ -981,15 +981,15 @@ No new subsystem or library is required to satisfy V5 for this phase — Pydanti
 ## Sources
 
 ### Primary (HIGH confidence — read directly this session)
-- `GxP-Sentinel-Project-Bible-v6.md:97-196` — Section 1.2, LangGraph StateGraph definition
-- `GxP-Sentinel-Project-Bible-v6.md:198-229` — Section 1.3, Deterministic-First Decision Table
-- `GxP-Sentinel-Project-Bible-v6.md:406-579` — Section 3.3/3.4, all 10 Rego rules + Python OPA integration
-- `GxP-Sentinel-Project-Bible-v6.md:587-828` — Section 4.1, full Postgres DDL
-- `GxP-Sentinel-Project-Bible-v6.md:834-937` — Section 4.3, Pydantic models
-- `GxP-Sentinel-Project-Bible-v6.md:939-997` — Section 5, synthetic seed data
-- `GxP-Sentinel-Project-Bible-v6.md:1189-1243` — Section 8, multi-provider LLM router config
-- `GxP-Sentinel-Project-Bible-v6.md:1368-1420` — Section 11 (all page subsections) and Section 12 (API table)
-- `Sentinel-Build-Map.md:22-37` — Stage 1 ticket table (SENT-1-01 through SENT-1-09) + dependency note
+- `AegisX-AI-Project-Bible-v6.md:97-196` — Section 1.2, LangGraph StateGraph definition
+- `AegisX-AI-Project-Bible-v6.md:198-229` — Section 1.3, Deterministic-First Decision Table
+- `AegisX-AI-Project-Bible-v6.md:406-579` — Section 3.3/3.4, all 10 Rego rules + Python OPA integration
+- `AegisX-AI-Project-Bible-v6.md:587-828` — Section 4.1, full Postgres DDL
+- `AegisX-AI-Project-Bible-v6.md:834-937` — Section 4.3, Pydantic models
+- `AegisX-AI-Project-Bible-v6.md:939-997` — Section 5, synthetic seed data
+- `AegisX-AI-Project-Bible-v6.md:1189-1243` — Section 8, multi-provider LLM router config
+- `AegisX-AI-Project-Bible-v6.md:1368-1420` — Section 11 (all page subsections) and Section 12 (API table)
+- `AegisX-Build-Map.md:22-37` — Stage 1 ticket table (SENT-1-01 through SENT-1-09) + dependency note
 - `BRANCHING.md:31-59` — Stage 1 file-ownership table, merge rules, Critical-ticket list
 - `docker-compose.yml` — confirms actual running OPA image (`openpolicyagent/opa:1.19.1-debug`) vs Bible's example config (`openpolicyagent/opa:0.63.0`)
 - `infra/README.md:65-99` — certified environment digests, confirming OPA 1.19.1-debug is genuinely what's running

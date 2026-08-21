@@ -35,7 +35,7 @@ key-files:
 
 key-decisions:
   - "infra/README.md deliberately NOT created here — owned by plan 01-04, which documents environment operations after they've been verified"
-  - "BRANCHING.md's Critical-review ticket list and Stage 1 ownership table transcribed verbatim from Sentinel-Build-Map.md so the two documents cannot silently drift"
+  - "BRANCHING.md's Critical-review ticket list and Stage 1 ownership table transcribed verbatim from AegisX-Build-Map.md so the two documents cannot silently drift"
 
 patterns-established:
   - "Rule 10 file-ownership table keyed by Build-Map ticket ID (SENT-<stage>-<number>), amended only by PR, never by informal agreement"
@@ -80,7 +80,7 @@ status: complete
 
 ## Accomplishments
 - Created `backend/README.md`, `frontend/README.md`, `policies/README.md` — each a D-01 tier marker naming its owning Stage 1 Build-Map tickets and, for backend/policies, the deterministic-first / Rule 13 citation constraints that apply to code landing there
-- Created root `README.md`: what GxP Sentinel is, prerequisites (Docker Desktop + Compose v2, Node 20+, Git 2.20+), a 3-step quickstart with the canonical `docker-compose up -d postgres qdrant opa` command verbatim, a services/ports/images table, a full repository-layout tree, and a working-conventions section linking `BRANCHING.md`
+- Created root `README.md`: what AegisX AI is, prerequisites (Docker Desktop + Compose v2, Node 20+, Git 2.20+), a 3-step quickstart with the canonical `docker-compose up -d postgres qdrant opa` command verbatim, a services/ports/images table, a full repository-layout tree, and a working-conventions section linking `BRANCHING.md`
 - Created `BRANCHING.md`: the D-03 trunk-based, one-branch-per-ticket model, a runnable `git worktree add`/`remove` pair, a Stage 1 file-ownership table covering all nine `SENT-1-01`..`SENT-1-09` tickets with disjoint owned paths, the shared-file protocol for cross-cutting files, the merge bar (including the full 14-ticket Critical-review list), and the conflict-resolution rule
 - `policies/` now exists as a real, committed host directory in a fresh clone — ready for OPA's read-only bundle mount (`./policies:/policies:ro`) when plan 01-03 writes `docker-compose.yml`'s OPA service
 
@@ -102,7 +102,7 @@ Each task was committed atomically:
 
 ## Decisions Made
 - `infra/README.md` intentionally not created — it belongs to plan 01-04 per the phase's artifact ownership table, since it documents environment operations (up/down/down -v semantics, troubleshooting) that must be verified before being written down honestly
-- BRANCHING.md's Stage 1 ownership table and Critical-review ticket list were transcribed directly from `Sentinel-Build-Map.md`'s Stage 1 table and the Bible's Rule 6 critical-ticket list rather than re-derived, so the two documents cannot silently drift apart
+- BRANCHING.md's Stage 1 ownership table and Critical-review ticket list were transcribed directly from `AegisX-Build-Map.md`'s Stage 1 table and the Bible's Rule 6 critical-ticket list rather than re-derived, so the two documents cannot silently drift apart
 
 ## Deviations from Plan
 

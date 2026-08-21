@@ -1,6 +1,6 @@
-# GxP Sentinel
+# AegisX AI
 
-GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system management. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output. `GxP-Sentinel-Project-Bible-v6.md` is the source of truth for this project (Rule 14): when any other document in this repo disagrees with the Bible, the Bible wins, and the drift is reconciled explicitly.
+AegisX AI is an agentic AI co-pilot for always-on, audit-ready GxP IT system management. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output. `AegisX-AI-Project-Bible-v6.md` is the source of truth for this project (Rule 14): when any other document in this repo disagrees with the Bible, the Bible wins, and the drift is reconciled explicitly.
 
 ## Prerequisites
 
@@ -41,8 +41,8 @@ All three services publish on loopback (`127.0.0.1`) only, deliberately — the 
 │   ├── qdrant/                  # Derived curl-capable Qdrant image for its healthcheck
 │   └── health-check.sh          # ENV-01 gate: Compose health status + host port reachability
 ├── .planning/                   # GSD planning artifacts (roadmap, phase plans, state)
-├── GxP-Sentinel-Project-Bible-v6.md   # Source of truth (Rule 14) — full DDL, Rego rules, agent prompts, demo script
-├── Sentinel-Build-Map.md              # Stage 0-7 ticket breakdown, reference for ticket contracts
+├── AegisX-AI-Project-Bible-v6.md   # Source of truth (Rule 14) — full DDL, Rego rules, agent prompts, demo script
+├── AegisX-Build-Map.md              # Stage 0-7 ticket breakdown, reference for ticket contracts
 ├── GSD_Core_Reference.md              # GSD (Git. Ship. Done.) workflow reference
 └── Refined_MetaPrompt.md              # Planning meta-prompt with evidence-tagging discipline
 ```

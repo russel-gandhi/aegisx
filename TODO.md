@@ -1,4 +1,4 @@
-# GxP Sentinel — Build Progress
+# AegisX AI — Build Progress
 
 Tracks Bible/Build-Map Stage 0–7 phase completion. Updated at each checkpoint (phase close-out, wave completion, or major blocker).
 

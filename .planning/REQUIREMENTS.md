@@ -1,4 +1,4 @@
-# Requirements: GxP Sentinel
+# Requirements: AegisX AI
 
 **Defined:** 2026-08-19
 **Core Value:** Deterministic evidence verification (C1) — AI investigates, but is never blindly trusted; every important conclusion is independently verified with deterministic evidence.
@@ -153,8 +153,8 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 - Mapped to phases: 29/29 ✓
 - Unmapped: 0
 
-**Phases with no v1 requirements:** Phase 7 (Integration & Hardening) and Phase 8 (Freeze) carry no v1 requirement mappings — they validate/harden the capabilities delivered in Phases 1–6 and correspond to the v2 Hardening items (HARD-01 through HARD-06) above, per Sentinel-Build-Map.md Stages 6–7.
+**Phases with no v1 requirements:** Phase 7 (Integration & Hardening) and Phase 8 (Freeze) carry no v1 requirement mappings — they validate/harden the capabilities delivered in Phases 1–6 and correspond to the v2 Hardening items (HARD-01 through HARD-06) above, per AegisX-Build-Map.md Stages 6–7.
 
 ---
 *Requirements defined: 2026-08-19*
-*Last updated: 2026-08-19 after roadmap revision (8 phases mapped 1:1 onto Sentinel-Build-Map.md Stage 0-7, superseding the earlier independently-derived 6-phase roadmap; 29/29 v1 requirements re-mapped, 100% coverage)*
+*Last updated: 2026-08-19 after roadmap revision (8 phases mapped 1:1 onto AegisX-Build-Map.md Stage 0-7, superseding the earlier independently-derived 6-phase roadmap; 29/29 v1 requirements re-mapped, 100% coverage)*

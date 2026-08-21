@@ -1,4 +1,4 @@
-# Walking Skeleton — GxP Sentinel
+# Walking Skeleton — AegisX AI
 
 **Phase:** 1 (Environment / Build-Map Stage 0)
 **Generated:** 2026-08-20

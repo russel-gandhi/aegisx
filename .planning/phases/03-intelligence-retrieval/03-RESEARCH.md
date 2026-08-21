@@ -304,7 +304,7 @@ Every agent's fallback is itself first-class, tested behavior this phase — not
 
 ## Recommended Wave Decomposition
 
-Dependency chain per `Sentinel-Build-Map.md` (line 59) and `03-CONTEXT.md`: SENT-2-01 depends on SENT-1-06 (done, Phase 2). SENT-2-02 depends on SENT-2-01 + SENT-1-05 (SENT-1-05 done, Phase 2). SENT-2-12 depends on SENT-2-02-07 and SENT-1-03/04 (both done, Phase 2). Within this phase's actual MVP+minimal scope (SENT-2-01, SENT-2-02, SENT-2-12, plus minimal A1/A3-A6):
+Dependency chain per `AegisX-Build-Map.md` (line 59) and `03-CONTEXT.md`: SENT-2-01 depends on SENT-1-06 (done, Phase 2). SENT-2-02 depends on SENT-2-01 + SENT-1-05 (SENT-1-05 done, Phase 2). SENT-2-12 depends on SENT-2-02-07 and SENT-1-03/04 (both done, Phase 2). Within this phase's actual MVP+minimal scope (SENT-2-01, SENT-2-02, SENT-2-12, plus minimal A1/A3-A6):
 
 **Wave 1 — foundation + independent leaf work (no intra-phase dependencies beyond Phase 2 artifacts):**
 - `llm_router.py` (`PROVIDER_CONFIG`, `call_llm()`, Pydantic response models, router-level `openrouter_fallback` cascade) — everything downstream depends on this
@@ -369,7 +369,7 @@ Rationale for this ordering over a strict per-ticket wave split: `graph/state.py
 
 ### `PROVIDER_CONFIG` transcribed from the Bible, with the DeepSeek/OpenRouter corrections noted
 ```python
-# Source: GxP-Sentinel-Project-Bible-v6.md Section 8.1 (lines 1187-1239),
+# Source: AegisX-AI-Project-Bible-v6.md Section 8.1 (lines 1187-1239),
 # transcribed verbatim except two corrections flagged inline — see
 # Pitfall 1 (deepseek-reasoner retired) and Pitfall 3 (openrouter/auto).
 # A0/A2 (this phase's MVP scope) only use "gemini_flash_fast" and
@@ -424,7 +424,7 @@ PROVIDER_CONFIG = {
 
 ### `calculate_confidence()` transcribed exactly (no changes — this is the hero-loop algorithm)
 ```python
-# Source: GxP-Sentinel-Project-Bible-v6.md Section 2 "C1 — Evidence &
+# Source: AegisX-AI-Project-Bible-v6.md Section 2 "C1 — Evidence &
 # Grounding Verifier" (lines 332-346). Transcribed verbatim — CLAUDE.md
 # Rule 14, the Bible is the source of truth, and this is the product's
 # core differentiator per .claude/CLAUDE.md's Core Value statement.
@@ -573,8 +573,8 @@ ALL_TEN_RULE_IDS = {
 ## Sources
 
 ### Primary (HIGH confidence)
-- `GxP-Sentinel-Project-Bible-v6.md` Section 1.2 (LangGraph graph definition, lines 97-196), Section 1.3 (deterministic-first decision table, lines 198-228), Section 2 (all agent specs including A0/A2/C1, lines 230-360), Section 6 (system prompts, lines 999-1113), Section 8 (multi-provider LLM router, lines 1187-1243) — read directly this session
-- `Sentinel-Build-Map.md` Stage 2 (SENT-2-01, SENT-2-02, SENT-2-03 through 2-11, SENT-2-12, lines 41-59) — read directly this session
+- `AegisX-AI-Project-Bible-v6.md` Section 1.2 (LangGraph graph definition, lines 97-196), Section 1.3 (deterministic-first decision table, lines 198-228), Section 2 (all agent specs including A0/A2/C1, lines 230-360), Section 6 (system prompts, lines 999-1113), Section 8 (multi-provider LLM router, lines 1187-1243) — read directly this session
+- `AegisX-Build-Map.md` Stage 2 (SENT-2-01, SENT-2-02, SENT-2-03 through 2-11, SENT-2-12, lines 41-59) — read directly this session
 - `backend/app/graph/state.py` (existing LangGraph skeleton, all 11 stub nodes + `route_specialists`) — read directly this session
 - `backend/app/opa_client.py` (existing `evaluate_opa_policy()`/`python_fallback_rules()`, established async-httpx pattern) — read directly this session
 - `backend/app/schemas.py` (`ALCOAScore`, `AgentFinding`, `OPAViolation`, etc.) — read directly this session, lines 39-51 for the 9-field ALCOA+ mismatch finding

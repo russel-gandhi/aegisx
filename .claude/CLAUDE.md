@@ -2,9 +2,9 @@
 
 ## Project
 
-**GxP Sentinel**
+**AegisX AI**
 
-GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system management, built as a 20-day hackathon project. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output.
+AegisX AI is an agentic AI co-pilot for always-on, audit-ready GxP IT system management, built as a 20-day hackathon project. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output.
 
 **Core Value:** **Deterministic evidence verification (C1) is the thesis of the product.** The winning idea is not "AI agents for GxP" — it's "we use AI to investigate, but we never blindly trust AI: every important conclusion is independently verified with deterministic evidence." The minimum viable proof of this is the demo loop: user asks "Is GXP-MFG-DEMO-01 audit ready?" → A0 routes → A2 Compliance Agent produces a claim (e.g. "URS traceability incomplete") → C1 Evidence Verification retrieves real evidence (URS record, test case, execution status), runs the deterministic rule check (e.g. ANNEX11-S4-DOC-001) against real DB/OPA state, and returns a VERIFIED (or INSUFFICIENT_EVIDENCE) finding with confidence. Remove C1 and the product becomes "a chatbot that reads compliance documents" — that destroys the differentiation. Everything else is supporting infrastructure around this hero loop.
 
@@ -12,7 +12,7 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 
 - **Timeline**: 20-day hackathon, full runway available as of project start — but scope must stay demo-hierarchy-ordered (Tier 1 before Tier 2 before Tier 3) so a credible demo exists at any cut point
 - **Architecture**: Deterministic-first is non-negotiable — no LLM may ever evaluate a compliance threshold, RBAC decision, or prompt-injection judgment; those run in Python, Rego, or NetworkX only (Bible Section 1.3)
-- **Source of truth**: When any planning artifact disagrees with `GxP-Sentinel-Project-Bible-v6.md`, the Bible wins; drift must be reconciled explicitly
+- **Source of truth**: When any planning artifact disagrees with `AegisX-AI-Project-Bible-v6.md`, the Bible wins; drift must be reconciled explicitly
 - **Regulatory citations**: Annex 11 / 21 CFR 11 / ICH Q9 citations must come from the Bible's Section 14 citation map, never from model recall
 - **Critical-path review**: C1, C2, C3, hash-chain, Rego rules, Blast Radius, ALCOA+, and the evidence graph require unit + negative + edge-case + integration test coverage, not a smoke test
 

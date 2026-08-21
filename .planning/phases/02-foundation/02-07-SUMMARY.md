@@ -133,7 +133,7 @@ status: complete
 
 ## Accomplishments
 
-- `backend/app/ws/copilot.py`: an `APIRouter` WebSocket handler at the Bible's exact path (`GxP-Sentinel-Project-Bible-v6.md:1415`), sending `{"event": "connected", "session_id": ...}` on connect and `{"event": "echo", "payload": ...}` per received text frame, catching `WebSocketDisconnect` so a client closing the socket never surfaces as an unhandled exception.
+- `backend/app/ws/copilot.py`: an `APIRouter` WebSocket handler at the Bible's exact path (`AegisX-AI-Project-Bible-v6.md:1415`), sending `{"event": "connected", "session_id": ...}` on connect and `{"event": "echo", "payload": ...}` per received text frame, catching `WebSocketDisconnect` so a client closing the socket never surfaces as an unhandled exception.
 - `backend/app/main.py`: exactly one `include_router` call added (8-line diff), no CORS middleware, matching the plan's constraint that this is the only edit to `main.py` after plan 02-03.
 - `frontend/src/lib/ws.ts`: `connectCopilotStream(sessionId, handlers)` with a discriminated-union frame type, a `VITE_COPILOT_WS_BASE` override defaulting to `ws://127.0.0.1:8000`, and a try/catch around `JSON.parse` inside `onmessage` so a malformed frame reaches an `onError` handler instead of silently killing the listener.
 - `frontend/src/pages/Copilot.tsx`: connects on mount, sends the literal `test-event` in response to the `connected` frame, renders a connection status and a list of received frames as plain text (never HTML), cleans up the socket on unmount, and keeps plan 02-04's `AgentTopologyCanvas` mounted.

@@ -146,7 +146,7 @@ the container over stdin, and every `INSERT` in it carries
 The seed data purpose-builds `GXP-MFG-DEMO-01` to fail exactly ten Rego
 checks, so the compliance agents (Phase 3+) always have something real to
 find. `BUS-IT-DEMO-02` is the healthy comparator and triggers none of them.
-Rule IDs below are cited from `GxP-Sentinel-Project-Bible-v6.md` Section
+Rule IDs below are cited from `AegisX-AI-Project-Bible-v6.md` Section
 3.3 (CLAUDE.md Rule 13 — regulatory/rule citations never come from model
 recall):
 

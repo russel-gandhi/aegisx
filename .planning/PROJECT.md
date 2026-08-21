@@ -1,8 +1,8 @@
-# GxP Sentinel
+# AegisX AI
 
 ## What This Is
 
-GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system management, built as a 20-day hackathon project. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output.
+AegisX AI is an agentic AI co-pilot for always-on, audit-ready GxP IT system management, built as a 20-day hackathon project. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output.
 
 ## Core Value
 
@@ -13,7 +13,7 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 - **Customer**: Hackathon judges evaluating a demo; longer-term, GxP IT System Managers, QA/Compliance staff, and Auditors at regulated life-sciences companies
 - **Revenue model**: N/A — hackathon project, no monetization in scope
 - **Success metric**: Judges see and believe the Finding → Evidence → Verification loop is real (backed by actual DB/OPA state, not LLM narrative) — plus, per the demo hierarchy, Blast Radius and Controlled Remediation working live
-- **Strategy notes**: See `GxP-Sentinel-Project-Bible-v6.md` Section 16 (demo script) and `Sentinel-Build-Map.md` for the original stage/ticket breakdown (GSD roadmap will be independently derived, not a direct 1:1 mapping, per project decision)
+- **Strategy notes**: See `AegisX-AI-Project-Bible-v6.md` Section 16 (demo script) and `AegisX-Build-Map.md` for the original stage/ticket breakdown (GSD roadmap will be independently derived, not a direct 1:1 mapping, per project decision)
 
 ## Requirements
 
@@ -40,12 +40,12 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 - Multi-provider LLM routing across all 6 agents (Gemini/DeepSeek/Groq/OpenRouter) as a v1 requirement — a single working provider path is enough to prove the C1 loop; full router is nice-to-have, not core value
 - Supplier intelligence, inspection simulator — explicitly called out by the user as "nobody notices," deferred
 - Full A1, A3–A6 agent breadth (System Knowledge/RAG, Risk, Change, Incident, Access) beyond what's needed to support the hero finding — only A2 Compliance is required for the minimum killer demo; others are Tier 2+/expansion
-- Direct 1:1 mapping of ROADMAP.md phases onto Sentinel-Build-Map.md's SENT-\<stage\>-\<number\> tickets — user chose to let GSD re-derive phases independently from requirements; Build-Map remains a reference, not the roadmap source
+- Direct 1:1 mapping of ROADMAP.md phases onto AegisX-Build-Map.md's SENT-\<stage\>-\<number\> tickets — user chose to let GSD re-derive phases independently from requirements; Build-Map remains a reference, not the roadmap source
 
 ## Context
 
 - This repository is currently a specification vault (Obsidian vault), not a codebase — no application source, build tooling, or tests exist yet
-- Four governing documents exist and inform all planning: `GxP-Sentinel-Project-Bible-v6.md` (source of truth, ~3,300 lines, Sections 1–17), `Sentinel-Build-Map.md` (original Stage 0–7 ticket breakdown, reference only per this project's phase-derivation decision), `GSD_Core_Reference.md` (GSD workflow reference), `Refined_MetaPrompt.md` (planning meta-prompt with evidence-tagging discipline)
+- Four governing documents exist and inform all planning: `AegisX-AI-Project-Bible-v6.md` (source of truth, ~3,300 lines, Sections 1–17), `AegisX-Build-Map.md` (original Stage 0–7 ticket breakdown, reference only per this project's phase-derivation decision), `GSD_Core_Reference.md` (GSD workflow reference), `Refined_MetaPrompt.md` (planning meta-prompt with evidence-tagging discipline)
 - Architecture is fixed by the Bible and must not be redesigned: deterministic-first isolation of generative models from compliance/RBAC/injection decisions (Section 1.3 decision table is binding); LangGraph request flow `C2 → A0 → [A1…A6 parallel via Send] → C1 → A7 → C3`
 - Fixed local ports: Postgres 5432, Qdrant 6333, OPA 8181, FastAPI 8000, Vite frontend 3000
 - 15 mandatory agentic-coding rules exist in Bible Section 16.11 (see CLAUDE.md) governing how Claude Code should work in this repo — explicit contracts before implementation, tests with implementation, stronger review for Critical-labeled components (C1, C2, C3, hash-chain, Rego rules, Blast Radius, ALCOA+, evidence graph), no silent scope expansion, no generated regulatory citations (must come from Bible Section 14's citation map)
@@ -54,7 +54,7 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 
 - **Timeline**: 20-day hackathon, full runway available as of project start — but scope must stay demo-hierarchy-ordered (Tier 1 before Tier 2 before Tier 3) so a credible demo exists at any cut point
 - **Architecture**: Deterministic-first is non-negotiable — no LLM may ever evaluate a compliance threshold, RBAC decision, or prompt-injection judgment; those run in Python, Rego, or NetworkX only (Bible Section 1.3)
-- **Source of truth**: When any planning artifact disagrees with `GxP-Sentinel-Project-Bible-v6.md`, the Bible wins; drift must be reconciled explicitly
+- **Source of truth**: When any planning artifact disagrees with `AegisX-AI-Project-Bible-v6.md`, the Bible wins; drift must be reconciled explicitly
 - **Regulatory citations**: Annex 11 / 21 CFR 11 / ICH Q9 citations must come from the Bible's Section 14 citation map, never from model recall
 - **Critical-path review**: C1, C2, C3, hash-chain, Rego rules, Blast Radius, ALCOA+, and the evidence graph require unit + negative + edge-case + integration test coverage, not a smoke test
 
@@ -63,7 +63,7 @@ GxP Sentinel is an agentic AI co-pilot for always-on, audit-ready GxP IT system 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Full v1 build per the Bible (not a reduced demo slice) | User chose to plan the full system, ordered by the Tier 1/2/3 demo hierarchy so any cut point still demos well | — Pending |
-| GSD roadmap phases mapped 1:1 onto Sentinel-Build-Map.md's Stage 0-7 (superseded initial decision to re-derive independently) | User reversed the earlier decision after seeing the independently-derived roadmap; wants phase order and ticket contracts to follow the Build-Map directly | — Pending |
+| GSD roadmap phases mapped 1:1 onto AegisX-Build-Map.md's Stage 0-7 (superseded initial decision to re-derive independently) | User reversed the earlier decision after seeing the independently-derived roadmap; wants phase order and ticket contracts to follow the Build-Map directly | — Pending |
 | Skip GSD's domain research step | Stack and architecture are already fully decided and justified in the Bible; research would be redundant | — Pending |
 | Core value = C1 Evidence Verification + Finding→Evidence→Verification loop, not the full agentic system | User's explicit differentiation thesis: "we use AI to investigate, but we do not blindly trust AI" | — Pending |
 

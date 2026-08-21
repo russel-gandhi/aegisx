@@ -9,7 +9,7 @@
 
 The full schema, seed data, policy layer, API skeleton, orchestration skeleton, frontend shell, and WebSocket pattern are all in place, giving Phase 3's real agents a real substrate to build on. (Build-Map Stage 1, Gate: "schema loads, seed data present, one Rego rule evaluates via raw OPA REST call, API skeleton returns 200 on `/api/health`.")
 
-This phase implements Build-Map Stage 1 tickets SENT-1-01 through SENT-1-09 as described in `Sentinel-Build-Map.md`. Ticket contracts there are authoritative for scope; when they disagree with `GxP-Sentinel-Project-Bible-v6.md`, the Bible wins (CLAUDE.md rule).
+This phase implements Build-Map Stage 1 tickets SENT-1-01 through SENT-1-09 as described in `AegisX-Build-Map.md`. Ticket contracts there are authoritative for scope; when they disagree with `AegisX-AI-Project-Bible-v6.md`, the Bible wins (CLAUDE.md rule).
 
 </domain>
 
@@ -18,7 +18,7 @@ This phase implements Build-Map Stage 1 tickets SENT-1-01 through SENT-1-09 as d
 
 ### Claude's Discretion
 All implementation choices are at Claude's discretion, guided by:
-- The Bible's DDL, Pydantic models, and Rego rule specs (Section references in Sentinel-Build-Map.md ticket contracts) are the source of truth for schema/API shape — do not invent alternative schemas.
+- The Bible's DDL, Pydantic models, and Rego rule specs (Section references in AegisX-Build-Map.md ticket contracts) are the source of truth for schema/API shape — do not invent alternative schemas.
 - BRANCHING.md §4 Stage 1 file ownership table governs which paths belong to which ticket — respect it so parallel plan waves in this phase don't collide on files.
 - Deterministic-first constraint (CLAUDE.md, Bible §1.3) applies from this phase forward: no LLM evaluates compliance/RBAC/injection decisions, even in skeleton form.
 - SENT-1-03 (Rego rules) and SENT-1-06 (LangGraph StateGraph design) are Critical-review-level tickets per BRANCHING.md — plan and execute with correspondingly stronger test coverage (unit + negative + edge-case + integration), not a smoke test.
@@ -48,7 +48,7 @@ Repo currently has: `docker-compose.yml` (postgres/qdrant/opa services, all heal
 <specifics>
 ## Specific Ideas
 
-No specific requirements beyond the Bible/Build-Map ticket contracts — this is a scaffolding phase and the ticket contracts in Sentinel-Build-Map.md are the spec.
+No specific requirements beyond the Bible/Build-Map ticket contracts — this is a scaffolding phase and the ticket contracts in AegisX-Build-Map.md are the spec.
 
 </specifics>
 

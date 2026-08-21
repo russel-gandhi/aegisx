@@ -6,7 +6,7 @@ score: 9/9 must-haves verified
 behavior_unverified: 0
 overrides_applied: 0
 human_verification:
-  - test: "Open BRANCHING.md and read the Stage 1 file-ownership table against Sentinel-Build-Map.md Stage 1 (harvested from 01-02-PLAN.md Task 2 <human-check>, deferred per workflow.human_verify_mode: end-of-phase)."
+  - test: "Open BRANCHING.md and read the Stage 1 file-ownership table against AegisX-Build-Map.md Stage 1 (harvested from 01-02-PLAN.md Task 2 <human-check>, deferred per workflow.human_verify_mode: end-of-phase)."
     expected: "No path appears under two different tickets, and every ticket's owned paths plausibly cover its contract. Two agents handed SENT-1-05 and SENT-1-07 simultaneously would never write the same file."
     why_human: "Rule 10 compliance is a judgment about whether the allocation is genuinely disjoint and complete for the work ahead; grep can confirm the ticket IDs are present but not that the allocation is sound."
   - test: "From a shell that has never run this project, with Docker Desktop running: delete the local .env, then follow only the Quickstart in the root README.md — copy .env.example to .env, run docker-compose up -d postgres qdrant opa, then run bash infra/health-check.sh (harvested from 01-04-PLAN.md Task 2 <human-check>, deferred per workflow.human_verify_mode: end-of-phase)."
@@ -91,7 +91,7 @@ Both are pre-anticipated, correctly-handled plan contingencies, not scope proble
 
 1. **BRANCHING.md Rule 10 disjointness read-through**
 
-**Test:** Open `BRANCHING.md` and read the Stage 1 file-ownership table against `Sentinel-Build-Map.md` Stage 1, per the `01-02-PLAN.md` Task 2 `<human-check>` (deferred to end-of-phase per `workflow.human_verify_mode: end-of-phase`).
+**Test:** Open `BRANCHING.md` and read the Stage 1 file-ownership table against `AegisX-Build-Map.md` Stage 1, per the `01-02-PLAN.md` Task 2 `<human-check>` (deferred to end-of-phase per `workflow.human_verify_mode: end-of-phase`).
 **Expected:** No path appears under two different tickets, and every ticket's owned paths plausibly cover its contract — two agents handed `SENT-1-05` and `SENT-1-07` simultaneously would never write the same file.
 **Why human:** Whether the allocation is genuinely disjoint and complete for the work ahead is a judgment call; grep confirmed the ticket IDs and required terms are present but cannot judge semantic disjointness.
 

@@ -40,8 +40,8 @@ The environment stands up from one command — `docker-compose up -d postgres qd
 **Downstream agents MUST read these before planning or implementing.**
 
 ### Architecture & ports
-- `GxP-Sentinel-Project-Bible-v6.md` — source of truth; fixed local ports (Postgres 5432, Qdrant 6333, OPA 8181, FastAPI 8000, Vite 3000) and Section 1.3 deterministic-first decision table
-- `Sentinel-Build-Map.md` — Stage 0 ticket contracts: SENT-0-01 (repo scaffold + branching convention), SENT-0-02 (Docker Compose: postgres/qdrant/opa)
+- `AegisX-AI-Project-Bible-v6.md` — source of truth; fixed local ports (Postgres 5432, Qdrant 6333, OPA 8181, FastAPI 8000, Vite 3000) and Section 1.3 deterministic-first decision table
+- `AegisX-Build-Map.md` — Stage 0 ticket contracts: SENT-0-01 (repo scaffold + branching convention), SENT-0-02 (Docker Compose: postgres/qdrant/opa)
 
 ### Process rules
 - `CLAUDE.md` §"Working rules that apply to Claude Code here" — Rule 10 (no two agents editing the same critical file), which the branching convention (D-03) exists to satisfy
