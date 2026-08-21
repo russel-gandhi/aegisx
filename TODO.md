@@ -4,6 +4,18 @@ Tracks Bible/Build-Map Stage 0–7 phase completion. Updated at each checkpoint 
 
 **Last updated:** 2026-08-21
 
+## ⚠ Session handoff (read this first if resuming)
+
+A background executor for **plan 03-02** (the hero tracer, Wave 2 of Phase 3) was in flight when this session paused. Its worktree is still on disk:
+
+- Path: `.claude/worktrees/agent-ac442c7d2c1a5cc26`
+- Branch: `worktree-agent-ac442c7d2c1a5cc26`
+- Base: `39c4395` (current `main` at pause time)
+
+**To resume:** check `git -C ".claude/worktrees/agent-ac442c7d2c1a5cc26" log --oneline -5` and `git status --porcelain` to see what it completed. If it finished (has a `03-02-SUMMARY.md` commit), merge it into `main` with `git merge --no-ff worktree-agent-ac442c7d2c1a5cc26` from the repo root, then `git worktree remove --force` + `git branch -d` to clean up. If it's mid-task or stalled, either let a fresh executor resume the uncommitted work in that same worktree, or discard and re-spawn plan 03-02 from scratch (it's a clean, well-specified plan — see `.planning/phases/03-intelligence-retrieval/03-02-PLAN.md`).
+
+After 03-02 is merged, continue with Waves 3 (`03-03` + `03-04`, parallel), 4 (`03-05`), 5 (`03-06`), then phase verification and close-out — same pattern as Phases 1 and 2 below. Then continue autonomously into Phase 4.
+
 ---
 
 ## ✅ Phase 1 — Environment (Stage 0)
