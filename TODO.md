@@ -40,17 +40,15 @@ Full schema, seed data, policy layer, API skeleton, orchestration skeleton, fron
 ## ◐ Phase 3 — Intelligence & Retrieval (Stage 2) — IN PROGRESS
 MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1 Evidence Verifier. (A1 RAG + A3–A6 are deferred v2-territory per ROADMAP.md.)
 
-**Known blocker:** no LLM provider API keys configured (Gemini/DeepSeek/Groq/OpenRouter) — built with honest degraded-mode fallback + respx-mocked wire-contract tests; live LLM quality needs operator-supplied keys to verify.
+**Resolved:** LLM provider API keys (Gemini/DeepSeek/Groq/OpenRouter) are now configured in `.env`; local Postgres auth also fixed (`.env` wasn't being loaded — see `ee9ced5`).
 
 - [x] Context, research, plan (6 plans / 5 waves)
 - [x] **Wave 1 (03-01)** — LLM router (`llm_router.py`) + Postgres client (`db.py`), 47/47 tests passing. Found & fixed 2 real Windows asyncpg/pytest event-loop bugs; recorded 3 Bible deviations (deepseek-reasoner retired, openrouter model string, Gemini key-env alias).
 - [x] **Wave 2 (03-02)** — hero tracer: one A2 check → real `AgentFinding` → C1 `calculate_confidence()`, 50/50 passing.
 - [x] **Wave 3 (03-03, 03-04 parallel)** — A0 real classifier + 2000ms fallback, A1/A3-A6 minimal-but-real specialists; A2 full three deterministic checks + URS seed fixture. 83/83 passing after merge (resolved a real test-assertion conflict between the two plans). Found & fixed a latent `opa_client.py` datetime-serialization bug (Deviation 8).
-- [ ] Wave 4 (03-05) — C1 Critical-review coverage (unit/negative/edge/integration + contradiction fixture)
+- [x] **Wave 4 (03-05)** — C1 Critical-review coverage: 20 new unit/negative/edge/integration tests (CLAUDE.md Rule 6), all 10 Rego rules exercised, EVID-02 contradiction fixture against live Postgres+OPA. Fixed the `build_opa_payload()` multi-input-key defect (`.planning/WINDOWS.md` id 1, now closed). 103/103 passing.
 - [ ] Wave 5 (03-06) — hero-loop integration test + CI gate extension
 - [ ] Phase verification
-
-**Known open item (routed to 03-05):** `c1_verifier.py`'s `build_opa_payload()` keys multi-input-key rules (e.g. `ANNEX11-S4-TRC-001`) off the finding's own `evidence_ids` instead of following linked ids (e.g. `test_case_id`) — causes `INSUFFICIENT_EVIDENCE` instead of the expected score. Recorded in `.planning/WINDOWS.md`.
 
 ## ⏳ Phase 4 — Evidence & Impact (Stage 3)
 NetworkX evidence graph from live Postgres state; Blast Radius traversal; verified finding renders as evidence card.
