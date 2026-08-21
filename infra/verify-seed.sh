@@ -79,6 +79,13 @@ check_eq "Gap 9: ACC-2026-99 user_status == DEPARTED" "SELECT user_status FROM a
 check_eq "Gap 10: CR-2026-089 status == CLOSED" "SELECT status FROM changes WHERE id='CR-2026-089'" "CLOSED"
 check_eq "Gap 10: CA-2026-089-1 status == OPEN" "SELECT status FROM change_actions WHERE id='CA-2026-089-1'" "OPEN"
 
+# 2b. Phase-3 fixture assertions (infra/postgres/seed/002_urs_fixture.sql,
+# D-05): the additive DOC-2026-URS-01 row exists to give A2's
+# verify_urs_approved its positive-path test data. This is not one of the
+# ten Bible-seeded gaps above, and adds no violation count.
+check_eq "Fixture: DOC-2026-URS-01 doc_type == URS" "SELECT doc_type FROM documents WHERE id='DOC-2026-URS-01'" "URS"
+check_eq "Fixture: DOC-2026-URS-01 status == APPROVED" "SELECT status FROM documents WHERE id='DOC-2026-URS-01'" "APPROVED"
+
 # 3. Nanosecond-magnitude guard (Pitfall 2): union of every seeded _ns
 # value across the six tables that carry one must contain zero values
 # below 1e18 (a second- or millisecond-epoch value would be far smaller).

@@ -132,14 +132,16 @@ bash infra/verify-seed.sh
 
 ### Why the seed lives outside `initdb/`
 
-`infra/postgres/seed/001_seed.sql` is **not** bind-mounted into the
-container the way `infra/postgres/initdb/` is. Seeding is a deliberate
-operator action (`bash infra/apply-seed.sh`), not part of environment
-bring-up — a cold start yields a clean, correctly-shaped, empty database,
-rather than silently re-materialising demo data every time the volume is
-destroyed and recreated. `infra/apply-seed.sh` streams the seed file into
-the container over stdin, and every `INSERT` in it carries
-`ON CONFLICT (id) DO NOTHING`, so re-running it is always safe.
+`infra/postgres/seed/` is **not** bind-mounted into the container the way
+`infra/postgres/initdb/` is. Seeding is a deliberate operator action
+(`bash infra/apply-seed.sh`), not part of environment bring-up — a cold
+start yields a clean, correctly-shaped, empty database, rather than
+silently re-materialising demo data every time the volume is destroyed
+and recreated. `infra/apply-seed.sh` streams every `*.sql` file in
+`infra/postgres/seed/` into the container over stdin, in sorted filename
+order (`001_seed.sql`, then `002_urs_fixture.sql`, ...), and every
+`INSERT` in every one of those files carries `ON CONFLICT (id) DO
+NOTHING`, so re-running it is always safe.
 
 ### The 10 injected gaps
 
