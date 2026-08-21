@@ -1,7 +1,8 @@
 """
-C1 - Evidence & Grounding Verifier (Phase 3 tracer, plan 03-02).
+C1 - Evidence & Grounding Verifier (Phase 3 tracer 03-02; hardened to the
+SENT-2-12 Critical-review bar in plan 03-05).
 
-Ticket: SENT-2-12 (Critical review) | Requirements: EVID-01, EVID-04
+Ticket: SENT-2-12 (Critical review) | Requirements: EVID-01, EVID-02, EVID-04
 Source: AegisX-AI-Project-Bible-v6.md Section 2's "C1" entry
 (`calculate_confidence()`, transcribed below with one corrected constant
 — see `ALCOA_DIMENSION_COUNT`) and Section 1.3's deterministic-first
@@ -13,11 +14,22 @@ permanent, not a stub-stage convenience (Bible Section 1.3,
 every material LLM claim is independently verified against a real
 Postgres record and a real OPA policy evaluation before it is trusted.
 
-Table names used to build SQL statements come exclusively from the two
-frozen allowlists below (`RULE_EVIDENCE_TABLES`, `RULE_OPA_INPUT`) —
+Table and column names used to build SQL statements come exclusively from
+the frozen allowlists below (`RULE_EVIDENCE_TABLES`, `RULE_OPA_INPUT`) —
 never from request data — and are concatenated into the query string
 rather than f-string-interpolated, so an unrecognised rule id returns no
 record instead of building a statement (ASVS V5).
+
+Plan 03-05 fix (closes `.planning/WINDOWS.md` id 1, discovered in 03-04):
+`build_opa_payload()` previously queried *every* `RULE_OPA_INPUT` table
+using the finding's own `evidence_ids`, which is only correct for the
+finding's own record. The two multi-input-key rules —
+`ANNEX11-S4-TRC-001` (rule 5, `test_cases`) and `ANNEX11-S10-CHG-001`
+(rule 10, `change_actions`) — each need a *second*, differently-keyed
+table resolved via a foreign-key relationship, not the finding's own
+`evidence_ids`. `RULE_OPA_INPUT`'s fourth tuple element now names how
+each table is resolved (see its docstring below); this stays data-driven
+— no per-rule branching was added to `build_opa_payload()` itself.
 """
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -75,28 +87,44 @@ RULE_EVIDENCE_TABLES: Dict[str, str] = {
 }
 
 # Each of the ten rule ids' OPA input keys, as a tuple of
-# (input_key, table_name, shape) triples. `shape` is "list" for every input
-# key except rule 5's "test_cases", which `gxp_rules.rego` documents as an
-# object keyed by id (the one non-list input key in the whole bundle).
-# Filled completely (all ten entries) even though this tracer only
-# exercises the ANNEX11-S11-PE-001 path, so no later plan has to edit this
-# module to support a new rule (plan <action>).
-RULE_OPA_INPUT: Dict[str, Tuple[Tuple[str, str, str], ...]] = {
-    "ANNEX11-S4-DOC-001": (("documents", "documents", "list"),),
-    "ANNEX11-S12-ACC-001": (("access_reviews", "access_reviews", "list"),),
-    "ICH-Q9-RSK-001": (("risks", "risks", "list"),),
-    "ANNEX11-S13-INC-001": (("incidents", "incidents", "list"),),
+# (input_key, table_name, shape, id_source) 4-tuples. `shape` is "list" for
+# every input key except rule 5's "test_cases", which `gxp_rules.rego`
+# documents as an object keyed by id (the one non-list input key in the
+# whole bundle). Filled completely (all ten entries) so no later plan has
+# to edit this module to support a new rule.
+#
+# `id_source` names how each table's rows are resolved — this is what lets
+# `build_opa_payload` stay one data-driven loop with no per-rule `if`
+# branch for the two multi-input-key rules (plan 03-05 fix):
+#   - "evidence_ids": the table IS the finding's own record — fetch
+#     `WHERE id = ANY(evidence_ids)`. Every single-input-key rule uses
+#     this, and it is what every rule used before this fix.
+#   - ("via", source_input_key, column): a *second* table, reached by
+#     reading `column` off the rows already fetched for `source_input_key`
+#     earlier in the same rule's tuple (that source's own column points at
+#     this table's `id`). Rule 5 uses this for "test_cases": each fetched
+#     `requirements` row's `test_case_id` names a `test_cases.id`.
+#   - ("by_column", column): a *second* table whose own `column` (not
+#     `id`) references the finding's `evidence_ids` directly — fetch
+#     `WHERE column = ANY(evidence_ids)`. Rule 10 uses this for
+#     "change_actions": `change_actions.change_id` references the
+#     finding's own `changes.id`.
+RULE_OPA_INPUT: Dict[str, Tuple[Tuple[str, str, str, Any], ...]] = {
+    "ANNEX11-S4-DOC-001": (("documents", "documents", "list", "evidence_ids"),),
+    "ANNEX11-S12-ACC-001": (("access_reviews", "access_reviews", "list", "evidence_ids"),),
+    "ICH-Q9-RSK-001": (("risks", "risks", "list", "evidence_ids"),),
+    "ANNEX11-S13-INC-001": (("incidents", "incidents", "list", "evidence_ids"),),
     "ANNEX11-S4-TRC-001": (
-        ("requirements", "requirements", "list"),
-        ("test_cases", "test_cases", "object"),
+        ("requirements", "requirements", "list", "evidence_ids"),
+        ("test_cases", "test_cases", "object", ("via", "requirements", "test_case_id")),
     ),
-    "ANNEX11-S3-SUP-001": (("suppliers", "suppliers", "list"),),
-    "ANNEX11-S11-PE-001": (("periodic_evaluations", "periodic_evaluations", "list"),),
-    "ANNEX11-S16-BCK-001": (("gxp_systems", "gxp_systems", "list"),),
-    "ANNEX11-S12-ACC-002": (("access_records", "access_records", "list"),),
+    "ANNEX11-S3-SUP-001": (("suppliers", "suppliers", "list", "evidence_ids"),),
+    "ANNEX11-S11-PE-001": (("periodic_evaluations", "periodic_evaluations", "list", "evidence_ids"),),
+    "ANNEX11-S16-BCK-001": (("gxp_systems", "gxp_systems", "list", "evidence_ids"),),
+    "ANNEX11-S12-ACC-002": (("access_records", "access_records", "list", "evidence_ids"),),
     "ANNEX11-S10-CHG-001": (
-        ("changes", "changes", "list"),
-        ("change_actions", "change_actions", "list"),
+        ("changes", "changes", "list", "evidence_ids"),
+        ("change_actions", "change_actions", "list", ("by_column", "change_id")),
     ),
 }
 
@@ -115,6 +143,16 @@ def _select_many_by_ids_query(table_name: str) -> str:
     multi-id form `build_opa_payload` uses. `table_name` is only ever a
     value drawn from `RULE_OPA_INPUT`."""
     return "SELECT * FROM " + table_name + " WHERE id = ANY($1::varchar[])"
+
+
+def _select_many_by_column_query(table_name: str, column_name: str) -> str:
+    """As `_select_many_by_ids_query`, but filters on `column_name` rather
+    than `id` — the `("by_column", ...)` `id_source` kind, for a secondary
+    table whose own foreign key (e.g. `change_actions.change_id`)
+    references the finding's own record rather than being referenced by
+    it. `table_name` and `column_name` are only ever values drawn from
+    `RULE_OPA_INPUT`, never request data."""
+    return "SELECT * FROM " + table_name + " WHERE " + column_name + " = ANY($1::varchar[])"
 
 
 async def fetch_evidence_record(pool, finding: dict) -> Optional[dict]:
@@ -137,20 +175,48 @@ async def fetch_evidence_record(pool, finding: dict) -> Optional[dict]:
 
 async def build_opa_payload(pool, finding: dict) -> dict:
     """Single data-driven assembly over `RULE_OPA_INPUT`: for the finding's
-    rule, read real Postgres rows (matched against the finding's
-    `evidence_ids`) and emit the bundle keyed exactly as
-    `policies/gxp_rules.rego` documents. No per-rule `if` branches — the
-    list-vs-object shape difference is data in `RULE_OPA_INPUT`, not
-    control flow here."""
+    rule, read real Postgres rows and emit the bundle keyed exactly as
+    `policies/gxp_rules.rego` documents. No per-rule `if` branches — both
+    the list-vs-object shape difference and the `evidence_ids` /
+    `via` / `by_column` resolution strategy are data in `RULE_OPA_INPUT`,
+    not control flow here (plan 03-05 fix — see module docstring and
+    `RULE_OPA_INPUT`'s own docstring for what each `id_source` kind means).
+
+    Entries are resolved in the tuple's declared order, so a rule's
+    `"via"` entry can always find its `source_input_key`'s rows already
+    collected in `fetched_by_key` — every rule in `RULE_OPA_INPUT` lists
+    its primary (`"evidence_ids"`) entry first, before any entry that
+    depends on it.
+    """
     citations: List[str] = finding.get("regulatory_citations") or []
     evidence_ids: List[str] = finding.get("evidence_ids") or []
     rule_id = citations[0] if citations else None
     input_spec = RULE_OPA_INPUT.get(rule_id, ())
 
     payload: Dict[str, Any] = {}
-    for input_key, table_name, shape in input_spec:
-        rows = await pool.fetch(_select_many_by_ids_query(table_name), evidence_ids)
+    fetched_by_key: Dict[str, List[dict]] = {}
+    for input_key, table_name, shape, id_source in input_spec:
+        if isinstance(id_source, tuple) and id_source[0] == "via":
+            _, source_input_key, link_column = id_source
+            source_records = fetched_by_key.get(source_input_key, [])
+            linked_ids = sorted(
+                {r[link_column] for r in source_records if r.get(link_column)}
+            )
+            rows = (
+                await pool.fetch(_select_many_by_ids_query(table_name), linked_ids)
+                if linked_ids
+                else []
+            )
+        elif isinstance(id_source, tuple) and id_source[0] == "by_column":
+            _, link_column = id_source
+            rows = await pool.fetch(
+                _select_many_by_column_query(table_name, link_column), evidence_ids
+            )
+        else:  # "evidence_ids" — the finding's own record
+            rows = await pool.fetch(_select_many_by_ids_query(table_name), evidence_ids)
+
         records = [dict(r) for r in rows]
+        fetched_by_key[input_key] = records
         if shape == "object":
             payload[input_key] = {record["id"]: record for record in records}
         else:
