@@ -150,3 +150,19 @@ class AgentExecutionTrace(BaseModel):
     end_time: datetime
     tools_called: List[str]
     output_produced: Any
+
+
+# Phase 3 (D-01/D-07): Bible Section 2 agent input/output models for A0
+# and A2, transcribed verbatim.
+class OrchestratorInput(BaseModel):
+    user_query: str
+    system_id: str
+
+
+class OrchestratorOutput(BaseModel):
+    active_agents: List[str]
+    intent_category: str
+
+
+class ComplianceInput(BaseModel):
+    system_id: str
