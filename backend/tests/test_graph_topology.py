@@ -140,10 +140,18 @@ def test_route_specialists_empty_active_agents_returns_empty_list():
 
 
 def test_ainvoke_completes_through_all_eleven_stub_nodes():
+    """Phase 3 update (plan 03-02): A2 and C1 are no longer stubs — see
+    tests/test_hero_tracer.py for the real end-to-end assertions on their
+    behavior against live Postgres/OPA. This test's scope narrows to what
+    it can still promise: the graph completes through all eleven nodes and
+    C3's stub still ends the run. `verification_results` is asserted only
+    to be the real dict shape C1 now emits, not a specific value — its
+    exact contents depend on live infra state that this file's docstring
+    does not require."""
     result = asyncio.run(compiled_graph.ainvoke(_initial_state()))
 
     assert result["final_synthesis"] == "Execution complete. Actions queued for approval."
-    assert result["verification_results"] == {"verified": True}
+    assert isinstance(result["verification_results"], dict)
 
 
 # --- Reducer behaviour -----------------------------------------------------

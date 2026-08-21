@@ -129,3 +129,31 @@ This section records every point where `backend/app/opa_client.py` departs from 
 **Why:** `.env.example` (Phase 3, D-01) introduces `GEMINI_API_KEY=` as the four provider-key placeholders' naming convention — matching Google AI Studio's own developer-facing key name (`aistudio.google.com/apikey` issues keys under that name) rather than the Bible's more generic `GOOGLE_API_KEY`. Accepting both avoids a silent mismatch where an operator sets the variable `.env.example` documents and the router looks for a different one.
 
 **Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG["gemini_flash_thinking"]` and `["gemini_flash_fast"]` `api_key_env` fields only; no other provider's key-resolution behavior changed. Routed to **SENT-7-05**.
+
+### Deviation 7 — `calculate_confidence()`'s ALCOA dimension count corrected from 8 to 9
+
+**Bible says:** `calculate_confidence()` (Section 2, the "C1" entry) hardcodes the literal `8` as its ALCOA dimension count: `score -= (8 - alcoa_score) * 10`.
+
+**Implemented:** `backend/app/agents/c1_verifier.py`'s `ALCOA_DIMENSION_COUNT = 9`, substituted for that literal `8` and nothing else in the formula.
+
+**Why:** Two independent in-project sources agree on 9 against the Bible's one stale literal. `.claude/CLAUDE.md` states "ALCOA+ 9-dimension scoring (16.12) extends C1" as settled project fact, and `app.schemas.ALCOAScore` (shipped in Phase 2, `backend/app/schemas.py`) has nine boolean fields: `attributable`, `legible`, `contemporaneous`, `original`, `accurate`, `complete`, `consistent`, `enduring`, `available`. Under the Bible's literal `8`, a finding with all nine dimensions true would compute a starting-score deduction of `(8 - 9) * 10 = -10`, i.e. `score = 100 - (-10) = 110` — a value above 100 that the formula's own threshold ladder (`> 80` HIGH, `>= 50` MEDIUM, `> 0` LOW, else `INSUFFICIENT_EVIDENCE`) cannot express or distinguish from any other HIGH score.
+
+**Evidence:** `[VERIFIED: backend/tests/test_hero_tracer.py]` — the tracer's live end-to-end assertion against the real `PE-2024-01` Postgres row and the real OPA `ANNEX11-S11-PE-001` evaluation yields `MEDIUM` for a 6-of-9-true `ALCOAScore()` finding (`attributable`/`contemporaneous`/`original` False, the other six True): `100 - (9 - 6) * 10 = 70`, which falls in `score >= 50` → `MEDIUM`. This is exactly what the corrected 9-dimension arithmetic predicts.
+
+**Scope:** Only `ALCOA_DIMENSION_COUNT` changed. The starting score (`100`), the `x10` per-dimension multiplier, the `-100` policy-contradiction penalty, and the `80`/`50`/`0` HIGH/MEDIUM/LOW thresholds are all carried over from the Bible unchanged. Routed to **SENT-7-05**.
+
+## AgentFinding conventions (Phase 3)
+
+Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
+
+| Field | Convention this phase |
+|-------|-----------------------|
+| `finding_id` | `"{AGENT}-{RULE_ID}-{RECORD_ID}"`, e.g. `A2-ANNEX11-S11-PE-001-PE-2024-01` |
+| `claim` | Narrative sentence. LLM-narrated when the router succeeds; a deterministic template when it degrades. |
+| `regulatory_citations` | The OPA rule ids from `policies/gxp_rules.rego` that ground this finding, e.g. `["ANNEX11-S11-PE-001"]`. These ids carry the Bible's own `# Source:` regulatory mapping and are the only permitted citation source (CLAUDE.md Rule 13 — never model recall). |
+| `confidence_score` | `"UNVERIFIED"` on emission by any A-agent. Only C1 assigns `HIGH` / `MEDIUM` / `LOW` / `INSUFFICIENT_EVIDENCE`. The one exception is a Bible-specified failure-behavior finding, which carries `"LOW"` verbatim per Section 2. |
+| `evidence_ids` | Postgres primary keys of the rows the claim rests on, e.g. `["PE-2024-01"]`. |
+| `alcoa_score` | `ALCOAScore().model_dump()` — all 9 boolean fields present. |
+| `model_attribution` | `LLMResponse.model_id` when the router succeeded; the literal `deterministic-fallback` when it degraded. |
+
+`verification_results` (C1's output into `AgentState`) is a dict keyed by `finding_id`, each value being `{"confidence": str, "db_record_found": bool, "opa_corroborated": bool, "opa_rule_ids": List[str], "evidence_ids": List[str]}`.

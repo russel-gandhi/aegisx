@@ -40,6 +40,15 @@ belong in the real agent implementations that replace these stubs in
 later phases, and even there they must route through the nodes this
 constraint permits (Python, Rego, NetworkX) — never through a model
 occupying C2, C1, or C3 directly.
+
+Phase 3 update (plan 03-02): `compliance_a2` and `evidence_verifier_c1`
+below now delegate to real implementations in `app.agents` —
+`app.agents.a2_compliance.run_a2` and `app.agents.c1_verifier.run_c1`
+respectively. This module itself still performs no LLM, database, or OPA
+call of its own; those calls live entirely inside the delegate modules
+under `app.agents`. C2, C1, and C3 remain permanently closed to model
+occupancy — `app.agents.c1_verifier` is deterministic Python only, and
+C2/C3 stay stubs until Phase 5.
 """
 
 import operator
@@ -69,6 +78,11 @@ try:
     from langgraph.graph.message import add_messages
 except ImportError:  # pragma: no cover - exercised only if the submodule moves
     from langgraph.graph import add_messages
+
+# Phase 3 (plan 03-02): the only two node bodies this module delegates to a
+# real implementation. Imported at module top level per plan instruction.
+from app.agents.a2_compliance import run_a2
+from app.agents.c1_verifier import run_c1
 
 
 class AgentFinding(TypedDict):
@@ -147,8 +161,12 @@ async def system_knowledge_a1(state: AgentState) -> Dict[str, Any]:
 
 
 async def compliance_a2(state: AgentState) -> Dict[str, Any]:
-    """A2 - Compliance Agent. Stub: no findings."""
-    return {"findings": []}
+    """A2 - Compliance Agent. Delegates to `app.agents.a2_compliance.run_a2`
+    (Phase 3, plan 03-02): one deterministic check
+    (`verify_periodic_eval_current`) against real Postgres, narrated via
+    the LLM router when it succeeds and a deterministic template when it
+    degrades. This module performs no DB or LLM call itself."""
+    return await run_a2(state)
 
 
 async def risk_a3(state: AgentState) -> Dict[str, Any]:
@@ -172,11 +190,13 @@ async def access_a6(state: AgentState) -> Dict[str, Any]:
 
 
 async def evidence_verifier_c1(state: AgentState) -> Dict[str, Any]:
-    """C1 - Evidence & Grounding Verifier. Stub: always verified. This is
-    the product's deterministic-verification thesis node; its real
-    implementation (Phase 3, SENT-2-12) must stay deterministic Python
-    consuming real DB/OPA state — never an LLM occupying this node."""
-    return {"verification_results": {"verified": True}}
+    """C1 - Evidence & Grounding Verifier. Delegates to
+    `app.agents.c1_verifier.run_c1` (Phase 3, plan 03-02, SENT-2-12): real,
+    deterministic Python only, verifying every finding against a real
+    Postgres record and a real OPA evaluation via `calculate_confidence()`.
+    This is the product's deterministic-verification thesis node — never an
+    LLM occupying this node, here or in its delegate."""
+    return await run_c1(state)
 
 
 async def remediation_a7(state: AgentState) -> Dict[str, Any]:
