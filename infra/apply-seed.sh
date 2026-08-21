@@ -3,15 +3,20 @@ set -uo pipefail
 
 # infra/apply-seed.sh
 #
-# SENT-1-02 / ENV-03. Streams infra/postgres/seed/001_seed.sql into the
-# running postgres container over stdin. infra/postgres/seed/ is
-# deliberately NOT bind-mounted into the container (unlike
-# infra/postgres/initdb/), so seeding only happens when this script is
-# explicitly invoked — a cold `docker compose up` never silently
+# SENT-1-02 / ENV-03, extended by Phase 3 plan 03-04. Streams every
+# `*.sql` file in infra/postgres/seed/ into the running postgres container
+# over stdin, one at a time in sorted filename order (001_seed.sql, then
+# 002_urs_fixture.sql, then any later NNN_*.sql this directory gains).
+# infra/postgres/seed/ is deliberately NOT bind-mounted into the container
+# (unlike infra/postgres/initdb/), so seeding only happens when this
+# script is explicitly invoked — a cold `docker compose up` never silently
 # re-materialises demo data.
 #
-# Safe to run repeatedly: every INSERT in 001_seed.sql carries
+# Safe to run repeatedly: every INSERT in every seed script carries
 # ON CONFLICT (id) DO NOTHING, so a second run is a no-op, not an error.
+# Application stops at the first script that errors (set -uo pipefail plus
+# an explicit per-file status check below) rather than continuing past a
+# partial failure.
 #
 # Usage:
 #   bash infra/apply-seed.sh
@@ -50,13 +55,18 @@ if [ "$schema_present" != "gxp_systems" ]; then
   exit 1
 fi
 
-dc exec -T -e PGPASSWORD="${POSTGRES_PASSWORD:-}" postgres \
-  psql -U "$PGUSER" -d "$PGDB" -v ON_ERROR_STOP=1 < infra/postgres/seed/001_seed.sql
+# Apply every seed script in sorted filename order, failing fast on the
+# first one that errors rather than continuing past a partial failure.
+for seed_file in infra/postgres/seed/*.sql; do
+  echo "Applying ${seed_file}..."
+  dc exec -T -e PGPASSWORD="${POSTGRES_PASSWORD:-}" postgres \
+    psql -U "$PGUSER" -d "$PGDB" -v ON_ERROR_STOP=1 < "$seed_file"
 
-status=$?
-if [ "$status" -ne 0 ]; then
-  echo "SEED FAILED" >&2
-  exit "$status"
-fi
+  status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "SEED FAILED" >&2
+    exit "$status"
+  fi
+done
 
 echo "SEED APPLIED"
