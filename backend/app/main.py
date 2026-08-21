@@ -1,8 +1,8 @@
 """
-FastAPI application entrypoint for GxP Sentinel.
+FastAPI application entrypoint for AegisX AI.
 
 Ticket: SENT-1-05 | Requirement: ENV-04
-Source: GxP-Sentinel-Project-Bible-v6.md Section 12 (API table, lines
+Source: AegisX-AI-Project-Bible-v6.md Section 12 (API table, lines
 1404-1420) — only `GET /api/health` is in scope for this plan.
 
 Only one route is registered here. Bible Section 12 lists ten further
@@ -30,11 +30,11 @@ from fastapi import FastAPI
 from app.ws.copilot import router as copilot_ws_router
 
 app = FastAPI(
-    title="GxP Sentinel",
+    title="AegisX AI",
     description=(
         "Agentic AI co-pilot for audit-ready GxP IT system management. "
         "Deterministic evidence verification (C1) is the product's core "
-        "thesis — see GxP-Sentinel-Project-Bible-v6.md Section 1."
+        "thesis — see AegisX-AI-Project-Bible-v6.md Section 1."
     ),
 )
 

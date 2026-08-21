@@ -2,7 +2,7 @@
 C1 - Evidence & Grounding Verifier (Phase 3 tracer, plan 03-02).
 
 Ticket: SENT-2-12 (Critical review) | Requirements: EVID-01, EVID-04
-Source: GxP-Sentinel-Project-Bible-v6.md Section 2's "C1" entry
+Source: AegisX-AI-Project-Bible-v6.md Section 2's "C1" entry
 (`calculate_confidence()`, transcribed below with one corrected constant
 — see `ALCOA_DIMENSION_COUNT`) and Section 1.3's deterministic-first
 constraint.

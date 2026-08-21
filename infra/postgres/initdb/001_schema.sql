@@ -1,7 +1,7 @@
 -- infra/postgres/initdb/001_schema.sql
 --
--- SENT-1-01 / ENV-02: full Postgres DDL for GxP Sentinel.
--- Source of truth: GxP-Sentinel-Project-Bible-v6.md Section 4.1 (lines 587-828).
+-- SENT-1-01 / ENV-02: full Postgres DDL for AegisX AI.
+-- Source of truth: AegisX-AI-Project-Bible-v6.md Section 4.1 (lines 587-828).
 -- Transcribed verbatim; do not "improve" primary key types or column types
 -- (see 02-RESEARCH.md "Notable design choices" and this file's own comments).
 --

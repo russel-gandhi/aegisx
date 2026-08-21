@@ -3,7 +3,7 @@ Multi-provider LLM router (Bible Section 8, Phase 3, D-01).
 
 Ticket: SENT-2-01/SENT-2-02 substrate | Requirements: ORC-02, ORC-03
 
-Source: GxP-Sentinel-Project-Bible-v6.md Section 8.1 (`PROVIDER_CONFIG`)
+Source: AegisX-AI-Project-Bible-v6.md Section 8.1 (`PROVIDER_CONFIG`)
 and 8.2 (router logic, the `openrouter_fallback` cascade). Transcribed
 with three corrections, each recorded in `backend/README.md` under
 "Bible deviations (backend tier)" and routed to SENT-7-05:

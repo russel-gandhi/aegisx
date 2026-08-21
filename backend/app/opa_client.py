@@ -2,7 +2,7 @@
 Async client for the live OPA sidecar's compliance rule evaluation endpoint.
 
 Ticket: SENT-1-04 | Requirement: POL-02
-Source: GxP-Sentinel-Project-Bible-v6.md Section 3.4 (lines 548-579) — the
+Source: AegisX-AI-Project-Bible-v6.md Section 3.4 (lines 548-579) — the
 async POST, 2.0-second timeout, non-2xx-status-check, and result-extraction
 shape is transcribed from there. Three deliberate deviations from the
 Bible's literal text are recorded in `backend/README.md` under "Bible

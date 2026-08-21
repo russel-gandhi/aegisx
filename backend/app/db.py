@@ -1,9 +1,9 @@
 """
-Async Postgres connectivity for GxP Sentinel (Phase 3, D-01).
+Async Postgres connectivity for AegisX AI (Phase 3, D-01).
 
 Ticket: SENT-2-01/SENT-2-02/SENT-2-12 substrate | Requirements: ORC-02,
 ORC-03, EVID-01
-Source: GxP-Sentinel-Project-Bible-v6.md Section 7.1's `AuditLogger`
+Source: AegisX-AI-Project-Bible-v6.md Section 7.1's `AuditLogger`
 example already `import asyncpg` and assumes an `asyncpg.Pool` exists
 somewhere in the app — this module is that pool.
 

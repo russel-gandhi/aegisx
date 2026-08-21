@@ -185,7 +185,7 @@ All `opa test` and live-REST verification described above (and the 42/42
 pass count, the boundary fixtures, and the constant-break regression
 check) was instead performed against a disposable, ephemeral OPA server
 container (`docker run` with the worktree's `policies/` directory bind
-mounted, same `gxp-sentinel-opa` image, same `opa run --server` command)
+mounted, same `aegisx-ai-opa` image, same `opa run --server` command)
 so the rules were exercised on the exact OPA 1.19.1 binary this repo
 runs, without touching or disrupting the shared Phase-1 container or any
 concurrently-running sibling plan. The plan's literal verification

@@ -94,8 +94,8 @@ healthy.
   these bases (see "What this directory holds" above), not the bare vendor image
   directly. The derived images built for this certification resolve to:
 
-  - `gxp-sentinel-qdrant@sha256:8978c042c54cb416546aef2d9c088856b2a86dafca6043828a3f21b3b758e865`
-  - `gxp-sentinel-opa@sha256:34fce9fc78d426e40e428a635e71f608237738c81038f1eaab2aa824eb082e6c`
+  - `aegisx-ai-qdrant@sha256:8978c042c54cb416546aef2d9c088856b2a86dafca6043828a3f21b3b758e865`
+  - `aegisx-ai-opa@sha256:34fce9fc78d426e40e428a635e71f608237738c81038f1eaab2aa824eb082e6c`
 
 ## Data tier (Stage 1)
 

@@ -1,7 +1,7 @@
 """
 WebSocket route for /api/copilot/stream/{session_id} (SENT-1-08, UI-01).
 
-Source: GxP-Sentinel-Project-Bible-v6.md Section 12 (API table, line 1415)
+Source: AegisX-AI-Project-Bible-v6.md Section 12 (API table, line 1415)
 -- `WS /api/copilot/stream/{session_id}` streams agent execution state.
 This module implements only the connection pattern for this phase: accept
 a connection and echo whatever text the client sends. Real LangGraph

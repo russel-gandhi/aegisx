@@ -1,8 +1,8 @@
 """
-Application-layer Pydantic models for GxP Sentinel.
+Application-layer Pydantic models for AegisX AI.
 
 Ticket: SENT-1-05 | Requirement: ENV-04
-Source: GxP-Sentinel-Project-Bible-v6.md Section 4.3 (lines 834-937) —
+Source: AegisX-AI-Project-Bible-v6.md Section 4.3 (lines 834-937) —
 transcribed verbatim; the Bible is the source of truth (CLAUDE.md Rule 14).
 
 These are the **application-layer** models, used for runtime validation at

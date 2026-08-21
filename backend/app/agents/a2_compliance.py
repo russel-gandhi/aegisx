@@ -2,7 +2,7 @@
 A2 - Compliance & Audit Readiness Agent (Phase 3 tracer, plan 03-02).
 
 Ticket: SENT-2-02 substrate | Requirements: ORC-03, EVID-01, EVID-04
-Source: GxP-Sentinel-Project-Bible-v6.md Section 2's "A2" entry (Role,
+Source: AegisX-AI-Project-Bible-v6.md Section 2's "A2" entry (Role,
 Deterministic Checks, Failure Behavior) and Section 6's "A2: Compliance
 Agent Prompt" (transcribed verbatim below as `A2_SYSTEM_PROMPT`).
 
@@ -32,7 +32,7 @@ from app.schemas import ALCOAScore
 
 logger = logging.getLogger(__name__)
 
-# GxP-Sentinel-Project-Bible-v6.md Section 6, "A2: Compliance Agent Prompt" —
+# AegisX-AI-Project-Bible-v6.md Section 6, "A2: Compliance Agent Prompt" —
 # transcribed verbatim as a module constant, per this plan's <action>.
 A2_SYSTEM_PROMPT = (
     "You are the A2 Compliance Agent. Review the deterministic traceability "

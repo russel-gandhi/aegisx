@@ -1,8 +1,8 @@
 """
-LangGraph orchestration skeleton for GxP Sentinel.
+LangGraph orchestration skeleton for AegisX AI.
 
 Ticket: SENT-1-06 | Requirement: ORC-01
-Source: GxP-Sentinel-Project-Bible-v6.md Section 1.2 (lines 97-196) —
+Source: AegisX-AI-Project-Bible-v6.md Section 1.2 (lines 97-196) —
 transcribed as the implementation, not reinterpreted; the Bible is the
 source of truth (CLAUDE.md Rule 14).
 

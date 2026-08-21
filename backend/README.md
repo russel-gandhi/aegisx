@@ -68,7 +68,7 @@ The backend runs as a host-side process (`uvicorn` invoked directly), not as a `
 
 ## Bible deviations (backend tier)
 
-This section records every point where `backend/app/opa_client.py` departs from the literal text of `GxP-Sentinel-Project-Bible-v6.md` Section 3.4 (lines 548-579). **Per CLAUDE.md ("when bible content and a ticket contract disagree, the bible wins" / "drift is reconciled explicitly"), this section is input to the final bible-reconciliation review, ticket `SENT-7-05`.** No rule logic, threshold, or regulatory citation is affected — `opa_client.py` calls into the deterministic Rego policy engine, it does not itself evaluate any compliance decision (Bible Section 1.3).
+This section records every point where `backend/app/opa_client.py` departs from the literal text of `AegisX-AI-Project-Bible-v6.md` Section 3.4 (lines 548-579). **Per CLAUDE.md ("when bible content and a ticket contract disagree, the bible wins" / "drift is reconciled explicitly"), this section is input to the final bible-reconciliation review, ticket `SENT-7-05`.** No rule logic, threshold, or regulatory citation is affected — `opa_client.py` calls into the deterministic Rego policy engine, it does not itself evaluate any compliance decision (Bible Section 1.3).
 
 **What was NOT changed:** the async POST shape, the `{"input": payload}` request body, the 2.0-second timeout, the non-2xx status check, and the `response.json().get("result", [])` extraction are all preserved exactly as Section 3.4 specifies.
 

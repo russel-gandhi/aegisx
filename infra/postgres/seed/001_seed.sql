@@ -1,7 +1,7 @@
 -- infra/postgres/seed/001_seed.sql
 --
--- SENT-1-02 / ENV-03: synthetic seed data for GxP Sentinel's two demo
--- systems. Source of truth: GxP-Sentinel-Project-Bible-v6.md Section 5
+-- SENT-1-02 / ENV-03: synthetic seed data for AegisX AI's two demo
+-- systems. Source of truth: AegisX-AI-Project-Bible-v6.md Section 5
 -- (lines 939-997). Every literal value below is byte-identical to the
 -- Bible — string IDs, person names, nanosecond integers, and the NULL for
 -- documents.effective_date are all load-bearing (Rego rules and the demo
