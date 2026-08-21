@@ -4,17 +4,9 @@ Tracks Bible/Build-Map Stage 0–7 phase completion. Updated at each checkpoint 
 
 **Last updated:** 2026-08-21
 
-## ⚠ Session handoff (read this first if resuming)
+## ▶ Next up
 
-A background executor for **plan 03-02** (the hero tracer, Wave 2 of Phase 3) was in flight when this session paused. Its worktree is still on disk:
-
-- Path: `.claude/worktrees/agent-ac442c7d2c1a5cc26`
-- Branch: `worktree-agent-ac442c7d2c1a5cc26`
-- Base: `39c4395` (current `main` at pause time)
-
-**To resume:** check `git -C ".claude/worktrees/agent-ac442c7d2c1a5cc26" log --oneline -5` and `git status --porcelain` to see what it completed. If it finished (has a `03-02-SUMMARY.md` commit), merge it into `main` with `git merge --no-ff worktree-agent-ac442c7d2c1a5cc26` from the repo root, then `git worktree remove --force` + `git branch -d` to clean up. If it's mid-task or stalled, either let a fresh executor resume the uncommitted work in that same worktree, or discard and re-spawn plan 03-02 from scratch (it's a clean, well-specified plan — see `.planning/phases/03-intelligence-retrieval/03-02-PLAN.md`).
-
-After 03-02 is merged, continue with Waves 3 (`03-03` + `03-04`, parallel), 4 (`03-05`), 5 (`03-06`), then phase verification and close-out — same pattern as Phases 1 and 2 below. Then continue autonomously into Phase 4.
+Phase 3 is closed and verified. Next: start **Phase 4 — Evidence & Impact (Stage 3)** — NetworkX evidence graph from live Postgres state, Blast Radius traversal, verified finding renders as an evidence card. No context/plan artifacts exist yet for Phase 4; the normal GSD flow is discuss-phase → plan-phase → execute-phase.
 
 ---
 
@@ -37,8 +29,8 @@ Full schema, seed data, policy layer, API skeleton, orchestration skeleton, fron
 - [x] CI workflow (GitHub Actions)
 - [x] **Verified: PASS 8/8** (`02-VERIFICATION.md`)
 
-## ◐ Phase 3 — Intelligence & Retrieval (Stage 2) — IN PROGRESS
-MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1 Evidence Verifier. (A1 RAG + A3–A6 are deferred v2-territory per ROADMAP.md.)
+## ✅ Phase 3 — Intelligence & Retrieval (Stage 2)
+MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1 Evidence Verifier. (A1 RAG + A3–A6 are deferred v2-territory per ROADMAP.md, though minimal-but-real fan-out targets were built in Wave 3.)
 
 **Resolved:** LLM provider API keys (Gemini/DeepSeek/Groq/OpenRouter) are now configured in `.env`; local Postgres auth also fixed (`.env` wasn't being loaded — see `ee9ced5`).
 
@@ -47,11 +39,12 @@ MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1
 - [x] **Wave 2 (03-02)** — hero tracer: one A2 check → real `AgentFinding` → C1 `calculate_confidence()`, 50/50 passing.
 - [x] **Wave 3 (03-03, 03-04 parallel)** — A0 real classifier + 2000ms fallback, A1/A3-A6 minimal-but-real specialists; A2 full three deterministic checks + URS seed fixture. 83/83 passing after merge (resolved a real test-assertion conflict between the two plans). Found & fixed a latent `opa_client.py` datetime-serialization bug (Deviation 8).
 - [x] **Wave 4 (03-05)** — C1 Critical-review coverage: 20 new unit/negative/edge/integration tests (CLAUDE.md Rule 6), all 10 Rego rules exercised, EVID-02 contradiction fixture against live Postgres+OPA. Fixed the `build_opa_payload()` multi-input-key defect (`.planning/WINDOWS.md` id 1, now closed). 103/103 passing.
-- [ ] Wave 5 (03-06) — hero-loop integration test + CI gate extension
-- [ ] Phase verification
+- [x] **Wave 5 (03-06)** — hero-loop integration test: one real `compiled_graph.ainvoke()` on the literal hero query, driving A0→A2→C1 against live Postgres + live OPA (LLM providers mocked); keyless-run fallback proven closes the loop via deterministic fallback attribution. 9 new tests, 112/112 passing.
+- [x] **Phase verification: PASS 9/9** (`03-VERIFICATION.md`) — requirements ORC-02, ORC-03, EVID-01, EVID-02, EVID-04 all confirmed satisfied by live-tested behavior, not just present code; deterministic-first boundary confirmed intact (zero `call_llm` references in `c1_verifier.py`).
 
-## ⏳ Phase 4 — Evidence & Impact (Stage 3)
+## ◐ Phase 4 — Evidence & Impact (Stage 3) — NEXT
 NetworkX evidence graph from live Postgres state; Blast Radius traversal; verified finding renders as evidence card.
+- [ ] Context, research, plan
 - [ ] Not started
 
 ## ⏳ Phase 5 — Safety & Remediation (Stage 4)
