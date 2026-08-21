@@ -23,7 +23,7 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 - [x] **ORC-01**: LangGraph `StateGraph` compiles with the exact topology `C2 → A0 → [A1…A6 in parallel via Send] → C1 → A7 → C3`
 - [ ] **ORC-02**: A0 Orchestrator classifies intent and fans out to a subset of A1–A6; on a 2000ms timeout it falls back to the full `["A1".."A6"]` set (tested explicitly)
-- [ ] **ORC-03**: A2 Compliance Agent produces real `AgentFinding` output via deterministic checks (`verify_urs_approved`, `verify_periodic_eval_current`, `verify_test_traceability`)
+- [x] **ORC-03**: A2 Compliance Agent produces real `AgentFinding` output via deterministic checks (`verify_urs_approved`, `verify_periodic_eval_current`, `verify_test_traceability`)
 
 ### Evidence Verification (the hero loop)
 
@@ -126,7 +126,7 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | ORC-01 | Phase 2 | Complete |
 | UI-01 | Phase 2 | Complete |
 | ORC-02 | Phase 3 | Pending |
-| ORC-03 | Phase 3 | Pending |
+| ORC-03 | Phase 3 | Complete |
 | EVID-01 | Phase 3 | Pending |
 | EVID-02 | Phase 3 | Pending |
 | EVID-04 | Phase 3 | Pending |
