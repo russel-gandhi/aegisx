@@ -95,3 +95,37 @@ This section records every point where `backend/app/opa_client.py` departs from 
 **Implemented:** A module-level `logging.getLogger(__name__)` at `warning` level, including the exception text and the URL that failed.
 
 **Why:** A server process writing diagnostics to stdout loses them the moment it runs anywhere other than a developer's terminal. `backend/tests/test_opa_client.py` asserts the warning is actually emitted via `caplog`, so a fallback that silently swallows a failure without leaving a trace fails the test suite.
+
+### Deviation 4 — `deepseek_r1["model"]` corrected from a retired model name
+
+**Bible says:** `PROVIDER_CONFIG["deepseek_r1"]["model"]` is `"deepseek-reasoner"` (Section 8.1).
+
+**Implemented:** `"deepseek-v4-pro"`.
+
+**Why:** DeepSeek has retired the `deepseek-reasoner` legacy alias; it does not appear anywhere in DeepSeek's current API documentation, only `deepseek-v4-flash`/`deepseek-v4-pro` do. A live call against the Bible's literal model name would fail with a 400/404 once a real key is supplied. Out of MVP scope this phase — A3 (the only agent that selects `deepseek_r1`) is v2-territory per 03-CONTEXT.md and is not exercised by A0/A2/C1.
+
+**Evidence:** `[VERIFIED: api-docs.deepseek.com — fetched during 03-RESEARCH.md's research session]`. See `.planning/phases/03-intelligence-retrieval/03-RESEARCH.md` Pitfall 1.
+
+**Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG["deepseek_r1"]` only. Routed to **SENT-7-05**.
+
+### Deviation 5 — `openrouter_fallback["model"]` corrected to OpenRouter's actual model string
+
+**Bible says:** `PROVIDER_CONFIG["openrouter_fallback"]["model"]` is `"auto"` (Section 8.1).
+
+**Implemented:** `"openrouter/auto"`.
+
+**Why:** OpenRouter's own API expects the fully-qualified model string `openrouter/auto` for its auto-routing feature; a bare `"auto"` is not a valid model identifier against OpenRouter's `/chat/completions` endpoint.
+
+**Evidence:** `[VERIFIED: 03-RESEARCH.md Pitfall 3]`.
+
+**Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG["openrouter_fallback"]` only. Routed to **SENT-7-05**.
+
+### Deviation 6 — Google provider entries accept `GEMINI_API_KEY` as well as `GOOGLE_API_KEY`
+
+**Bible says:** `PROVIDER_CONFIG["gemini_flash_thinking"]["api_key_env"]` and `["gemini_flash_fast"]["api_key_env"]` are both the single string `"GOOGLE_API_KEY"` (Section 8.1).
+
+**Implemented:** `api_key_env` is a tuple `("GEMINI_API_KEY", "GOOGLE_API_KEY")` for both Google entries; `GEMINI_API_KEY` is checked first, `GOOGLE_API_KEY` is accepted as a fallback alias when the first is unset.
+
+**Why:** `.env.example` (Phase 3, D-01) introduces `GEMINI_API_KEY=` as the four provider-key placeholders' naming convention — matching Google AI Studio's own developer-facing key name (`aistudio.google.com/apikey` issues keys under that name) rather than the Bible's more generic `GOOGLE_API_KEY`. Accepting both avoids a silent mismatch where an operator sets the variable `.env.example` documents and the router looks for a different one.
+
+**Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG["gemini_flash_thinking"]` and `["gemini_flash_fast"]` `api_key_env` fields only; no other provider's key-resolution behavior changed. Routed to **SENT-7-05**.
