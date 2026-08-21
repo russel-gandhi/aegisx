@@ -39,7 +39,12 @@ against every boundary, never proposes a different one.
 import asyncio
 
 import app.agents.c1_verifier as c1_verifier_module
+import app.opa_client as opa_client_module
+from app import db
 from app.agents.c1_verifier import (
+    RULE_EVIDENCE_TABLES,
+    RULE_OPA_INPUT,
+    build_opa_payload,
     calculate_confidence,
     fetch_evidence_record,
     run_c1,
@@ -47,6 +52,24 @@ from app.agents.c1_verifier import (
 )
 from app.db import get_pool
 from app.schemas import ALCOAScore
+
+# The ten Rego rule ids paired with the exact seeded record each one fires
+# on (infra/postgres/seed/001_seed.sql, plan 03-05-PLAN.md <action>), in
+# policies/gxp_rules.rego's own declared order.
+TEN_RULE_RECORD_PAIRS = [
+    ("ANNEX11-S4-DOC-001", "DOC-2026-OM-99"),
+    ("ANNEX11-S12-ACC-001", "AR-2026-05"),
+    ("ICH-Q9-RSK-001", "RSK-2024-11"),
+    ("ANNEX11-S13-INC-001", "INC-849201"),
+    ("ANNEX11-S4-TRC-001", "URS-042"),
+    ("ANNEX11-S3-SUP-001", "SUP-2026-01"),
+    ("ANNEX11-S11-PE-001", "PE-2024-01"),
+    ("ANNEX11-S16-BCK-001", "GXP-MFG-DEMO-01"),
+    ("ANNEX11-S12-ACC-002", "ACC-2026-99"),
+    ("ANNEX11-S10-CHG-001", "CR-2026-089"),
+]
+
+VALID_GRADES = {"HIGH", "MEDIUM", "LOW", "INSUFFICIENT_EVIDENCE"}
 
 ALCOA_FIELDS = [
     "attributable",
@@ -346,3 +369,118 @@ def test_integration_run_c1_mixed_list_returns_three_distinct_graded_entries():
     assert verification["MIX-PE-2024-01"]["confidence"] == "MEDIUM"
     assert verification["MIX-DOC-2026-URS-01"]["confidence"] == "INSUFFICIENT_EVIDENCE"
     assert verification["MIX-PE-9999-FAKE"]["confidence"] == "INSUFFICIENT_EVIDENCE"
+
+
+def test_integration_ten_rules_resolve_real_record_and_payload_shape_matches_documented_input():
+    async def _run():
+        pool = await get_pool()
+        results = []
+        for rule_id, record_id in TEN_RULE_RECORD_PAIRS:
+            finding = _agent_finding(f"TENRULE-{rule_id}-{record_id}", rule_id, record_id, "claim text")
+            record = await fetch_evidence_record(pool, finding)
+            payload = await build_opa_payload(pool, finding)
+            results.append((rule_id, record, payload))
+        return results
+
+    results = asyncio.run(_run())
+    assert len(results) == len(TEN_RULE_RECORD_PAIRS) == len(RULE_EVIDENCE_TABLES) == 10
+    for rule_id, record, payload in results:
+        assert record is not None, f"{rule_id}: expected a real Postgres row, got None"
+        expected_keys = {spec[0] for spec in RULE_OPA_INPUT[rule_id]}
+        assert set(payload.keys()) == expected_keys, (
+            f"{rule_id}: payload keys {set(payload.keys())} != documented input {expected_keys}"
+        )
+
+
+def test_integration_ten_rules_verify_finding_grades_and_at_least_eight_corroborate():
+    async def _run():
+        pool = await get_pool()
+        results = []
+        for rule_id, record_id in TEN_RULE_RECORD_PAIRS:
+            finding = _agent_finding(f"TENRULE-{rule_id}-{record_id}", rule_id, record_id, "claim text")
+            results.append((rule_id, await verify_finding(pool, finding)))
+        return results
+
+    results = asyncio.run(_run())
+    corroborated_count = 0
+    for rule_id, result in results:
+        assert result["confidence"] in VALID_GRADES, f"{rule_id}: unexpected grade {result['confidence']!r}"
+        assert result["db_record_found"] is True, f"{rule_id}: expected a real seeded record"
+        if result["opa_corroborated"] is True:
+            corroborated_count += 1
+    assert corroborated_count >= 8, (
+        f"expected at least 8 of 10 seeded gap records to corroborate, got {corroborated_count}"
+    )
+
+
+def test_integration_rule_5_payload_test_cases_object_shape_and_corroborates():
+    finding = _agent_finding("TENRULE-TRC-URS-042", "ANNEX11-S4-TRC-001", "URS-042", "claim text")
+
+    async def _run():
+        pool = await get_pool()
+        payload = await build_opa_payload(pool, finding)
+        result = await verify_finding(pool, finding)
+        return payload, result
+
+    payload, result = asyncio.run(_run())
+    assert isinstance(payload["test_cases"], dict), "rule 5's test_cases must be an object, not a list"
+    assert "TC-2026-042" in payload["test_cases"]
+    assert result["opa_corroborated"] is True
+
+
+def test_integration_rule_10_payload_carries_both_changes_and_change_actions_keys():
+    finding = _agent_finding("TENRULE-CHG-CR-2026-089", "ANNEX11-S10-CHG-001", "CR-2026-089", "claim text")
+
+    async def _run():
+        pool = await get_pool()
+        return await build_opa_payload(pool, finding)
+
+    payload = asyncio.run(_run())
+    assert set(payload.keys()) == {"changes", "change_actions"}
+    assert len(payload["change_actions"]) >= 1
+
+
+def test_integration_fail_closed_opa_unreachable_all_ten_grade_insufficient_evidence(monkeypatch):
+    # Same closed-port monkeypatch pattern as test_opa_client.py's own
+    # unreachable-host test; the monkeypatch fixture restores OPA_URL
+    # automatically after this test, so no later test inherits it.
+    monkeypatch.setattr(opa_client_module, "OPA_URL", "http://127.0.0.1:9/v1/data/sentinel/gxp/violation")
+
+    async def _run():
+        pool = await get_pool()
+        results = []
+        for rule_id, record_id in TEN_RULE_RECORD_PAIRS:
+            finding = _agent_finding(f"TENRULE-{rule_id}-{record_id}", rule_id, record_id, "claim text")
+            results.append((rule_id, await verify_finding(pool, finding)))
+        return results
+
+    results = asyncio.run(_run())
+    for rule_id, result in results:
+        assert result["confidence"] == "INSUFFICIENT_EVIDENCE", (
+            f"{rule_id}: OPA outage must fail closed, got {result['confidence']!r}"
+        )
+        assert result["opa_corroborated"] is False
+
+
+def test_integration_fail_closed_postgres_unreachable_run_c1_all_insufficient_evidence(monkeypatch, reset_db_pool):
+    # Same unreachable-DATABASE_URL monkeypatch pattern
+    # test_a2_compliance.py's own Postgres-unreachable test uses;
+    # reset_db_pool closes the pool before and after so this does not leak
+    # a broken pool into a later test.
+    monkeypatch.setattr(db, "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:1/sentinel")
+
+    findings = [
+        _agent_finding(f"TENRULE-{rule_id}-{record_id}", rule_id, record_id, "claim text")
+        for rule_id, record_id in TEN_RULE_RECORD_PAIRS
+    ]
+
+    async def _run():
+        return await run_c1({"findings": findings})
+
+    result = asyncio.run(_run())  # must not raise
+    verification = result["verification_results"]
+    assert len(verification) == 10
+    for finding_id, entry in verification.items():
+        assert entry["confidence"] == "INSUFFICIENT_EVIDENCE", (
+            f"{finding_id}: Postgres outage must fail closed, got {entry['confidence']!r}"
+        )
