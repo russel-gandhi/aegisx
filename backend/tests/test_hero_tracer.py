@@ -1,6 +1,7 @@
 """
 Hero-loop end-to-end tracer test (Phase 3, plan 03-02; updated 03-04 when
-A2 grew from one deterministic check to all three the Bible names).
+A2 grew from one deterministic check to all three the Bible names; updated
+03-05 when the traceability finding's corroboration defect was fixed).
 
 Drives `compiled_graph.ainvoke()` — real Postgres, real OPA, respx-mocked
 Gemini — over the query "Is GXP-MFG-DEMO-01 audit ready?". Proves the path
@@ -13,25 +14,25 @@ two of the three Bible-named checks — `verify_periodic_eval_current`
 `URS-042` / `TC-2026-042` DRAFT gap) — and produce two real
 `AgentFinding`s; `verify_urs_approved` now passes and emits none. C1's
 real `run_c1` then verifies both findings against live Postgres + live
-OPA:
+OPA. Both findings score `MEDIUM`: 6-of-9 ALCOA fields true, real DB
+record, real OPA corroboration (`ANNEX11-S11-PE-001` for the
+periodic-evaluation finding, `ANNEX11-S4-TRC-001` for the traceability
+finding) — `100 - (9 - 6) * 10 = 70`, which falls in `score >= 50`.
 
-- The periodic-evaluation finding scores `MEDIUM` per this plan's
-  `<critical_findings>` arithmetic (6-of-9 ALCOA fields true, real DB
-  record, real OPA `ANNEX11-S11-PE-001` corroboration) — unchanged from
-  03-02.
-- The traceability finding scores `INSUFFICIENT_EVIDENCE`, *not* `MEDIUM`
-  as 03-04-PLAN.md's `<critical_findings>` predicted. This is a discovered
-  pre-existing defect in `c1_verifier.py`'s `build_opa_payload()` (03-02,
-  untouched by 03-04 per its Rule 10 file boundary): for a multi-input-key
-  rule like `ANNEX11-S4-TRC-001`, it queries the `test_cases` table using
-  the finding's own `evidence_ids` (`["URS-042"]`, a *requirement* id),
-  never using the linked `test_case_id` (`"TC-2026-042"`) rule 5's own
-  input shape requires — so the OPA payload's `test_cases` object is
-  always empty for this rule, the rule body is undefined, and no
-  violation is ever emitted no matter how correct A2's own DRAFT
-  detection is. See `03-04-SUMMARY.md`'s "Discovered issue" section.
-  Recorded in `.planning/WINDOWS.md`, routed to a future C1-hardening
-  plan — out of 03-04's scope to fix.
+Until plan 03-05, the traceability finding scored `INSUFFICIENT_EVIDENCE`
+instead, from a pre-existing defect in `c1_verifier.py`'s
+`build_opa_payload()` (03-02, discovered in 03-04, out of 03-04's Rule 10
+file boundary to fix): for a multi-input-key rule like
+`ANNEX11-S4-TRC-001`, it queried the `test_cases` table using the
+finding's own `evidence_ids` (`["URS-042"]`, a *requirement* id) instead
+of the linked `test_case_id` (`"TC-2026-042"`) rule 5's own input shape
+requires, so the OPA payload's `test_cases` object was always empty for
+this rule and no violation was ever emitted regardless of how correct
+A2's own DRAFT detection was. Plan 03-05 fixed `build_opa_payload()` (a
+data-driven foreign-key resolution, `RULE_OPA_INPUT`'s new `id_source`
+element — see `c1_verifier.py`'s module docstring) and closed
+`.planning/WINDOWS.md` id 1; the assertions below were updated to the
+correct, now-observed behavior. See `03-05-SUMMARY.md`.
 
 Requires Postgres and OPA running and seeded (`infra/health-check.sh`,
 `infra/apply-seed.sh`). Follows the established `asyncio.run()`-inside-a-
@@ -167,16 +168,15 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     assert entry["opa_corroborated"] is True
     assert entry["confidence"] == "MEDIUM"
 
-    # Discovered pre-existing c1_verifier.py defect (see module docstring):
-    # this finding's own DRAFT detection is correct and db_record_found is
-    # True, but build_opa_payload() never queries test_cases by the
-    # requirement's linked test_case_id, so rule 5 never fires and this
-    # never corroborates. Asserting the real (buggy) behavior here, not the
-    # MEDIUM 03-04-PLAN.md's <critical_findings> predicted.
+    # Plan 03-05 fixed build_opa_payload()'s multi-input-key resolution
+    # (see module docstring): rule 5's test_cases input is now correctly
+    # keyed by the requirement's linked test_case_id, so this finding now
+    # corroborates and scores MEDIUM, exactly as 03-04-PLAN.md's
+    # <critical_findings> originally predicted.
     trc_entry = verification[EXPECTED_TRC_FINDING_ID]
     assert trc_entry["db_record_found"] is True
-    assert trc_entry["opa_corroborated"] is False
-    assert trc_entry["confidence"] == "INSUFFICIENT_EVIDENCE"
+    assert trc_entry["opa_corroborated"] is True
+    assert trc_entry["confidence"] == "MEDIUM"
 
 
 def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
@@ -210,10 +210,11 @@ def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
 
     entry = result["verification_results"][EXPECTED_FINDING_ID]
     assert entry["confidence"] == "MEDIUM"
-    # See test_success_path's comment: real, discovered c1_verifier.py
-    # defect, not this plan's check logic.
+    # See test_success_path's comment: plan 03-05 fixed build_opa_payload(),
+    # so this now corroborates and scores MEDIUM in the degraded path too —
+    # narration provider degradation is orthogonal to C1's own verification.
     trc_entry = result["verification_results"][EXPECTED_TRC_FINDING_ID]
-    assert trc_entry["confidence"] == "INSUFFICIENT_EVIDENCE"
+    assert trc_entry["confidence"] == "MEDIUM"
 
 
 def test_evidence_provenance_reads_live_seeded_row(monkeypatch):
