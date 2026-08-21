@@ -1,0 +1,271 @@
+"""
+Tests for `app.agents.minimal_specialists` (Phase 3, plan 03-03).
+
+Covers all ten of Task 2's behaviors against the live seeded Postgres
+(infra/postgres/seed/001_seed.sql). Follows the established
+`asyncio.run()`-inside-a-plain-`def`-test convention (no pytest-asyncio),
+matching test_hero_tracer.py / test_a0_orchestrator.py.
+
+A real OPENROUTER_API_KEY (and DEEPSEEK/GROQ) are configured in this
+repo's root `.env` (D-01 follow-up) — every test below explicitly deletes
+the provider keys it does not intend to exercise, so an unmocked-but-keyed
+request never reaches respx's own "no matching route" error path by
+accident (mirrors test_a0_orchestrator.py's same convention).
+"""
+
+import asyncio
+
+import httpx
+import respx
+from langchain_core.messages import HumanMessage
+
+from app import db
+from app.agents.c1_verifier import RULE_EVIDENCE_TABLES, RULE_OPA_INPUT
+from app.agents.minimal_specialists import (
+    SPECIALIST_CONFIG,
+    run_a1,
+    run_a3,
+    run_a4,
+    run_a5,
+    run_a6,
+)
+
+SYSTEM_ID = "GXP-MFG-DEMO-01"
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1beta/models/"
+    "gemini-2.5-flash:generateContent"
+)
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+ALL_PROVIDER_KEYS = (
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+)
+
+RUNNERS = {"A1": run_a1, "A3": run_a3, "A4": run_a4, "A5": run_a5, "A6": run_a6}
+
+
+def _state(system_id: str = SYSTEM_ID):
+    return {
+        "messages": [HumanMessage(content="Is GXP-MFG-DEMO-01 audit ready?")],
+        "system_id": system_id,
+        "user_intent": "",
+        "active_agents": [],
+        "findings": [],
+        "proposed_actions": [],
+        "verification_results": {},
+        "final_synthesis": "",
+    }
+
+
+def _delete_all_keys(monkeypatch):
+    for env_name in ALL_PROVIDER_KEYS:
+        monkeypatch.delenv(env_name, raising=False)
+
+
+def _openai_body(text: str, model: str):
+    return httpx.Response(200, json={"choices": [{"message": {"content": text}}], "model": model})
+
+
+def test_all_five_return_findings_list_and_none_are_unconditionally_empty(monkeypatch):
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            results = {}
+            for agent_id, runner in RUNNERS.items():
+                results[agent_id] = await runner(_state())
+            return results
+
+    results = asyncio.run(_run())
+    for agent_id, result in results.items():
+        assert isinstance(result["findings"], list), agent_id
+
+    # Real seeded gaps exist for A3 (RSK-2024-11), A4 (CR-2026-089), A5
+    # (INC-849201), A6 (AR-2026-05 + ACC-2026-99) — each must produce at
+    # least one finding against the live seeded DB.
+    for agent_id in ("A3", "A4", "A5", "A6"):
+        assert len(results[agent_id]["findings"]) >= 1, agent_id
+
+
+def test_every_finding_validates_against_phase3_conventions(monkeypatch):
+    _delete_all_keys(monkeypatch)
+    rego_rule_ids = set(RULE_EVIDENCE_TABLES)
+
+    async def _run():
+        with respx.mock:
+            results = {}
+            for agent_id, runner in RUNNERS.items():
+                results[agent_id] = await runner(_state())
+            return results
+
+    results = asyncio.run(_run())
+    for agent_id, result in results.items():
+        for finding in result["findings"]:
+            assert finding["claim"], f"{agent_id} finding has empty claim"
+            assert set(finding["regulatory_citations"]) <= rego_rule_ids, agent_id
+            assert finding["model_attribution"], agent_id
+            # ALCOAScore's 9 fields (A1's Bible-literal fallback uses {}
+            # deliberately — see minimal_specialists._a1_abstain_finding).
+            if finding["finding_id"] != "ERR-A1":
+                assert len(finding["alcoa_score"]) == 9, agent_id
+            if finding["finding_id"] not in ("ERR-A1",) and not finding["finding_id"].startswith("ERR-"):
+                assert finding["evidence_ids"], agent_id
+
+
+def test_every_rule_id_specialist_emits_is_key_in_c1_frozen_maps():
+    assert sorted(SPECIALIST_CONFIG) == ["A1", "A3", "A4", "A5", "A6"]
+    rule_ids = {
+        rid
+        for cfg in SPECIALIST_CONFIG.values()
+        for rid in ([cfg["rule_id"]] if isinstance(cfg["rule_id"], str) else cfg["rule_id"])
+    }
+    assert rule_ids <= set(RULE_EVIDENCE_TABLES)
+    assert rule_ids <= set(RULE_OPA_INPUT)
+
+
+def test_a1_absent_system_returns_err_a1_abstain_finding(monkeypatch):
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            return await run_a1(_state(system_id="NO-SUCH-SYSTEM"))
+
+    result = asyncio.run(_run())
+    assert len(result["findings"]) == 1
+    finding = result["findings"][0]
+    assert finding["finding_id"] == "ERR-A1"
+    assert finding["claim"] == "Unable to verify documentation inventory due to retrieval timeout."
+    assert finding["confidence_score"] == "LOW"
+    assert finding["regulatory_citations"] == []
+    assert finding["evidence_ids"] == []
+    assert finding["alcoa_score"] == {}
+    assert finding["model_attribution"] == "gemini-2.5-flash"
+
+
+def test_a3_deepseek_timeout_downgrades_to_gemini_and_narrates(monkeypatch):
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    async def _run():
+        with respx.mock:
+            respx.post(DEEPSEEK_URL).mock(side_effect=httpx.TimeoutException("timed out"))
+            respx.post(GEMINI_URL).mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "candidates": [
+                            {"content": {"parts": [{"text": "Risk RSK-2024-11 is overdue for review."}]}}
+                        ]
+                    },
+                )
+            )
+            return await run_a3(_state())
+
+    result = asyncio.run(_run())
+    findings = [f for f in result["findings"] if f["finding_id"].startswith("A3-")]
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["model_attribution"] == "gemini-2.5-flash"
+    assert finding["claim"] == "Risk RSK-2024-11 is overdue for review."
+    assert finding["regulatory_citations"] == ["ICH-Q9-RSK-001"]
+    assert finding["evidence_ids"] == ["RSK-2024-11"]
+
+
+def test_a4_emits_finding_from_direct_change_metadata_only(monkeypatch):
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            return await run_a4(_state())
+
+    result = asyncio.run(_run())
+    findings = result["findings"]
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["finding_id"] == "A4-ANNEX11-S10-CHG-001-CR-2026-089"
+    assert finding["evidence_ids"] == ["CR-2026-089"]
+    assert finding["model_attribution"] == "deterministic-fallback"
+
+
+def test_a5_provider_failure_still_emits_rule_only_overdue_rca_finding(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(return_value=httpx.Response(500, json={"error": "internal"}))
+            return await run_a5(_state())
+
+    result = asyncio.run(_run())
+    findings = result["findings"]
+    assert len(findings) == 1
+    finding = findings[0]
+    assert finding["finding_id"] == "A5-ANNEX11-S13-INC-001-INC-849201"
+    assert finding["model_attribution"] == "deterministic-fallback"
+    assert finding["claim"]
+
+
+def test_a6_429_cascades_to_openrouter_before_abstain(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(return_value=httpx.Response(429, json={"error": "rate limited"}))
+            openrouter_route = respx.post(OPENROUTER_URL).mock(
+                return_value=_openai_body("Access review AR-2026-05 is overdue.", "openrouter/auto")
+            )
+            result = await run_a6(_state())
+            return result, openrouter_route
+
+    result, openrouter_route = asyncio.run(_run())
+    assert openrouter_route.called
+    review_findings = [f for f in result["findings"] if "ACC-001" in f["finding_id"]]
+    assert len(review_findings) == 1
+    assert review_findings[0]["model_attribution"] == "openrouter/auto"
+    # The orphaned-privileged-account check also finds a real gap
+    # (ACC-2026-99) independent of the review-overdue narration above.
+    orphan_findings = [f for f in result["findings"] if "ACC-002" in f["finding_id"]]
+    assert len(orphan_findings) == 1
+
+
+def test_all_five_complete_with_no_provider_key_present_and_postgres_reachable(monkeypatch):
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            results = {}
+            for agent_id, runner in RUNNERS.items():
+                results[agent_id] = await runner(_state())
+            return results
+
+    results = asyncio.run(_run())  # must not raise
+    for agent_id, result in results.items():
+        assert isinstance(result["findings"], list), agent_id
+        for finding in result["findings"]:
+            assert finding["claim"], agent_id
+
+
+def test_all_five_return_bible_fallback_with_postgres_unreachable(monkeypatch, reset_db_pool):
+    _delete_all_keys(monkeypatch)
+    monkeypatch.setattr(db, "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:1/sentinel")
+
+    async def _run():
+        with respx.mock:
+            results = {}
+            for agent_id, runner in RUNNERS.items():
+                results[agent_id] = await runner(_state())
+            return results
+
+    results = asyncio.run(_run())  # must not raise
+    for agent_id, result in results.items():
+        findings = result["findings"]
+        assert len(findings) == 1, agent_id
+        assert findings[0]["finding_id"] == "ERR-" + agent_id

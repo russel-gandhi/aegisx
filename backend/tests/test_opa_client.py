@@ -31,6 +31,7 @@ plan 02-02's `opa test` (pinned clock) proved.
 """
 
 import asyncio
+import datetime
 import logging
 
 from app.opa_client import evaluate_opa_policy
@@ -143,6 +144,32 @@ def test_every_returned_violation_validates_as_opa_violation_model():
         # Rego rule objects and the Pydantic model holds today.
         model = OPAViolation(**v)
         assert model.rule_id == v["rule_id"]
+
+
+def test_payload_containing_datetime_value_does_not_raise_typeerror(monkeypatch):
+    """Deviation 8 (backend tier, plan 03-03): asyncpg returns native
+    `datetime.datetime` objects for `TIMESTAMP` columns (e.g.
+    `changes.qa_approval_date`) — a real shape C1's `fetch_evidence_record`
+    forwards into this function's payload once A4 (plan 03-03) starts
+    citing the `changes` table. Proves `_json_safe()` handles it rather
+    than letting `TypeError: Object of type datetime is not JSON
+    serializable` escape uncaught."""
+    payload = {
+        "changes": [
+            {
+                "id": "CR-2026-089",
+                "system_id": "GXP-MFG-DEMO-01",
+                "status": "CLOSED",
+                "qa_approval_date": datetime.datetime(2026, 8, 1, 12, 0, 0),
+            }
+        ],
+        "change_actions": [
+            {"id": "CA-2026-089-1", "change_id": "CR-2026-089", "status": "OPEN"}
+        ],
+    }
+    violations = asyncio.run(evaluate_opa_policy(payload))  # must not raise
+    assert len(violations) == 1
+    assert violations[0]["rule_id"] == "ANNEX11-S10-CHG-001"
 
 
 def test_unreachable_host_returns_empty_list_and_logs_warning(monkeypatch, caplog):

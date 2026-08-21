@@ -4,14 +4,16 @@ A2 grew from one deterministic check to all three the Bible names).
 
 Drives `compiled_graph.ainvoke()` — real Postgres, real OPA, respx-mocked
 Gemini — over the query "Is GXP-MFG-DEMO-01 audit ready?". Proves the path
-the tracer wires end to end: A0's stub fan-out reaches A2's real checks,
-which against the seeded state (plus 03-04's additive
-`DOC-2026-URS-01` APPROVED URS fixture, D-05) now fail exactly two of the
-three Bible-named checks — `verify_periodic_eval_current` (seeded
-`PE-2024-01` gap) and `verify_test_traceability` (seeded `URS-042` /
-`TC-2026-042` DRAFT gap) — and produce two real `AgentFinding`s; `verify_
-urs_approved` now passes and emits none. C1's real `run_c1` then verifies
-both findings against live Postgres + live OPA:
+the tracer wires end to end: A0 (real classifier since 03-03, falling back
+to the full `["A1".."A6"]` set here — see the Deviation note below) fans
+out to A2's real checks, which against the seeded state (plus 03-04's
+additive `DOC-2026-URS-01` APPROVED URS fixture, D-05) now fail exactly
+two of the three Bible-named checks — `verify_periodic_eval_current`
+(seeded `PE-2024-01` gap) and `verify_test_traceability` (seeded
+`URS-042` / `TC-2026-042` DRAFT gap) — and produce two real
+`AgentFinding`s; `verify_urs_approved` now passes and emits none. C1's
+real `run_c1` then verifies both findings against live Postgres + live
+OPA:
 
 - The periodic-evaluation finding scores `MEDIUM` per this plan's
   `<critical_findings>` arithmetic (6-of-9 ALCOA fields true, real DB
@@ -45,6 +47,21 @@ reach the live OPA sidecar, not a mock. `.pass_through()` marks only the
 OPA host:port pair as real-network passthrough while every other route
 stays under respx's default `assert_all_mocked=True`, so an accidental,
 unmocked call to any other host still fails loudly.
+
+Deviation (plan 03-03): A0 became a real classifier in 03-03 Task 1, and
+this module's single mocked Gemini response is prose, not the strict JSON
+`classify_intent()` requires — so A0 correctly falls back to the full
+`["A1".."A6"]` set here (proven independently in
+`test_a0_orchestrator.py`), same as when A0 was still a stub. 03-03 Task 2
+then made A1/A3-A6 genuinely real, and against this same live seeded
+Postgres their deterministic checks find their own real gaps (RSK-2024-11,
+CR-2026-089/CA-2026-089-1, INC-849201, AR-2026-05, ACC-2026-99) —
+producing additional findings this tracer's original "exactly one
+finding" / "exactly two findings" assertions did not anticipate.
+`_finding_by_id()` below now locates a finding by id among the full set
+(dropping any assertion on the total finding count) rather than asserting
+the set has exactly one or two members; every original assertion about
+A2's own findings and their C1 verification results is unchanged.
 """
 
 import asyncio
@@ -100,15 +117,18 @@ def _initial_state():
 
 
 def _finding_by_id(result, finding_id):
-    """Updated 03-04: A2 now emits two findings against the seeded state
-    (the periodic-evaluation gap and the traceability gap; the URS-approval
-    check now passes thanks to 03-04's additive fixture and emits none).
-    Asserts exactly two findings are present, then returns the one matching
-    `finding_id`."""
+    """Locates a finding by id among `result["findings"]`. Since 03-03
+    Task 2, A1/A3-A6 are also real and find their own gaps against this
+    same live seeded Postgres (see module docstring's Deviation note), and
+    since 03-04 A2 itself emits two findings (periodic-eval + traceability)
+    rather than one — so this helper asserts nothing about the total
+    finding count, only that exactly one finding with `finding_id` exists."""
     findings = result["findings"]
-    assert len(findings) == 2, f"expected exactly two findings, got {findings!r}"
     matches = [f for f in findings if f["finding_id"] == finding_id]
-    assert len(matches) == 1, f"expected exactly one finding with id {finding_id!r}, got {findings!r}"
+    assert len(matches) == 1, (
+        f"expected exactly one finding with id {finding_id!r} among "
+        f"{len(findings)} total, got {findings!r}"
+    )
     return matches[0]
 
 
@@ -137,7 +157,11 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     assert trc_finding["evidence_ids"] == ["URS-042"]
 
     verification = result["verification_results"]
-    assert set(verification.keys()) == {EXPECTED_FINDING_ID, EXPECTED_TRC_FINDING_ID}
+    # See module docstring's Deviation note: A1/A3-A6 also fire for real
+    # against this same live seeded Postgres since 03-03 Task 2, so this
+    # asserts both of A2's own entries are present rather than that they
+    # are the only ones.
+    assert {EXPECTED_FINDING_ID, EXPECTED_TRC_FINDING_ID} <= set(verification.keys())
     entry = verification[EXPECTED_FINDING_ID]
     assert entry["db_record_found"] is True
     assert entry["opa_corroborated"] is True

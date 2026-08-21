@@ -142,6 +142,18 @@ This section records every point where `backend/app/opa_client.py` departs from 
 
 **Scope:** Only `ALCOA_DIMENSION_COUNT` changed. The starting score (`100`), the `x10` per-dimension multiplier, the `-100` policy-contradiction penalty, and the `80`/`50`/`0` HIGH/MEDIUM/LOW thresholds are all carried over from the Bible unchanged. Routed to **SENT-7-05**.
 
+### Deviation 8 — `evaluate_opa_policy()` sanitizes `datetime` values before JSON-encoding the payload
+
+**Bible says:** Section 3.4's `evaluate_opa_policy()` POSTs `{"input": payload}` directly via `json=`.
+
+**Implemented:** `payload` is passed through a new `_json_safe()` helper first, which recursively converts `datetime.datetime`/`datetime.date` values to ISO-8601 strings before the `json=` encode.
+
+**Why:** asyncpg returns native `datetime.datetime` objects for `TIMESTAMP` columns (e.g. `changes.qa_approval_date`). httpx's `json=` encoder raises `TypeError: Object of type datetime is not JSON serializable` on them — a `TypeError`, not `httpx.RequestError`/`httpx.HTTPStatusError`, so it was not caught by this function's existing `except` clause and would crash whichever agent called it. This was latent since Phase 2 (every table `evaluate_opa_policy()` might see a row from can have a `TIMESTAMP` column) and unexercised until Phase 3 plan 03-03: A2's only evidence table (`periodic_evaluations`) has no `TIMESTAMP` column, so A2/C1 never hit this path, but 03-03's A4 Change Agent cites the `changes` table, and C1's `fetch_evidence_record()`/`build_opa_payload()` (`app.agents.c1_verifier`) do a bare `SELECT *` and forward whatever asyncpg returns. 03-03-PLAN.md `<critical_findings>` places `c1_verifier.py` and `a2_compliance.py` out of scope for that plan to edit; the fix belongs in `opa_client.py` instead, the one place a Postgres row's native Python types cross into an HTTP JSON body, regardless of which caller supplied the row.
+
+**Evidence:** `[VERIFIED: backend/tests/test_opa_client.py::test_payload_containing_datetime_value_does_not_raise_typeerror]` — a payload built exactly like C1 would build for `ANNEX11-S10-CHG-001` (a `changes` row with a real `datetime.datetime` `qa_approval_date`) round-trips through `evaluate_opa_policy()` without raising and returns the expected violation.
+
+**Scope:** `backend/app/opa_client.py` only — a new `_json_safe()` function and one call-site change. Routed to **SENT-7-05**.
+
 ## AgentFinding conventions (Phase 3)
 
 Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
