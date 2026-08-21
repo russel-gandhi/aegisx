@@ -44,11 +44,13 @@ MVP-scoped to the hero loop only: A0 Orchestrator → A2 Compliance Agent → C1
 
 - [x] Context, research, plan (6 plans / 5 waves)
 - [x] **Wave 1 (03-01)** — LLM router (`llm_router.py`) + Postgres client (`db.py`), 47/47 tests passing. Found & fixed 2 real Windows asyncpg/pytest event-loop bugs; recorded 3 Bible deviations (deepseek-reasoner retired, openrouter model string, Gemini key-env alias).
-- [ ] Wave 2 (03-02) — hero tracer: one A2 check → real `AgentFinding` → C1 `calculate_confidence()`
-- [ ] Wave 3 (03-03, 03-04 parallel) — A0 classification + fallback; remaining A2 checks + URS seed fixture
+- [x] **Wave 2 (03-02)** — hero tracer: one A2 check → real `AgentFinding` → C1 `calculate_confidence()`, 50/50 passing.
+- [x] **Wave 3 (03-03, 03-04 parallel)** — A0 real classifier + 2000ms fallback, A1/A3-A6 minimal-but-real specialists; A2 full three deterministic checks + URS seed fixture. 83/83 passing after merge (resolved a real test-assertion conflict between the two plans). Found & fixed a latent `opa_client.py` datetime-serialization bug (Deviation 8).
 - [ ] Wave 4 (03-05) — C1 Critical-review coverage (unit/negative/edge/integration + contradiction fixture)
 - [ ] Wave 5 (03-06) — hero-loop integration test + CI gate extension
 - [ ] Phase verification
+
+**Known open item (routed to 03-05):** `c1_verifier.py`'s `build_opa_payload()` keys multi-input-key rules (e.g. `ANNEX11-S4-TRC-001`) off the finding's own `evidence_ids` instead of following linked ids (e.g. `test_case_id`) — causes `INSUFFICIENT_EVIDENCE` instead of the expected score. Recorded in `.planning/WINDOWS.md`.
 
 ## ⏳ Phase 4 — Evidence & Impact (Stage 3)
 NetworkX evidence graph from live Postgres state; Blast Radius traversal; verified finding renders as evidence card.
