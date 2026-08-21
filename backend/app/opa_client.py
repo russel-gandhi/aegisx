@@ -23,8 +23,26 @@ is the component responsible for typing and scoring them.
 
 Import nothing from `app.main` — this module must be importable standalone,
 and doing so would risk a circular import.
+
+Deviation 8 (backend tier, plan 03-03): `evaluate_opa_policy()` now passes
+`payload` through `_json_safe()` before encoding it. asyncpg returns
+native `datetime.datetime`/`datetime.date` objects for `TIMESTAMP`
+columns (e.g. `changes.qa_approval_date`), and httpx's `json=` encoder
+raises `TypeError: Object of type datetime is not JSON serializable` on
+them — uncaught by this function's existing `except (httpx.RequestError,
+httpx.HTTPStatusError)` clause, since a `TypeError` from request-encoding
+is neither. This was latent from Phase 2 (Section 3.4's original `json=`
+call already carried the same gap) and unexercised until Phase 3 plan
+03-03's A4 Change Agent became the first caller whose evidence table
+(`changes`) has a `TIMESTAMP` column — C1's `fetch_evidence_record()`/
+`build_opa_payload()` (`app.agents.c1_verifier`, out of scope for this
+plan to edit per 03-03-PLAN.md `<critical_findings>`) do a bare `SELECT *`
+and forward whatever asyncpg returns. The fix belongs here, at the one
+place a Postgres row's native Python types cross into an HTTP JSON body,
+not in the caller. Routed to **SENT-7-05**.
 """
 
+import datetime
 import logging
 import os
 from typing import Any, Dict, List
@@ -35,6 +53,21 @@ from dotenv import load_dotenv
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def _json_safe(value: Any) -> Any:
+    """Recursively convert `datetime.datetime`/`datetime.date` values
+    (asyncpg's native representation of a `TIMESTAMP` column) to ISO-8601
+    strings; every other value is returned unchanged. See Deviation 8
+    above. A no-op for the already-JSON-safe payloads
+    `tests/test_opa_client.py` already exercises."""
+    if isinstance(value, dict):
+        return {key: _json_safe(v) for key, v in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.isoformat()
+    return value
 
 # Deviation 1 (backend tier): the Bible hardcodes
 # "http://localhost:8181/v1/data/sentinel/gxp/violation". Read it from the
@@ -78,7 +111,7 @@ async def evaluate_opa_policy(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 OPA_URL,
-                json={"input": payload},
+                json={"input": _json_safe(payload)},
                 timeout=2.0,
             )
             response.raise_for_status()

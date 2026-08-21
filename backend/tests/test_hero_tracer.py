@@ -3,7 +3,7 @@ Hero-loop end-to-end tracer test (Phase 3, plan 03-02).
 
 Drives `compiled_graph.ainvoke()` — real Postgres, real OPA, respx-mocked
 Gemini — over the query "Is GXP-MFG-DEMO-01 audit ready?". Proves the one
-path the tracer wires end to end: A0's stub fan-out reaches A2's real
+path the tracer wires end to end: A0's fan-out reaches A2's real
 `verify_periodic_eval_current` check, which finds the seeded `PE-2024-01`
 gap (Bible Section 5) and produces a real `AgentFinding`; C1's real
 `run_c1` then verifies that finding against the live `periodic_evaluations`
@@ -24,6 +24,20 @@ reach the live OPA sidecar, not a mock. `.pass_through()` marks only the
 OPA host:port pair as real-network passthrough while every other route
 stays under respx's default `assert_all_mocked=True`, so an accidental,
 unmocked call to any other host still fails loudly.
+
+Deviation (plan 03-03): A0 became a real classifier in 03-03 Task 1, and
+this module's single mocked Gemini response is prose, not the strict JSON
+`classify_intent()` requires — so A0 correctly falls back to the full
+`["A1".."A6"]` set here (proven independently in
+`test_a0_orchestrator.py`), same as when A0 was still a stub. 03-03 Task 2
+then made A1/A3-A6 genuinely real, and against this same live seeded
+Postgres their deterministic checks find their own real gaps (RSK-2024-11,
+CR-2026-089/CA-2026-089-1, INC-849201, AR-2026-05, ACC-2026-99) —
+producing additional findings this tracer's original "exactly one
+finding" assertions did not anticipate. `_one_finding()` below now
+locates A2's finding by id among the full set rather than asserting the
+set has exactly one member; every original assertion about A2's own
+finding and its C1 verification result is unchanged.
 """
 
 import asyncio
@@ -76,9 +90,19 @@ def _initial_state():
 
 
 def _one_finding(result):
+    """Locates A2's finding by id among `result["findings"]`. Since
+    03-03 Task 2, A1/A3-A6 are also real and find their own gaps against
+    this same live seeded Postgres (see module docstring's Deviation
+    note) — this helper's job is exclusively to hand back the one finding
+    this suite's assertions were written about, not to assert anything
+    about how many other agents also fired."""
     findings = result["findings"]
-    assert len(findings) == 1, f"expected exactly one finding, got {findings!r}"
-    return findings[0]
+    matches = [f for f in findings if f["finding_id"] == EXPECTED_FINDING_ID]
+    assert len(matches) == 1, (
+        f"expected exactly one {EXPECTED_FINDING_ID} finding among "
+        f"{len(findings)} total, got {findings!r}"
+    )
+    return matches[0]
 
 
 def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
@@ -103,7 +127,10 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     assert finding["claim"] == GEMINI_SUCCESS_BODY["candidates"][0]["content"]["parts"][0]["text"]
 
     verification = result["verification_results"]
-    assert set(verification.keys()) == {EXPECTED_FINDING_ID}
+    # See module docstring's Deviation note: A1/A3-A6 also fire for real
+    # against this same live seeded Postgres since 03-03 Task 2, so this
+    # asserts A2's own entry is present rather than that it is the only one.
+    assert EXPECTED_FINDING_ID in verification
     entry = verification[EXPECTED_FINDING_ID]
     assert entry["db_record_found"] is True
     assert entry["opa_corroborated"] is True

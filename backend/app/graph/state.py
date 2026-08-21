@@ -96,6 +96,7 @@ except ImportError:  # pragma: no cover - exercised only if the submodule moves
 from app.agents.a0_orchestrator import run_a0
 from app.agents.a2_compliance import run_a2
 from app.agents.c1_verifier import run_c1
+from app.agents.minimal_specialists import run_a1, run_a3, run_a4, run_a5, run_a6
 
 
 class AgentFinding(TypedDict):
@@ -172,8 +173,14 @@ async def orchestrator_a0(state: AgentState) -> Dict[str, Any]:
 
 
 async def system_knowledge_a1(state: AgentState) -> Dict[str, Any]:
-    """A1 - System Knowledge (Qdrant RAG). Stub: no findings."""
-    return {"findings": []}
+    """A1 - System Knowledge (Qdrant RAG). Delegates to
+    `app.agents.minimal_specialists.run_a1` (Phase 3, plan 03-03): a
+    minimal-but-real agent, not a stub — validates `system_id` exists in
+    `gxp_systems` and returns the Bible's verbatim `ERR-A1` abstain finding
+    when it does not (or when Postgres is unreachable). Qdrant retrieval
+    is deliberately not built this phase (v2-territory, 03-CONTEXT.md
+    `<deferred>`)."""
+    return await run_a1(state)
 
 
 async def compliance_a2(state: AgentState) -> Dict[str, Any]:
@@ -186,23 +193,35 @@ async def compliance_a2(state: AgentState) -> Dict[str, Any]:
 
 
 async def risk_a3(state: AgentState) -> Dict[str, Any]:
-    """A3 - Risk Agent. Stub: no findings."""
-    return {"findings": []}
+    """A3 - Risk Agent. Delegates to
+    `app.agents.minimal_specialists.run_a3` (Phase 3, plan 03-03):
+    flags a risk assessment overdue its ICH Q9(R1) 12-month review cycle,
+    downgrading from DeepSeek to `gemini_flash_thinking` on the router's
+    own failure behavior before falling to a deterministic sentence."""
+    return await run_a3(state)
 
 
 async def change_a4(state: AgentState) -> Dict[str, Any]:
-    """A4 - Change Agent. Stub: no findings."""
-    return {"findings": []}
+    """A4 - Change Agent. Delegates to
+    `app.agents.minimal_specialists.run_a4` (Phase 3, plan 03-03): flags a
+    CLOSED change record with an OPEN linked action from direct change
+    record metadata only — graph traversal lands in Phase 4."""
+    return await run_a4(state)
 
 
 async def incident_a5(state: AgentState) -> Dict[str, Any]:
-    """A5 - Incident Agent. Stub: no findings."""
-    return {"findings": []}
+    """A5 - Incident Agent. Delegates to
+    `app.agents.minimal_specialists.run_a5` (Phase 3, plan 03-03): flags a
+    P1 incident open more than 7 days without a started RCA."""
+    return await run_a5(state)
 
 
 async def access_a6(state: AgentState) -> Dict[str, Any]:
-    """A6 - Access Agent. Stub: no findings."""
-    return {"findings": []}
+    """A6 - Access Agent. Delegates to
+    `app.agents.minimal_specialists.run_a6` (Phase 3, plan 03-03): flags
+    an overdue access review and an orphaned privileged (departed-user)
+    account, each independently verifiable by C1."""
+    return await run_a6(state)
 
 
 async def evidence_verifier_c1(state: AgentState) -> Dict[str, Any]:
