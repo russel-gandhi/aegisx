@@ -118,7 +118,7 @@ Each task was committed atomically:
 1. **Task 1: A0 Orchestrator** - `52810a3` (feat)
 2. **Task 2: Minimal-but-real A1/A3/A4/A5/A6** - `2a6e95f` (feat)
 
-**Plan metadata:** _pending_ (docs: complete plan)
+**Plan metadata:** `9e73e28` (docs: complete plan)
 
 ## Files Created/Modified
 
