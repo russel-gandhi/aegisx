@@ -166,3 +166,159 @@ describe('/findings page', () => {
     })
   })
 })
+
+// Plan 04-05: the Blast Radius link that satisfies Bible Section 14.3's UI
+// integration constraint. Routes the fetch stub by URL so the
+// assurance-cards and evidence-graph calls can return different fixtures.
+const GRAPH_RESPONSE = {
+  system_id: 'GXP-MFG-DEMO-01',
+  nodes: [
+    {
+      node_id: 'PERIODIC_EVALUATION:FIXTURE-RECORD-PE-2024-01',
+      node_type: 'PERIODIC_EVALUATION',
+      entity_id: 'FIXTURE-RECORD-PE-2024-01',
+      properties: {},
+    },
+    {
+      node_id: 'TEST_CASE:FIXTURE-RECORD-TC-2024-02',
+      node_type: 'TEST_CASE',
+      entity_id: 'FIXTURE-RECORD-TC-2024-02',
+      properties: {},
+    },
+  ],
+  edges: [],
+}
+
+const CARD_WITH_MATCH: AssuranceCardData = {
+  ...FIXTURE,
+  finding_id: 'A2-MATCH-01',
+  evidence_ids: ['FIXTURE-RECORD-PE-2024-01'],
+}
+
+const CARD_NO_MATCH: AssuranceCardData = {
+  ...FIXTURE,
+  finding_id: 'A2-NOMATCH-01',
+  evidence_ids: ['FIXTURE-RECORD-NOT-IN-GRAPH'],
+}
+
+const CARD_TWO_MATCHES: AssuranceCardData = {
+  ...FIXTURE,
+  finding_id: 'A2-TWOMATCH-01',
+  evidence_ids: ['FIXTURE-RECORD-PE-2024-01', 'FIXTURE-RECORD-TC-2024-02'],
+}
+
+function stubFindingsAndGraph(options?: {
+  cards: AssuranceCardData[]
+  graph?: unknown
+  graphReject?: boolean
+}) {
+  const fetchMock = vi.fn((url: string) => {
+    if (url.includes('/assurance-cards')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ system_id: 'GXP-MFG-DEMO-01', cards: options?.cards ?? [] }),
+      })
+    }
+    if (url.includes('/evidence-graph')) {
+      if (options?.graphReject) {
+        return Promise.reject(new Error('network down'))
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => options?.graph ?? GRAPH_RESPONSE,
+      })
+    }
+    return Promise.reject(new Error(`unstubbed fetch: ${url}`))
+  })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+describe('/findings Blast Radius links', () => {
+  it('renders a Blast Radius link, targeting /blast-radius with the matching node id, for a card whose evidence matches a graph node', async () => {
+    stubFindingsAndGraph({ cards: [CARD_WITH_MATCH] })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/findings']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      const link = container.querySelector('a[href^="/blast-radius?node="]')
+      expect(link).toBeTruthy()
+      expect(link?.getAttribute('href')).toBe(
+        `/blast-radius?node=${encodeURIComponent('PERIODIC_EVALUATION:FIXTURE-RECORD-PE-2024-01')}`,
+      )
+    })
+  })
+
+  it('renders no link for a card whose evidence matches no graph node, while the card still renders in full', async () => {
+    stubFindingsAndGraph({ cards: [CARD_NO_MATCH] })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/findings']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="assurance-card"]')).toBeTruthy()
+    })
+    expect(container.querySelector('a[href^="/blast-radius?node="]')).toBeNull()
+  })
+
+  it('renders no link and no error for a card with an empty evidence_ids list', async () => {
+    stubFindingsAndGraph({ cards: [INSUFFICIENT_EVIDENCE_FIXTURE] })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/findings']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="assurance-card"]')).toBeTruthy()
+    })
+    expect(container.querySelector('a[href^="/blast-radius?node="]')).toBeNull()
+    expect(screen.queryByText(/error/i)).not.toBeInTheDocument()
+  })
+
+  it('renders two distinct links, each naming its own evidence id, for a card with two matching evidence ids', async () => {
+    stubFindingsAndGraph({ cards: [CARD_TWO_MATCHES] })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/findings']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      const links = container.querySelectorAll('a[href^="/blast-radius?node="]')
+      expect(links.length).toBe(2)
+    })
+    const linkTexts = Array.from(
+      container.querySelectorAll('a[href^="/blast-radius?node="]'),
+    ).map((el) => el.textContent)
+    expect(linkTexts.some((t) => t?.includes('FIXTURE-RECORD-PE-2024-01'))).toBe(true)
+    expect(linkTexts.some((t) => t?.includes('FIXTURE-RECORD-TC-2024-02'))).toBe(true)
+  })
+
+  it('leaves every card rendered with no links and no page-level error on a rejected evidence-graph fetch', async () => {
+    stubFindingsAndGraph({ cards: [CARD_WITH_MATCH], graphReject: true })
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/findings']}>
+        <AppShell />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="assurance-card"]')).toBeTruthy()
+    })
+    expect(container.querySelector('a[href^="/blast-radius?node="]')).toBeNull()
+    expect(screen.queryByText(/error loading assurance/i)).not.toBeInTheDocument()
+  })
+})

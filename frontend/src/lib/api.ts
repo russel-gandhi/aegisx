@@ -88,3 +88,31 @@ export function fetchAssuranceCards(systemId: string): Promise<AssuranceCardsRes
     `/api/systems/${encodeURIComponent(systemId)}/assurance-cards`,
   )
 }
+
+// Phase 4 (GRAPH-02, plan 04-05): Blast Radius contract, mirroring
+// `backend/app/schemas.py`'s BlastRadiusResponse field for field (04-04's
+// shipped model). One field per Bible Section 14.3 Graph Question.
+export interface BlastRadiusResponse {
+  system_id: string
+  source_node_id: string
+  direct_dependencies: string[]
+  indirect_dependencies: string[]
+  affected_requirements: string[]
+  affected_tests: string[]
+  affected_risks: string[]
+  affected_changes: string[]
+  affected_controls: string[]
+  affected_systems: string[]
+  potential_gxp_impact: string
+  highest_impact_downstream: string | null
+}
+
+// `node_id` is a required query parameter on the backend (colon-bearing
+// type-prefixed ids, e.g. "CHANGE:CR-2026-089", cannot be a bare path
+// segment) -- `encodeURIComponent` applied to both arguments (critical
+// finding 5).
+export function fetchBlastRadius(systemId: string, nodeId: string): Promise<BlastRadiusResponse> {
+  return apiGet<BlastRadiusResponse>(
+    `/api/systems/${encodeURIComponent(systemId)}/blast-radius?node_id=${encodeURIComponent(nodeId)}`,
+  )
+}
