@@ -1,10 +1,21 @@
 """
-Evidence graph builder (Phase 4, plans 04-01/04-02).
+Evidence graph builder + Blast Radius traversal (Phase 4, plans
+04-01/04-02/04-04).
 
-Ticket: SENT-3-01 | Requirement: GRAPH-01
+Ticket: SENT-3-01 (graph construction) / SENT-3-03 (Blast Radius) |
+Requirement: GRAPH-01 / GRAPH-02
 Source: AegisX-AI-Project-Bible-v6.md Section 10.1 (`build_evidence_graph` /
 `find_downstream_impacts`), Section 14.3 (the illustrative relationship-type
-list), and Section 1.3's deterministic-first constraint.
+list and the nine Graph Questions this module's `blast_radius()` answers),
+and Section 1.3's deterministic-first constraint.
+
+**Blast Radius (plan 04-04, SENT-3-03) is the deterministic-first boundary
+applied to impact analysis.** Bible Section 14.3 (line 1750) permits a model
+to explain or summarize an already-computed impact, but states plainly that
+it "should not invent graph relationships" -- every value `blast_radius()`,
+`assess_gxp_impact()`, and `rank_highest_impact()` return comes from
+`nx.descendants`/`G.successors` reachability and node-type buckets alone.
+No model call appears anywhere in this module.
 
 This module must never contain a model call. Bible Section 1.3 places
 graph relationship derivation in the Python/NetworkX tier permanently, not
@@ -76,7 +87,7 @@ additions beyond Section 14.3's own (illustrative, non-exhaustive) list.
 
 import json
 import logging
-from typing import Any, Dict, List, NamedTuple, Tuple
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple
 
 import networkx as nx
 
@@ -453,3 +464,134 @@ async def load_graph(pool, system_id: str) -> nx.DiGraph:
         G.add_edge(row["source_id"], row["target_id"], relation_type=row["relation_type"])
 
     return G
+
+
+# ---------------------------------------------------------------------------
+# Blast Radius (plan 04-04, SENT-3-03, GRAPH-02)
+#
+# `blast_radius()` answers all nine of Bible Section 14.3's Graph Questions
+# from a single `nx.descendants` traversal over an already-loaded graph.
+# Deliberately no caching, memoisation, or size limit here -- the seeded
+# demo graphs are single-digit-to-low-double-digit node counts, and adding
+# an invalidation path this phase does not need would be a premature
+# optimisation (04-RESEARCH.md's "minimal-but-real, not stub" bar).
+# ---------------------------------------------------------------------------
+
+# Fixed total ordering used only as a tie-break in `rank_highest_impact`.
+# Contains every NODE_SPECS key exactly once (asserted by
+# test_unit_node_type_impact_rank_contains_every_node_specs_key_exactly_once).
+NODE_TYPE_IMPACT_RANK: Tuple[str, ...] = (
+    "SYSTEM",
+    "INCIDENT",
+    "RISK",
+    "REQUIREMENT",
+    "TEST_CASE",
+    "DOCUMENT",
+    "DESIGN_ELEMENT",
+    "CHANGE",
+    "CHANGE_ACTION",
+    "ACCESS_REVIEW",
+    "ACCESS_RECORD",
+    "SUPPLIER",
+    "SUPPLIER_ASSESSMENT",
+    "PERIODIC_EVALUATION",
+    "TEST_RESULT",
+)
+
+# What "affected controls" means in this schema (Bible Section 14.3 Graph
+# Question 7). `ACCESS_REVIEW --CONTROLS--> ACCESS_RECORD` itself has no
+# derivable edge under D-03 (see module docstring's Bible-deviation note
+# above), so this bucket is correctly empty for every source node today --
+# a true statement about the graph's shape, not a gap in this function.
+CONTROL_NODE_TYPES: frozenset = frozenset({"ACCESS_REVIEW", "ACCESS_RECORD"})
+
+
+def assess_gxp_impact(G: nx.DiGraph, downstream: Set[str]) -> str:
+    """`HIGH` when any downstream `SYSTEM` node's `properties["gxp_impact"]`
+    is true, or any downstream `INCIDENT` node's
+    `properties["patient_safety_relevant"]` is true; `MEDIUM` when the set
+    is otherwise non-empty; `NONE` when empty (Bible Section 14.3 Graph
+    Question 8). A missing key is treated as false rather than raising --
+    `properties` is one of the allowlisted `property_columns` sets, so a
+    node persisted before these property columns existed must not crash
+    this function."""
+    for node_id in downstream:
+        attrs = G.nodes[node_id]
+        properties = attrs.get("properties") or {}
+        if attrs.get("node_type") == "SYSTEM" and properties.get("gxp_impact"):
+            return "HIGH"
+        if attrs.get("node_type") == "INCIDENT" and properties.get("patient_safety_relevant"):
+            return "HIGH"
+    return "MEDIUM" if downstream else "NONE"
+
+
+def rank_highest_impact(G: nx.DiGraph, downstream: Set[str]) -> Optional[str]:
+    """The downstream node with the most descendants of its own; ties
+    broken by `NODE_TYPE_IMPACT_RANK` index, then by node id ascending
+    (Bible Section 14.3 Graph Question 9). `None` for an empty set.
+
+    Expressed as a single `max()` over one sort key whose first element is
+    the negated descendant count, so the whole ordering is one total order
+    -- the answer can never depend on set/dict iteration order, which is
+    the entire point of this function existing separately from a plain
+    `max(..., key=len)`."""
+    if not downstream:
+        return None
+
+    def _sort_key(node_id: str) -> Tuple[int, int, str]:
+        node_type = G.nodes[node_id].get("node_type")
+        try:
+            type_rank = NODE_TYPE_IMPACT_RANK.index(node_type)
+        except ValueError:
+            type_rank = len(NODE_TYPE_IMPACT_RANK)
+        return (-len(nx.descendants(G, node_id)), type_rank, node_id)
+
+    return min(downstream, key=_sort_key)
+
+
+def blast_radius(G: nx.DiGraph, source_node_id: str) -> Dict[str, Any]:
+    """Answers all nine of Bible Section 14.3's Graph Questions for
+    `source_node_id` from one `nx.descendants` traversal over `G`.
+
+    Raises `networkx.NetworkXError` when `source_node_id` is not a node of
+    `G` -- the exception type `nx.descendants`/`G.successors` already raise
+    for an absent node, propagated rather than caught here so the calling
+    route can translate it to an HTTP 404 (a change record with no derived
+    edges, or a node id belonging to a different system's graph, is a
+    valid and expected state, not a server error).
+
+    Never includes the source in any returned list -- the descendant set is
+    defensively discarded of the source before bucketing, rather than
+    relying on `nx.descendants` excluding it by default: on a graph
+    containing a cycle back to the source it would not, and every one of
+    the nine questions is about what is downstream *of* the node, not the
+    node itself. Every list is sorted ascending, so the response is
+    byte-stable across runs and a test can compare it directly.
+    """
+    if source_node_id not in G:
+        raise nx.NetworkXError(f"source_node_id {source_node_id!r} is not in the graph")
+
+    direct: Set[str] = set(G.successors(source_node_id))
+    all_downstream: Set[str] = nx.descendants(G, source_node_id)
+    all_downstream.discard(source_node_id)
+    direct.discard(source_node_id)
+    indirect: Set[str] = all_downstream - direct
+
+    def _by_type(*node_types: str) -> List[str]:
+        return sorted(
+            n for n in all_downstream if G.nodes[n].get("node_type") in node_types
+        )
+
+    return {
+        "source_node_id": source_node_id,
+        "direct_dependencies": sorted(direct),
+        "indirect_dependencies": sorted(indirect),
+        "affected_requirements": _by_type("REQUIREMENT"),
+        "affected_tests": _by_type("TEST_CASE", "TEST_RESULT"),
+        "affected_risks": _by_type("RISK"),
+        "affected_changes": _by_type("CHANGE", "CHANGE_ACTION"),
+        "affected_controls": _by_type(*CONTROL_NODE_TYPES),
+        "affected_systems": _by_type("SYSTEM"),
+        "potential_gxp_impact": assess_gxp_impact(G, all_downstream),
+        "highest_impact_downstream": rank_highest_impact(G, all_downstream),
+    }

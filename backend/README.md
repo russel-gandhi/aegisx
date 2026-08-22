@@ -154,6 +154,16 @@ This section records every point where `backend/app/opa_client.py` departs from 
 
 **Scope:** `backend/app/opa_client.py` only — a new `_json_safe()` function and one call-site change. Routed to **SENT-7-05**.
 
+### Deviation 9 — `blast_radius()` uses `nx.descendants` in place of the Bible's literal `dfs_preorder_nodes`
+
+**Bible says:** Section 10.1's `find_downstream_impacts` sketch uses `nx.dfs_preorder_nodes(G, source)`.
+
+**Implemented:** `backend/app/graph/evidence_graph.py`'s `blast_radius()` uses `nx.descendants(G, source_node_id)` instead.
+
+**Why:** `descendants` is the purpose-built "what is reachable from here" API — it returns the reachable set as a plain `set`, which is exactly the shape every one of Bible Section 14.3's nine Graph Questions buckets from, rather than a generator over a specific traversal order Blast Radius has no use for. It also excludes the source node by default, matching the "never include the source" contract every bucket in `blast_radius()`'s return value carries — though the implementation still defensively discards the source from the descendant set before bucketing, since that exclusion is not guaranteed on a graph containing a cycle back to the source.
+
+**Scope:** `backend/app/graph/evidence_graph.py`'s `blast_radius()` only. Routed to **SENT-7-05**.
+
 ## AgentFinding conventions (Phase 3)
 
 Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
