@@ -36,6 +36,7 @@ pitfalls. For prerequisites, the quickstart, and the port table, see the root
 | Command | Effect |
 |---|---|
 | `docker-compose up -d postgres qdrant opa` | Bring the stack up. This is the entire setup step — nothing else is required. |
+| `bash infra/apply-migrations.sh` | Apply any `infra/postgres/initdb/0[2-9]*.sql` file (schema additions landed after the stack's first cold start, e.g. Phase 4's `change_affects`) to an already-running stack. Only needed against a volume that predates the migration file — a genuinely fresh `docker compose up -d --wait` already picks up every `initdb/` file, including later-numbered ones, via the container's own init mechanism. Idempotent (`CREATE TABLE IF NOT EXISTS`), so safe to re-run. |
 | `bash infra/health-check.sh` | Assert ENV-01: prints `ALL HEALTHY` and exits 0 only if every service is both Compose-healthy and reachable on its published port; exits non-zero and names the failing service(s) otherwise. |
 | `docker compose ps` | Compose's own view of container status, health, and published ports. |
 | `docker compose logs -f <service>` | Tail a single service's logs for diagnosis (`postgres`, `qdrant`, or `opa`). |
@@ -129,6 +130,22 @@ bash infra/apply-seed.sh
 bash infra/verify-schema.sh
 bash infra/verify-seed.sh
 ```
+
+### Applying a later schema addition to an already-running stack
+
+`infra/postgres/initdb/001_schema.sql` runs once, on a fresh data
+directory, via the container's own init mechanism (see above). A file
+added to `infra/postgres/initdb/` *after* that first cold start — like
+Phase 4's `infra/postgres/initdb/002_change_affects.sql` — is bind-mounted
+into the container the same way, but Postgres never re-scans
+`/docker-entrypoint-initdb.d` once its data directory is populated, so a
+plain `docker compose up -d` or `restart` against an existing volume does
+not apply it. Run `bash infra/apply-migrations.sh` once to apply every
+`infra/postgres/initdb/0[2-9]*.sql` file to the running container without
+a `down -v` reset (which would destroy the seeded demo data). This is
+unnecessary on a stack that was brought up fresh after the new file was
+already committed — the container's own init mechanism already applied
+it.
 
 ### Why the seed lives outside `initdb/`
 

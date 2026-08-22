@@ -5,7 +5,10 @@ set -uo pipefail
 #
 # SENT-1-01 / ENV-02 gate. Asserts, against a live Postgres container, that
 # the full Bible Section 4.1 schema is present: 27 tables, 21 foreign key
-# constraints, 8 nanosecond-epoch BIGINT columns. Runs every assertion
+# constraints, 8 nanosecond-epoch BIGINT columns, plus (Phase 4, plan
+# 04-02, D-03) the additive `change_affects` junction table and its one
+# foreign key, bringing the totals to 28 tables / 22 foreign keys. Runs
+# every assertion
 # through `docker compose exec -T postgres psql`, so no host Postgres
 # client or Python driver is required. Modelled on infra/health-check.sh's
 # per-check PASS/FAIL line + exit-code contract.
@@ -46,34 +49,37 @@ psql_exec() {
 
 overall_status=0
 
-# The 27 table names, in Bible Section 4.1 declaration order.
+# The 27 Bible Section 4.1 table names (declaration order), plus the one
+# additive Phase-4 table `change_affects` (D-03) appended last.
 TABLES=(
   gxp_systems documents document_chunks requirements risks design_elements
   test_cases test_results incidents access_reviews access_records suppliers
   supplier_assessments periodic_evaluations changes change_actions findings
   evidence_refs action_proposals audit_events agent_messages graph_nodes
   graph_edges candidate_memory trusted_memory users sessions
+  change_affects
 )
 
-# 1. Total base table count == 27.
+# 1. Total base table count == 28 (27 Bible tables + change_affects).
 table_count="$(psql_exec "SELECT count(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'" | tr -d '[:space:]')"
-if [ "$table_count" = "27" ]; then
-  printf '%-60s PASS\n' "table count == 27"
+if [ "$table_count" = "28" ]; then
+  printf '%-60s PASS\n' "table count == 28"
 else
-  printf '%-60s FAIL (got: %s)\n' "table count == 27" "${table_count:-<none>}"
+  printf '%-60s FAIL (got: %s)\n' "table count == 28" "${table_count:-<none>}"
   overall_status=1
 fi
 
-# 2. Total FOREIGN KEY constraint count == 21.
+# 2. Total FOREIGN KEY constraint count == 22 (21 Bible FKs +
+# change_affects.change_id -> changes.id).
 fk_count="$(psql_exec "SELECT count(*) FROM information_schema.table_constraints WHERE table_schema='public' AND constraint_type='FOREIGN KEY'" | tr -d '[:space:]')"
-if [ "$fk_count" = "21" ]; then
-  printf '%-60s PASS\n' "foreign key count == 21"
+if [ "$fk_count" = "22" ]; then
+  printf '%-60s PASS\n' "foreign key count == 22"
 else
-  printf '%-60s FAIL (got: %s)\n' "foreign key count == 21" "${fk_count:-<none>}"
+  printf '%-60s FAIL (got: %s)\n' "foreign key count == 22" "${fk_count:-<none>}"
   overall_status=1
 fi
 
-# 3. Each of the 27 tables resolves individually, so a failure names the
+# 3. Each of the 28 tables resolves individually, so a failure names the
 # missing table rather than only reporting a count mismatch.
 for t in "${TABLES[@]}"; do
   regclass="$(psql_exec "SELECT to_regclass('public.${t}')" | tr -d '[:space:]')"
