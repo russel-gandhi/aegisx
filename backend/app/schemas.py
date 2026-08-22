@@ -194,3 +194,32 @@ class EvidenceGraphRebuildResponse(BaseModel):
     system_id: str
     node_count: int
     edge_count: int
+
+
+# Phase 4 (EVID-03, D-04): Assurance Card response models
+# (04-03-PLAN.md <interface_contract>, Bible Section 11.2). The card is
+# assembled from already-computed Phase 3 output -- A2's `build_finding`
+# and C1's `verify_finding` -- and this module adds no verification of
+# its own; every field below is read, never derived.
+class DeterministicCheck(BaseModel):
+    check_name: str
+    passed: bool
+    db_record_found: bool
+    opa_corroborated: bool
+    opa_rule_ids: List[str]
+
+
+class AssuranceCard(BaseModel):
+    finding_id: str
+    claim: str
+    evidence_ids: List[str]
+    regulatory_citations: List[str]
+    deterministic_check: DeterministicCheck
+    confidence: str
+    alcoa_score: Dict[str, bool]
+    model_attribution: str
+
+
+class AssuranceCardsResponse(BaseModel):
+    system_id: str
+    cards: List[AssuranceCard]

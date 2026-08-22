@@ -11,6 +11,7 @@ const BANNER_TEXT = 'PROTOTYPE — SYNTHETIC DATA — NOT VALIDATED FOR PRODUCTI
 const expectedHeadings: Record<string, string> = {
   '/': 'Command Centre',
   '/copilot': 'Ask GxP Copilot',
+  '/findings': 'Evidence Investigation',
   '/audit-readiness': 'Audit Readiness',
   '/blast-radius': 'Blast Radius',
   '/suppliers': 'Supplier Intelligence',
@@ -21,8 +22,8 @@ const expectedHeadings: Record<string, string> = {
 }
 
 describe('route table', () => {
-  it('has exactly nine entries', () => {
-    expect(routes).toHaveLength(9)
+  it('has exactly ten entries', () => {
+    expect(routes).toHaveLength(10)
   })
 
   it('has unique paths', () => {

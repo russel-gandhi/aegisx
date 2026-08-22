@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import CommandCentre from './pages/CommandCentre'
 import Copilot from './pages/Copilot'
+import FindingInvestigation from './pages/FindingInvestigation'
 import AuditReadiness from './pages/AuditReadiness'
 import BlastRadius from './pages/BlastRadius'
 import Suppliers from './pages/Suppliers'
@@ -24,6 +25,13 @@ export interface RouteDefinition {
 export const routes: RouteDefinition[] = [
   { path: '/', label: 'Command Centre', Component: CommandCentre }, // 11.1
   { path: '/copilot', label: 'Ask GxP Copilot', Component: Copilot }, // 11.2
+  // Phase 4 (EVID-03, D-04): a deliberate, user-approved addition beyond
+  // Bible Section 11's nine pages, placed immediately after /copilot so
+  // this investigation experience sits next to the Copilot page it will
+  // later be embedded in. The full Copilot chat that would eventually
+  // host this card does not land until Phase 6. Routed to SENT-7-05 for
+  // Bible reconciliation.
+  { path: '/findings', label: 'Evidence Investigation', Component: FindingInvestigation },
   { path: '/audit-readiness', label: 'Audit Readiness', Component: AuditReadiness }, // 11.3
   { path: '/blast-radius', label: 'Blast Radius', Component: BlastRadius }, // 11.4
   { path: '/suppliers', label: 'Supplier Intelligence', Component: Suppliers }, // 11.5

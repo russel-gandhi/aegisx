@@ -26,11 +26,15 @@ See that module's docstring for the wire contract.
 
 Plan 04-01 (GRAPH-01/GRAPH-03) registers a second router: the evidence
 graph rebuild/read endpoints from `app.routes.evidence_graph`.
+
+Plan 04-03 (EVID-03) registers a third router: the Assurance Card
+endpoint from `app.routes.findings`.
 """
 
 from fastapi import FastAPI
 
 from app.routes.evidence_graph import router as evidence_graph_router
+from app.routes.findings import router as findings_router
 from app.ws.copilot import router as copilot_ws_router
 
 app = FastAPI(
@@ -44,6 +48,7 @@ app = FastAPI(
 
 app.include_router(copilot_ws_router)
 app.include_router(evidence_graph_router)
+app.include_router(findings_router)
 
 
 @app.get("/api/health")

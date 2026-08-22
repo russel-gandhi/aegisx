@@ -1,9 +1,13 @@
 /**
- * REST client for the evidence-graph backend contract (SENT-3-01, GRAPH-03).
+ * REST client for the evidence-graph and assurance-card backend contracts
+ * (SENT-3-01/GRAPH-03; SENT-3-05/EVID-03).
  *
  * Mirrors `backend/app/routes/evidence_graph.py` exactly:
  *   - GET  /api/systems/{system_id}/evidence-graph -> EvidenceGraphResponse
  *   - POST /api/systems/{system_id}/evidence-graph/rebuild -> EvidenceGraphRebuildResponse
+ *
+ * And `backend/app/routes/findings.py` (plan 04-03):
+ *   - GET  /api/systems/{system_id}/assurance-cards -> AssuranceCardsResponse
  *
  * Follows `lib/ws.ts`'s conventions: a Vite env var with a default correct
  * for local development, kept out of `.env.example` (a cross-cutting file
@@ -49,5 +53,38 @@ export interface EvidenceGraphResponse {
 export function fetchEvidenceGraph(systemId: string): Promise<EvidenceGraphResponse> {
   return apiGet<EvidenceGraphResponse>(
     `/api/systems/${encodeURIComponent(systemId)}/evidence-graph`,
+  )
+}
+
+// Phase 4 (EVID-03, D-04): Assurance Card contract, mirroring
+// `backend/app/schemas.py`'s DeterministicCheck/AssuranceCard/
+// AssuranceCardsResponse field for field.
+export interface DeterministicCheckData {
+  check_name: string
+  passed: boolean
+  db_record_found: boolean
+  opa_corroborated: boolean
+  opa_rule_ids: string[]
+}
+
+export interface AssuranceCardData {
+  finding_id: string
+  claim: string
+  evidence_ids: string[]
+  regulatory_citations: string[]
+  deterministic_check: DeterministicCheckData
+  confidence: string
+  alcoa_score: Record<string, boolean>
+  model_attribution: string
+}
+
+export interface AssuranceCardsResponse {
+  system_id: string
+  cards: AssuranceCardData[]
+}
+
+export function fetchAssuranceCards(systemId: string): Promise<AssuranceCardsResponse> {
+  return apiGet<AssuranceCardsResponse>(
+    `/api/systems/${encodeURIComponent(systemId)}/assurance-cards`,
   )
 }
