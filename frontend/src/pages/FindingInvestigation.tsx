@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import AssuranceCard from '../components/AssuranceCard'
-import { fetchAssuranceCards, type AssuranceCardsResponse } from '../lib/api'
+import {
+  fetchAssuranceCards,
+  fetchEvidenceGraph,
+  type AssuranceCardsResponse,
+} from '../lib/api'
 
 const SYSTEM_OPTIONS = [
   { id: 'GXP-MFG-DEMO-01', label: 'GXP-MFG-DEMO-01 (NovaSynth MES)' },
@@ -18,6 +23,14 @@ export default function FindingInvestigation() {
   const [state, setState] = useState<LoadState>('loading')
   const [data, setData] = useState<AssuranceCardsResponse | null>(null)
 
+  // Bible Section 14.3's Finding -> Evidence -> Verification -> Blast
+  // Radius exposure tree, third branch: a lookup from a card's evidence id
+  // (a raw domain primary key, e.g. "PE-2024-01") to the matching
+  // evidence-graph node's id (critical finding 7), so each card can link
+  // straight to its own blast radius rather than Blast Radius sitting as
+  // an unrelated standalone feature.
+  const [evidenceNodeIndex, setEvidenceNodeIndex] = useState<Record<string, string>>({})
+
   useEffect(() => {
     let cancelled = false
 
@@ -30,6 +43,32 @@ export default function FindingInvestigation() {
       .catch(() => {
         if (cancelled) return
         setState('error')
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [systemId])
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetchEvidenceGraph(systemId)
+      .then((response) => {
+        if (cancelled) return
+        const index: Record<string, string> = {}
+        for (const node of response.nodes) {
+          index[node.entity_id] = node.node_id
+        }
+        setEvidenceNodeIndex(index)
+      })
+      .catch(() => {
+        // Strictly optional (critical finding 8, D-02): a failed or
+        // unpopulated evidence-graph fetch must never block the cards
+        // themselves, EVID-03's required content -- it only means no
+        // Blast Radius links render this pass. No page-level error state.
+        if (cancelled) return
+        setEvidenceNodeIndex({})
       })
 
     return () => {
@@ -82,11 +121,34 @@ export default function FindingInvestigation() {
         )}
         {state === 'ready' &&
           data &&
-          data.cards.map((card) => <AssuranceCard key={card.finding_id} card={card} />)}
+          data.cards.map((card) => (
+            <div key={card.finding_id}>
+              <AssuranceCard card={card} />
+              {/* Bible Section 14.3 UI constraint: Blast Radius reached
+                  from the finding investigation experience rather than
+                  presented as an unrelated standalone feature -- this is
+                  the third exposure-tree branch (Finding -> Evidence ->
+                  Verification -> Blast Radius). Rendered beside the card,
+                  not inside it, so AssuranceCard.tsx stays exactly as
+                  reusable as plan 04-03 built it for Phase 6 (D-04). */}
+              {card.evidence_ids.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-3">
+                  {card.evidence_ids
+                    .filter((evidenceId) => evidenceNodeIndex[evidenceId] !== undefined)
+                    .map((evidenceId) => (
+                      <Link
+                        key={evidenceId}
+                        to={`/blast-radius?node=${encodeURIComponent(evidenceNodeIndex[evidenceId])}`}
+                        className="text-sm text-sky-400 underline hover:text-sky-300"
+                      >
+                        {`Blast Radius: ${evidenceId}`}
+                      </Link>
+                    ))}
+                </div>
+              )}
+            </div>
+          ))}
       </div>
-
-      {/* Plan 04-05 attaches the per-card Blast Radius link here. Not
-          built in this plan. */}
     </div>
   )
 }
