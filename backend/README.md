@@ -297,3 +297,84 @@ node -e "fetch('http://127.0.0.1:8000/api/systems/GXP-MFG-DEMO-01/evidence-graph
 ```
 
 Tests: `backend/tests/test_evidence_graph.py` (module-level build/persist/load, unit + negative/edge + integration) and `backend/tests/test_routes_evidence_graph.py` (the two HTTP endpoints via `TestClient`, including the D-02 mutate-the-cache-behind-the-endpoint's-back proof).
+
+## Phase 4 evidence graph (plan 04-02, GRAPH-01)
+
+Plan 04-02 expands the tracer graph from 3 nodes / 1 edge to the full 15
+node types / 7 relation types the demo system (`GXP-MFG-DEMO-01`) actually
+produces 14 nodes and 9 edges from. `NODE_SPECS` and `RELATION_TYPES` grew
+as pure data (new dict entries / frozenset members); the one control-flow
+addition is a single `EDGE_SPECS`-driven loop in `build_graph` that
+replaced 04-01's hand-written `VERIFIED_BY` pass, plus
+`_add_change_affects_edges` for the one non-FK edge source in the whole
+graph (see below). No caller-facing symbol was renamed.
+
+**Node types (15).** `SYSTEM`, `DOCUMENT`, `TEST_CASE`, `TEST_RESULT`,
+`REQUIREMENT`, `RISK`, `DESIGN_ELEMENT`, `INCIDENT`, `ACCESS_REVIEW`,
+`ACCESS_RECORD`, `SUPPLIER`, `SUPPLIER_ASSESSMENT`, `PERIODIC_EVALUATION`,
+`CHANGE`, `CHANGE_ACTION` -- one `NodeSpec` (table, property columns,
+scope) each in `evidence_graph.NODE_SPECS`. `TEST_RESULT`,
+`SUPPLIER_ASSESSMENT`, and `CHANGE_ACTION` are scoped
+`("via_parent", parent_type, fk_column)` rather than a plain `system_id`
+column -- they have none of their own -- and are fetched by binding the
+parent type's already-collected ids to `WHERE fk_column = ANY($1::varchar[])`.
+
+**Relation types (7) and their source.**
+
+| Relation type | Edge | Derived from |
+|---|---|---|
+| `VERIFIED_BY` | `REQUIREMENT -> TEST_CASE` | `requirements.test_case_id` FK (Bible 14.3) |
+| `HAS_RESULT` | `TEST_CASE -> TEST_RESULT` | `test_results.test_case_id` FK |
+| `HAS_ACTION` | `CHANGE -> CHANGE_ACTION` | `change_actions.change_id` FK |
+| `ASSESSED_BY` | `SUPPLIER -> SUPPLIER_ASSESSMENT` | `supplier_assessments.supplier_id` FK |
+| `GOVERNS` | `DOCUMENT -> SYSTEM` | `documents.system_id` FK (Bible 14.3) |
+| `ASSOCIATED_WITH` | `RISK -> SYSTEM` | `risks.system_id` FK (Bible 14.3) |
+| `AFFECTS` | `INCIDENT -> SYSTEM` (FK) **and** `CHANGE -> {REQUIREMENT\|TEST_CASE\|DOCUMENT\|DESIGN_ELEMENT\|RISK}` (junction row) | `incidents.system_id` FK (Bible 14.3) for the first; `change_affects` (below) for the second -- the one relation type with two distinct sources |
+
+`HAS_RESULT`, `HAS_ACTION`, and `ASSESSED_BY` are foreign-key-derived
+additions beyond Bible Section 14.3's own illustrative (non-exhaustive)
+relationship list; they follow the same "declared FK only" rule as every
+other edge in this module.
+
+**`change_affects` (D-03) -- the one non-FK edge source.** Neither
+`changes` nor `change_actions` carries a foreign key to `requirements`,
+`design_elements`, or `test_cases`, so Bible Section 14.3's
+`CHANGE --AFFECTS--> X` relationship has no column to derive from. The
+additive `infra/postgres/initdb/002_change_affects.sql` table
+(`change_id`, `entity_type`, `entity_id`, composite
+`PRIMARY KEY(change_id, entity_type, entity_id)`) supplies it explicitly:
+`_add_change_affects_edges` reads every row for the graph's already-
+fetched `CHANGE` ids and draws an `AFFECTS` edge to
+`make_node_id(entity_type, entity_id)`. `entity_type` is validated against
+the frozen `CHANGE_AFFECTS_ENTITY_TYPES` allowlist
+(`{REQUIREMENT, TEST_CASE, DOCUMENT, DESIGN_ELEMENT, RISK}`) before it is
+ever used to build a node id -- an out-of-allowlist value is logged and
+skipped, never reaching SQL or an invented node type (T-04-02); a valid
+`entity_type` whose `entity_id` does not resolve to a node already in the
+graph is dropped by the existing endpoint-presence check in `_add_edge`
+(T-04-07). `entity_id` deliberately carries no database foreign key of its
+own -- Postgres cannot express one spanning several target tables.
+
+**Bible deviation -- `ACCESS_REVIEW --CONTROLS--> ACCESS_RECORD` not implemented.**
+Bible Section 14.3 also lists this relationship, but `access_reviews` and
+`access_records` share no foreign key -- both independently reference only
+`gxp_systems(id)`. D-03 explicitly rejects same-`system_id` blanket
+association as an edge source (this module derives edges from declared
+foreign keys and `change_affects` only, never from two rows merely sharing
+a column value), so this relationship type has no derivable source under
+this module's rules and is omitted from both `RELATION_TYPES` and
+`EDGE_SPECS`. Routed to **SENT-7-05** alongside every other Bible
+deviation recorded in this document.
+
+**Test coverage (SENT-3-01 Critical-review bar).**
+`backend/tests/test_evidence_graph.py` carries unit (NODE_SPECS/EDGE_SPECS
+shape, insertion-order, allowlist membership -- no DB), integration
+(`build_graph` returns exactly 14 nodes / 9 edges for `GXP-MFG-DEMO-01`,
+the full node-type and relation-type histograms match seeded reality, a
+real-column provenance check on `INCIDENT:INC-849201`, persist/load
+round-trip, the `BUS-IT-DEMO-02` discrimination control), negative (an
+out-of-allowlist `change_affects.entity_type`, a `change_affects` row
+naming a non-existent entity, and the D-03 same-`system_id`-is-not-an-edge
+guarantee between `ACCESS_REVIEW`/`ACCESS_RECORD` and `SUPPLIER`/`SYSTEM`),
+and edge-case (a single-node system, a system with no `changes` rows,
+build-twice determinism) sections, live Postgres throughout, never mocked.

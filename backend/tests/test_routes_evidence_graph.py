@@ -20,13 +20,13 @@ def _rebuild(client, system_id):
     return client.post(f"/api/systems/{system_id}/evidence-graph/rebuild")
 
 
-def test_rebuild_gxp_demo_returns_three_nodes_one_edge(client):
+def test_rebuild_gxp_demo_returns_fourteen_nodes_nine_edges(client):
     resp = _rebuild(client, "GXP-MFG-DEMO-01")
     assert resp.status_code == 200
     body = resp.json()
     assert body["system_id"] == "GXP-MFG-DEMO-01"
-    assert body["node_count"] == 3
-    assert body["edge_count"] == 1
+    assert body["node_count"] == 14
+    assert body["edge_count"] == 9
 
 
 def test_get_after_rebuild_matches_cache_tables_directly(client):
@@ -58,7 +58,9 @@ def test_get_does_not_recompute_a_cache_mutated_behind_its_back(client):
     # D-02: the read endpoint must never rebuild. Prove it by mutating the
     # cache directly, reading through the endpoint, and asserting the
     # mutation survived the read (a recomputing endpoint would silently
-    # restore the deleted edge).
+    # restore the deleted edge). Deleting the one edge sourced from
+    # REQUIREMENT:URS-042 (VERIFIED_BY) leaves 8 of the full 9 edges behind
+    # (plan 04-02: the graph now has 9 edges total, not 1).
     _rebuild(client, "GXP-MFG-DEMO-01")
     try:
         async def _delete_one_edge():
@@ -72,7 +74,7 @@ def test_get_does_not_recompute_a_cache_mutated_behind_its_back(client):
 
         resp = client.get("/api/systems/GXP-MFG-DEMO-01/evidence-graph")
         assert resp.status_code == 200
-        assert resp.json()["edges"] == []
+        assert len(resp.json()["edges"]) == 8
     finally:
         _rebuild(client, "GXP-MFG-DEMO-01")
 

@@ -1,37 +1,77 @@
 """
-Evidence graph tracer (Phase 4, plan 04-01).
+Evidence graph builder (Phase 4, plans 04-01/04-02).
 
 Ticket: SENT-3-01 | Requirement: GRAPH-01
 Source: AegisX-AI-Project-Bible-v6.md Section 10.1 (`build_evidence_graph` /
-`find_downstream_impacts`) and Section 1.3's deterministic-first
-constraint.
+`find_downstream_impacts`), Section 14.3 (the illustrative relationship-type
+list), and Section 1.3's deterministic-first constraint.
 
 This module must never contain a model call. Bible Section 1.3 places
 graph relationship derivation in the Python/NetworkX tier permanently, not
 as a stub-stage convenience -- a model may never invent, infer, or rank a
 graph relationship. Every node and edge here traces back to a real
-Postgres row and a real foreign-key-shaped column value.
+Postgres row: either a declared foreign key column (`EDGE_SPECS`) or an
+explicit `change_affects` junction row (`_add_change_affects_edges`,
+D-03). No edge is ever derived from two rows merely sharing a `system_id`
+or from text matching between free-text columns.
 
 Node id convention (resolves 04-RESEARCH.md Open Question 1 / Pitfall 4):
 `graph_nodes.node_id` is a single VARCHAR(100) primary key shared by every
-entity type in the graph. Today's seed data happens to use disjoint id
-prefixes per domain table (`URS-*`, `TC-*`, `RSK-*`, ...), but that is a
-seed-data habit, not a schema constraint -- a future row whose raw id
-collided with another table's raw id would otherwise silently overwrite an
-unrelated node in `graph_nodes` rather than erroring. Every node id
-written anywhere in this module is therefore type-prefixed via
-`make_node_id`/`split_node_id` (`"{node_type}:{entity_id}"`), never a raw
-domain primary key.
+entity type in the graph. Seed data happens to use disjoint id prefixes
+per domain table (`URS-*`, `TC-*`, `RSK-*`, ...), but that is a seed-data
+habit, not a schema constraint -- a future row whose raw id collided with
+another table's raw id would otherwise silently overwrite an unrelated
+node in `graph_nodes` rather than erroring. Every node id written anywhere
+in this module is therefore type-prefixed via `make_node_id`/
+`split_node_id` (`"{node_type}:{entity_id}"`), never a raw domain primary
+key.
 
 Table and column names used to build SQL statements come exclusively from
-the frozen `NODE_SPECS`/`RELATION_TYPES` allowlists below -- never from
-request data or from a database row -- and are joined into the query
-string by plain string concatenation, exactly as
-`app.agents.c1_verifier.RULE_EVIDENCE_TABLES` and
-`_select_one_by_id_query` already establish for this codebase (threat
-T-04-02). Every bound value (`system_id` in particular, a user-facing path
-parameter) crosses into SQL only through an asyncpg `$1`-style placeholder
-(threat T-04-01).
+the frozen `NODE_SPECS`/`RELATION_TYPES`/`EDGE_SPECS` allowlists below --
+never from request data or from a database row -- and are joined into the
+query string by plain string concatenation, exactly as
+`app.agents.c1_verifier.RULE_EVIDENCE_TABLES`/`RULE_OPA_INPUT` and their
+`_select_*_query` helpers already establish for this codebase (threat
+T-04-02). Every bound value (`system_id`, the `via_parent`/`change_affects`
+id lists) crosses into SQL only through an asyncpg `$1`-style placeholder
+(threat T-04-01). The one exception -- `change_affects.entity_type`, a
+database value that names a node type -- is validated against the frozen
+`CHANGE_AFFECTS_ENTITY_TYPES` allowlist before it is ever used to build a
+node id, and an out-of-allowlist value is logged and skipped rather than
+reaching a SQL statement or an invented node type (T-04-02).
+
+EDGE_SPECS direction convention. Every `EdgeSpec` declares `source_type`/
+`relation_type`/`target_type` as the *drawn* edge direction (e.g.
+`TEST_CASE --HAS_RESULT--> TEST_RESULT`, parent to child), never the
+reverse. `link_column_owner` says which side's already-fetched rows carry
+`source_column`:
+  - `"source"` (default): the source_type's own fetched rows carry
+    `source_column`, whose value is the target's entity id (a plain
+    parent-references-target foreign key, e.g.
+    `documents.system_id -> gxp_systems.id`).
+  - `"target"`: the FK lives on the *child* table (`target_type`) instead,
+    pointing back at the parent (`source_type`) -- true for the three
+    relationships whose foreign key column lives on the child row
+    (`test_results.test_case_id`, `change_actions.change_id`,
+    `supplier_assessments.supplier_id`). The target_type's own fetched
+    rows carry `source_column`, whose value is the *source*'s (parent's)
+    entity id; the edge is still drawn source_type -> target_type
+    (parent -> child), using each child row's own primary key as the
+    target endpoint.
+`source_column` is always selected into the owning side's fetched rows by
+`_fetch_rows`/`_extra_select_columns` (see below), so no extra query is
+issued during edge derivation -- `build_graph`'s edge pass reads only
+already-fetched dicts.
+
+Known Bible/schema gap, not implemented (routed to SENT-7-05): Bible
+Section 14.3 also lists `ACCESS_REVIEW --CONTROLS--> ACCESS_RECORD`, but
+`access_reviews` and `access_records` share no foreign key -- both only
+reference `gxp_systems(id)` independently. D-03 explicitly rejects
+same-`system_id` blanket association as a substitute edge source, so this
+relationship type has no derivable source under this module's rules and is
+deliberately omitted from both `RELATION_TYPES` and `EDGE_SPECS`.
+`HAS_RESULT`, `HAS_ACTION`, and `ASSESSED_BY` are foreign-key-derived
+additions beyond Section 14.3's own (illustrative, non-exhaustive) list.
 """
 
 import json
@@ -51,29 +91,105 @@ class NodeSpec(NamedTuple):
     #   "id"          -- the system row itself, selected by its own id
     #   "system_id"   -- a table directly scoped by a system_id column
     #   ("via_parent", parent_node_type, fk_column) -- a table reachable
-    #       only through a parent node type's rows (unused by this plan's
-    #       three node types; implemented by plan 04-02).
+    #       only through a parent node type's already-fetched rows; the
+    #       query is `WHERE fk_column = ANY($1::varchar[])` bound to the
+    #       parent rows' ids, issued only when that id list is non-empty.
+
+
+class EdgeSpec(NamedTuple):
+    source_type: str
+    relation_type: str
+    target_type: str
+    source_column: str
+    link_column_owner: str = "source"  # "source" or "target" -- see module docstring
 
 
 # Frozen allowlist: node type -> NodeSpec. Table names reach SQL only from
-# here. This plan populates SYSTEM, REQUIREMENT, TEST_CASE only; plan 04-02
-# extends this dict. Order matters: TEST_CASE precedes REQUIREMENT so the
-# VERIFIED_BY edge pass (over already-fetched REQUIREMENT rows) always has
-# both endpoints already present in the graph.
+# here. Insertion order is load-bearing: every parent type precedes any
+# type whose scope is ("via_parent", parent, ...) -- TEST_CASE before
+# TEST_RESULT, SUPPLIER before SUPPLIER_ASSESSMENT, CHANGE before
+# CHANGE_ACTION -- so `_fetch_rows`'s via_parent branch always has the
+# parent's ids already collected in `fetched_by_type` by the time it runs.
 NODE_SPECS: Dict[str, NodeSpec] = {
     "SYSTEM": NodeSpec(
         "gxp_systems",
         ("name", "lifecycle_state", "gxp_impact", "readiness_score"),
         "id",
     ),
+    "DOCUMENT": NodeSpec(
+        "documents", ("doc_type", "title", "version", "status"), "system_id"
+    ),
     "TEST_CASE": NodeSpec("test_cases", ("status",), "system_id"),
+    "TEST_RESULT": NodeSpec(
+        "test_results", ("pass_fail", "tester"), ("via_parent", "TEST_CASE", "test_case_id")
+    ),
     "REQUIREMENT": NodeSpec("requirements", ("req_text",), "system_id"),
+    "RISK": NodeSpec(
+        "risks", ("risk_summary", "severity", "probability", "owner"), "system_id"
+    ),
+    "DESIGN_ELEMENT": NodeSpec("design_elements", ("description",), "system_id"),
+    "INCIDENT": NodeSpec(
+        "incidents",
+        ("title", "severity", "status", "rca_started", "patient_safety_relevant"),
+        "system_id",
+    ),
+    "ACCESS_REVIEW": NodeSpec(
+        "access_reviews",
+        ("review_type", "status", "reviewer", "accounts_in_scope"),
+        "system_id",
+    ),
+    "ACCESS_RECORD": NodeSpec(
+        "access_records", ("user_id", "is_privileged", "user_status"), "system_id"
+    ),
+    "SUPPLIER": NodeSpec("suppliers", ("name", "status"), "system_id"),
+    "SUPPLIER_ASSESSMENT": NodeSpec(
+        "supplier_assessments", ("result",), ("via_parent", "SUPPLIER", "supplier_id")
+    ),
+    "PERIODIC_EVALUATION": NodeSpec("periodic_evaluations", ("status",), "system_id"),
+    "CHANGE": NodeSpec("changes", ("description", "status"), "system_id"),
+    "CHANGE_ACTION": NodeSpec(
+        "change_actions", ("description", "status"), ("via_parent", "CHANGE", "change_id")
+    ),
 }
 
-# Frozen allowlist of permitted graph_edges.relation_type values.
-# `_add_edge` rejects anything outside it. This plan: VERIFIED_BY only;
-# plan 04-02 extends it.
-RELATION_TYPES: frozenset = frozenset({"VERIFIED_BY"})
+# Frozen allowlist of permitted graph_edges.relation_type values. `_add_edge`
+# rejects anything outside it. Populated by EDGE_SPECS (six FK-derived
+# relation types plus AFFECTS, shared with the change_affects-derived
+# edges below).
+RELATION_TYPES: frozenset = frozenset(
+    {
+        "VERIFIED_BY",
+        "HAS_RESULT",
+        "HAS_ACTION",
+        "ASSESSED_BY",
+        "GOVERNS",
+        "ASSOCIATED_WITH",
+        "AFFECTS",
+    }
+)
+
+# The complete FK-derived edge rule set. See module docstring for the
+# source_type/relation_type/target_type/source_column/link_column_owner
+# contract. Order is not load-bearing (all edges are derived after every
+# node type has been fetched), but is kept in Bible Section 14.3's
+# citation order where one exists.
+EDGE_SPECS: Tuple[EdgeSpec, ...] = (
+    EdgeSpec("REQUIREMENT", "VERIFIED_BY", "TEST_CASE", "test_case_id"),
+    EdgeSpec("TEST_CASE", "HAS_RESULT", "TEST_RESULT", "test_case_id", "target"),
+    EdgeSpec("CHANGE", "HAS_ACTION", "CHANGE_ACTION", "change_id", "target"),
+    EdgeSpec("SUPPLIER", "ASSESSED_BY", "SUPPLIER_ASSESSMENT", "supplier_id", "target"),
+    EdgeSpec("DOCUMENT", "GOVERNS", "SYSTEM", "system_id"),
+    EdgeSpec("RISK", "ASSOCIATED_WITH", "SYSTEM", "system_id"),
+    EdgeSpec("INCIDENT", "AFFECTS", "SYSTEM", "system_id"),
+)
+
+# The only entity_type values a change_affects row may carry (D-03).
+# Validated in `_add_change_affects_edges` before any value derived from
+# it is used to build a node id -- a row naming anything else is logged
+# and skipped, never reaching a node type resolution (T-04-02).
+CHANGE_AFFECTS_ENTITY_TYPES: frozenset = frozenset(
+    {"REQUIREMENT", "TEST_CASE", "DOCUMENT", "DESIGN_ELEMENT", "RISK"}
+)
 
 
 def make_node_id(node_type: str, entity_id: str) -> str:
@@ -91,7 +207,8 @@ def split_node_id(node_id: str) -> Tuple[str, str]:
 def _add_node(G: nx.DiGraph, node_type: str, row: dict) -> str:
     """Adds one node to `G`, computing its id via `make_node_id` and
     building `properties` from exactly that node type's declared
-    `property_columns` -- no `SELECT *` spread, so an unlisted column can
+    `property_columns` -- no `SELECT *` spread, so an unlisted column
+    (including any extra edge-link column `_fetch_rows` selected) can
     never leak into an API response (threat T-04-04)."""
     spec = NODE_SPECS[node_type]
     entity_id = row["id"]
@@ -104,10 +221,10 @@ def _add_node(G: nx.DiGraph, node_type: str, row: dict) -> str:
 def _add_edge(G: nx.DiGraph, source_id: str, target_id: str, relation_type: str) -> None:
     """Raises ValueError when `relation_type` is outside `RELATION_TYPES`.
     Returns without adding when either endpoint is absent from `G`
-    (critical finding 3: `graph_edges` has real foreign keys to
-    `graph_nodes` in both directions, and `requirements.test_case_id`
-    carries no FK constraint of its own, so a dangling value must be
-    dropped here at build time rather than relying on the database to
+    (critical finding 3 / T-04-07: several link columns this module reads
+    -- `requirements.test_case_id`, `change_affects.entity_id` -- carry no
+    database foreign key constraint of their own, so a dangling value must
+    be dropped here at build time rather than relying on the database to
     catch it)."""
     if relation_type not in RELATION_TYPES:
         raise ValueError(f"relation_type {relation_type!r} is outside RELATION_TYPES")
@@ -122,28 +239,100 @@ def _add_edge(G: nx.DiGraph, source_id: str, target_id: str, relation_type: str)
     G.add_edge(source_id, target_id, relation_type=relation_type)
 
 
-def _fetch_rows_query(node_type: str) -> str:
-    """Builds `SELECT <property_columns + id> FROM <table> WHERE <scope> = $1`
-    via plain string concatenation (never an f-string over request data),
-    mirroring `c1_verifier._select_one_by_id_query`. `node_type` is only
-    ever a key already validated against `NODE_SPECS`."""
+def _extra_select_columns(node_type: str) -> Tuple[str, ...]:
+    """Columns to SELECT for `node_type` beyond its declared
+    `property_columns`: the via_parent scope's own fk_column (needed both
+    to bind the `= ANY($1::varchar[])` filter and, since that filter can
+    match rows belonging to several different parents at once, to know
+    which parent each returned row belongs to) plus any `EDGE_SPECS.
+    source_column` this node type owns, on whichever side (`source_type`
+    for the default owner, `target_type` for `link_column_owner="target"`).
+    Never exposed in a node's persisted `properties` dict -- `_add_node`
+    reads `NODE_SPECS[node_type].property_columns` only (T-04-04)."""
     spec = NODE_SPECS[node_type]
-    columns = ", ".join(("id",) + spec.property_columns)
+    extra: set = set()
+    if isinstance(spec.scope, tuple) and spec.scope[0] == "via_parent":
+        extra.add(spec.scope[2])
+    for edge_spec in EDGE_SPECS:
+        if edge_spec.link_column_owner == "target" and edge_spec.target_type == node_type:
+            extra.add(edge_spec.source_column)
+        elif edge_spec.link_column_owner != "target" and edge_spec.source_type == node_type:
+            extra.add(edge_spec.source_column)
+    return tuple(sorted(c for c in extra if c not in spec.property_columns))
+
+
+def _fetch_rows_query(node_type: str) -> str:
+    """Builds the SELECT for `node_type` via plain string concatenation
+    (never an f-string over request data), mirroring
+    `c1_verifier._select_one_by_id_query`/`_select_many_by_column_query`.
+    `node_type` is only ever a key already validated against `NODE_SPECS`;
+    every column and table name comes from `NODE_SPECS`/`EDGE_SPECS`."""
+    spec = NODE_SPECS[node_type]
+    columns = ", ".join(("id",) + spec.property_columns + _extra_select_columns(node_type))
+    if isinstance(spec.scope, tuple) and spec.scope[0] == "via_parent":
+        _, _parent_type, fk_column = spec.scope
+        return (
+            "SELECT " + columns + " FROM " + spec.table + " WHERE " + fk_column
+            + " = ANY($1::varchar[])"
+        )
     scope_column = spec.scope if isinstance(spec.scope, str) else "id"
     return "SELECT " + columns + " FROM " + spec.table + " WHERE " + scope_column + " = $1"
 
 
-async def _fetch_rows(pool, node_type: str, system_id: str) -> List[dict]:
-    """Reads one node type's rows scoped to one system, using its
-    `NodeSpec.scope`. The `("via_parent", ...)` branch is unused by this
-    plan's three node types (SYSTEM/REQUIREMENT/TEST_CASE all scope by a
-    plain column name) and is implemented in plan 04-02."""
+async def _fetch_rows(
+    pool, node_type: str, system_id: str, fetched_by_type: Dict[str, List[dict]]
+) -> List[dict]:
+    """Reads one node type's rows. Plain-scoped types (`"id"`/`"system_id"`)
+    are bound to `system_id`. `("via_parent", parent_type, fk_column)`
+    types are bound to the parent type's already-fetched ids
+    (`fetched_by_type[parent_type]`, populated earlier in `build_graph`'s
+    NODE_SPECS loop -- insertion order guarantees this); an empty parent
+    id list returns `[]` without issuing a query."""
     spec = NODE_SPECS[node_type]
-    if isinstance(spec.scope, tuple):
-        # via_parent -- not needed by this plan's node types.
-        return []
-    rows = await pool.fetch(_fetch_rows_query(node_type), system_id)
+    if isinstance(spec.scope, tuple) and spec.scope[0] == "via_parent":
+        _, parent_type, _fk_column = spec.scope
+        parent_ids = [r["id"] for r in fetched_by_type.get(parent_type, [])]
+        if not parent_ids:
+            return []
+        rows = await pool.fetch(_fetch_rows_query(node_type), parent_ids)
+    else:
+        rows = await pool.fetch(_fetch_rows_query(node_type), system_id)
     return [dict(r) for r in rows]
+
+
+async def _add_change_affects_edges(pool, G: nx.DiGraph, change_ids: List[str]) -> None:
+    """Reads `change_affects` for `change_ids` and draws `AFFECTS` edges
+    from each `CHANGE` node to `make_node_id(entity_type, entity_id)`
+    (D-03). Returns without querying when `change_ids` is empty.
+
+    `entity_type` is validated against `CHANGE_AFFECTS_ENTITY_TYPES`
+    before use -- this is the one place a database row's own value could
+    otherwise steer node-type resolution (T-04-02); an out-of-allowlist
+    value is logged and skipped, never reaching a node id or a SQL
+    statement. A valid `entity_type` whose `entity_id` does not resolve to
+    a node already in `G` is silently dropped by `_add_edge`'s existing
+    endpoint-presence check (T-04-07)."""
+    if not change_ids:
+        return
+    rows = await pool.fetch(
+        "SELECT change_id, entity_type, entity_id FROM change_affects "
+        "WHERE change_id = ANY($1::varchar[])",
+        change_ids,
+    )
+    for row in rows:
+        entity_type = row["entity_type"]
+        if entity_type not in CHANGE_AFFECTS_ENTITY_TYPES:
+            logger.warning(
+                "Dropping change_affects row (change_id=%s, entity_id=%s): "
+                "entity_type %r is outside CHANGE_AFFECTS_ENTITY_TYPES",
+                row["change_id"],
+                row["entity_id"],
+                entity_type,
+            )
+            continue
+        source_id = make_node_id("CHANGE", row["change_id"])
+        target_id = make_node_id(entity_type, row["entity_id"])
+        _add_edge(G, source_id, target_id, "AFFECTS")
 
 
 async def build_graph(pool, system_id: str) -> nx.DiGraph:
@@ -151,39 +340,46 @@ async def build_graph(pool, system_id: str) -> nx.DiGraph:
     `nx.DiGraph`. Writes nothing. Node attrs: node_type, entity_id,
     properties. Edge attrs: relation_type.
 
-    Iterates NODE_SPECS in insertion order (TEST_CASE before REQUIREMENT),
-    then does a single VERIFIED_BY edge pass over the already-fetched
-    REQUIREMENT rows, so `_add_edge`'s endpoint-presence check always has
-    both endpoints available by the time it runs.
+    Three passes: (1) fetch and add every node type in NODE_SPECS
+    insertion order, so every via_parent scope's parent ids are already
+    collected by the time it runs; (2) one loop over EDGE_SPECS, deriving
+    every FK-based edge from data already fetched in pass 1 -- no extra
+    query is issued; (3) `_add_change_affects_edges` over the already-
+    fetched CHANGE row ids, the one non-FK edge source in the whole graph.
     """
     G = nx.DiGraph()
     fetched_by_type: Dict[str, List[dict]] = {}
 
     for node_type in NODE_SPECS:
-        rows = await _fetch_rows(pool, node_type, system_id)
+        rows = await _fetch_rows(pool, node_type, system_id, fetched_by_type)
         fetched_by_type[node_type] = rows
         for row in rows:
             _add_node(G, node_type, row)
 
-    requirement_rows = fetched_by_type.get("REQUIREMENT", [])
-    if requirement_rows:
-        # test_case_id is the FK driving the VERIFIED_BY edge, not a
-        # display property of REQUIREMENT (its property_columns is
-        # ("req_text",) only, per T-04-04's no-SELECT-* discipline), so it
-        # is fetched separately here rather than folded into
-        # `_fetch_rows`'s property-column selection.
-        link_rows = await pool.fetch(
-            "SELECT id, test_case_id FROM requirements WHERE system_id = $1",
-            system_id,
-        )
-        test_case_by_requirement = {r["id"]: r["test_case_id"] for r in link_rows}
-        for row in requirement_rows:
-            test_case_id = test_case_by_requirement.get(row["id"])
-            if not test_case_id:
-                continue
-            source_id = make_node_id("REQUIREMENT", row["id"])
-            target_id = make_node_id("TEST_CASE", test_case_id)
-            _add_edge(G, source_id, target_id, "VERIFIED_BY")
+    for edge_spec in EDGE_SPECS:
+        if edge_spec.link_column_owner == "target":
+            # FK lives on the child (target_type) row; it names the
+            # parent's (source_type's) id. Edge is still drawn
+            # source_type -> target_type (parent -> child).
+            for row in fetched_by_type.get(edge_spec.target_type, []):
+                parent_entity_id = row.get(edge_spec.source_column)
+                if not parent_entity_id:
+                    continue
+                source_id = make_node_id(edge_spec.source_type, parent_entity_id)
+                target_id = make_node_id(edge_spec.target_type, row["id"])
+                _add_edge(G, source_id, target_id, edge_spec.relation_type)
+        else:
+            # FK lives on the source_type row; it names the target's id.
+            for row in fetched_by_type.get(edge_spec.source_type, []):
+                target_entity_id = row.get(edge_spec.source_column)
+                if not target_entity_id:
+                    continue
+                source_id = make_node_id(edge_spec.source_type, row["id"])
+                target_id = make_node_id(edge_spec.target_type, target_entity_id)
+                _add_edge(G, source_id, target_id, edge_spec.relation_type)
+
+    change_ids = [r["id"] for r in fetched_by_type.get("CHANGE", [])]
+    await _add_change_affects_edges(pool, G, change_ids)
 
     return G
 
