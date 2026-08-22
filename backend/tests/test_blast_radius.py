@@ -35,6 +35,7 @@ convention; pytest-asyncio is deliberately absent.
 import asyncio
 
 import networkx as nx
+import pytest
 
 from app.db import get_pool
 from app.graph.evidence_graph import (
@@ -289,3 +290,144 @@ def test_integration_traversal_from_system_sink_returns_empty_everywhere():
     assert result["affected_systems"] == []
     assert result["potential_gxp_impact"] == "NONE"
     assert result["highest_impact_downstream"] is None
+
+
+# ---------------------------------------------------------------------------
+# NEGATIVE (plan 04-04 Task 2, SENT-3-03 Critical-review bar)
+# ---------------------------------------------------------------------------
+
+
+def test_negative_absent_node_raises_networkx_error():
+    G = _load_demo_graph()
+    with pytest.raises(nx.NetworkXError):
+        blast_radius(G, "NO-SUCH-NODE:X")
+
+
+def test_negative_node_from_a_different_systems_graph_raises_networkx_error():
+    async def _run():
+        pool = await get_pool()
+        return await load_graph(pool, "BUS-IT-DEMO-02")
+
+    other_system_graph = asyncio.run(_run())
+    with pytest.raises(nx.NetworkXError):
+        blast_radius(other_system_graph, "CHANGE:CR-2026-089")
+
+
+def test_negative_malformed_node_id_with_no_type_prefix_raises_networkx_error():
+    G = _load_demo_graph()
+    with pytest.raises(nx.NetworkXError):
+        blast_radius(G, "CR-2026-089")
+
+
+def test_negative_positive_control_same_graph_returns_correct_nonempty_result():
+    # Proves the three refusals above are discrimination, not a mechanism
+    # that always refuses.
+    G = _load_demo_graph()
+    result = blast_radius(G, "CHANGE:CR-2026-089")
+    assert len(result["direct_dependencies"]) == 4
+
+
+# ---------------------------------------------------------------------------
+# EDGE (plan 04-04 Task 2, SENT-3-03 Critical-review bar)
+# ---------------------------------------------------------------------------
+
+
+def test_edge_empty_graph_raises_for_any_source():
+    G = nx.DiGraph()
+    with pytest.raises(nx.NetworkXError):
+        blast_radius(G, "REQUIREMENT:X")
+
+
+def test_edge_single_isolated_node_returns_all_empty_buckets():
+    G = nx.DiGraph()
+    _node(G, "REQUIREMENT:LONE", "REQUIREMENT")
+    result = blast_radius(G, "REQUIREMENT:LONE")
+    assert result["direct_dependencies"] == []
+    assert result["indirect_dependencies"] == []
+    assert result["affected_requirements"] == []
+    assert result["potential_gxp_impact"] == "NONE"
+    assert result["highest_impact_downstream"] is None
+
+
+def test_edge_cycle_terminates_and_excludes_source_includes_others():
+    G = nx.DiGraph()
+    _node(G, "CHANGE:A", "CHANGE")
+    _node(G, "REQUIREMENT:B", "REQUIREMENT")
+    _node(G, "DOCUMENT:C", "DOCUMENT")
+    G.add_edge("CHANGE:A", "REQUIREMENT:B", relation_type="AFFECTS")
+    G.add_edge("REQUIREMENT:B", "DOCUMENT:C", relation_type="GOVERNS")
+    G.add_edge("DOCUMENT:C", "CHANGE:A", relation_type="AFFECTS")
+
+    result = blast_radius(G, "CHANGE:A")
+    assert "CHANGE:A" not in result["direct_dependencies"]
+    assert "CHANGE:A" not in result["indirect_dependencies"]
+    all_downstream = set(result["direct_dependencies"]) | set(result["indirect_dependencies"])
+    assert all_downstream == {"REQUIREMENT:B", "DOCUMENT:C"}
+
+
+def test_edge_self_loop_terminates_and_excludes_source():
+    G = nx.DiGraph()
+    _node(G, "CHANGE:A", "CHANGE")
+    G.add_edge("CHANGE:A", "CHANGE:A", relation_type="AFFECTS")
+
+    result = blast_radius(G, "CHANGE:A")
+    assert "CHANGE:A" not in result["direct_dependencies"]
+    assert "CHANGE:A" not in result["indirect_dependencies"]
+
+
+def test_edge_disconnected_component_not_reported():
+    G = nx.DiGraph()
+    _node(G, "CHANGE:A", "CHANGE")
+    _node(G, "REQUIREMENT:B", "REQUIREMENT")
+    G.add_edge("CHANGE:A", "REQUIREMENT:B", relation_type="AFFECTS")
+    # A separate, unreachable component.
+    _node(G, "CHANGE:X", "CHANGE")
+    _node(G, "REQUIREMENT:Y", "REQUIREMENT")
+    G.add_edge("CHANGE:X", "REQUIREMENT:Y", relation_type="AFFECTS")
+
+    result = blast_radius(G, "CHANGE:A")
+    all_downstream = set(result["direct_dependencies"]) | set(result["indirect_dependencies"])
+    assert all_downstream == {"REQUIREMENT:B"}
+    assert "CHANGE:X" not in all_downstream
+    assert "REQUIREMENT:Y" not in all_downstream
+
+
+def test_edge_diamond_reports_sink_exactly_once_in_indirect():
+    G = nx.DiGraph()
+    _node(G, "CHANGE:A", "CHANGE")
+    _node(G, "REQUIREMENT:B", "REQUIREMENT")
+    _node(G, "DOCUMENT:C", "DOCUMENT")
+    _node(G, "SYSTEM:D", "SYSTEM")
+    G.add_edge("CHANGE:A", "REQUIREMENT:B", relation_type="AFFECTS")
+    G.add_edge("CHANGE:A", "DOCUMENT:C", relation_type="AFFECTS")
+    G.add_edge("REQUIREMENT:B", "SYSTEM:D", relation_type="VERIFIED_BY")
+    G.add_edge("DOCUMENT:C", "SYSTEM:D", relation_type="GOVERNS")
+
+    result = blast_radius(G, "CHANGE:A")
+    assert result["direct_dependencies"] == ["DOCUMENT:C", "REQUIREMENT:B"]
+    assert result["indirect_dependencies"] == ["SYSTEM:D"]
+    assert result["indirect_dependencies"].count("SYSTEM:D") == 1
+
+
+def test_edge_node_reachable_by_direct_and_longer_path_classified_as_direct_only():
+    G = nx.DiGraph()
+    _node(G, "CHANGE:A", "CHANGE")
+    _node(G, "DOCUMENT:B", "DOCUMENT")
+    _node(G, "REQUIREMENT:C", "REQUIREMENT")
+    G.add_edge("CHANGE:A", "DOCUMENT:B", relation_type="AFFECTS")
+    G.add_edge("CHANGE:A", "REQUIREMENT:C", relation_type="AFFECTS")
+    G.add_edge("REQUIREMENT:C", "DOCUMENT:B", relation_type="AFFECTS")
+
+    result = blast_radius(G, "CHANGE:A")
+    assert "DOCUMENT:B" in result["direct_dependencies"]
+    assert "DOCUMENT:B" not in result["indirect_dependencies"]
+
+
+def test_edge_nodes_with_no_properties_key_return_medium_not_keyerror():
+    G = nx.DiGraph()
+    G.add_node("CHANGE:A", node_type="CHANGE", entity_id="A")
+    G.add_node("REQUIREMENT:B", node_type="REQUIREMENT", entity_id="B")
+    G.add_edge("CHANGE:A", "REQUIREMENT:B", relation_type="AFFECTS")
+
+    result = blast_radius(G, "CHANGE:A")
+    assert result["potential_gxp_impact"] == "MEDIUM"

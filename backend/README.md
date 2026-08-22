@@ -388,3 +388,51 @@ naming a non-existent entity, and the D-03 same-`system_id`-is-not-an-edge
 guarantee between `ACCESS_REVIEW`/`ACCESS_RECORD` and `SUPPLIER`/`SYSTEM`),
 and edge-case (a single-node system, a system with no `changes` rows,
 build-twice determinism) sections, live Postgres throughout, never mocked.
+
+## Phase 4 Blast Radius (plan 04-04, GRAPH-02)
+
+`evidence_graph.blast_radius(G, source_node_id)` answers every one of Bible
+Section 14.3's nine Graph Questions from a single `nx.descendants`
+traversal over an already-loaded graph (`load_graph` -- never
+`build_graph`, per D-02: this is a read path and a read never rebuilds).
+Exposed as `GET /api/systems/{system_id}/blast-radius?node_id=...`. No
+model call appears anywhere in the traversal (Bible Section 1.3, 14.3);
+`grep -rn "call_llm|llm_router" backend/app/graph/evidence_graph.py`
+returns no matches.
+
+**Response shape.** `BlastRadiusResponse` carries `source_node_id`,
+`system_id`, one field per Graph Question (`direct_dependencies`,
+`indirect_dependencies`, `affected_requirements`, `affected_tests`,
+`affected_risks`, `affected_changes`, `affected_controls`,
+`potential_gxp_impact`, `highest_impact_downstream`), plus
+`affected_systems`. Every list is sorted ascending, so a response is
+byte-stable across runs.
+
+**404 vs 200 vs 503.** An unknown `system_id` or a `node_id` absent from
+that system's graph (`nx.NetworkXError`, caught in the route handler)
+returns `404` -- a change with no derived edges is a valid state, not a
+server error. An empty blast radius for a node that *is* in the graph
+(e.g. the `SYSTEM` sink node itself) returns `200` with all-empty buckets,
+never `404`. An unreachable Postgres pool returns `503`.
+
+**Test coverage (SENT-3-03 Critical-review bar).**
+`backend/tests/test_blast_radius.py` carries:
+
+| Coverage class | Test names |
+|---|---|
+| **Unit** | `test_unit_node_type_impact_rank_contains_every_node_specs_key_exactly_once`, `test_unit_control_node_types_is_access_review_and_access_record`, `test_unit_three_node_chain_yields_direct_b_indirect_c`, `test_unit_source_node_never_appears_in_any_returned_list`, `test_unit_every_returned_list_is_sorted_ascending_and_calls_are_equal`, `test_unit_assess_gxp_impact_high_for_downstream_system_with_gxp_impact_true`, `test_unit_assess_gxp_impact_high_for_downstream_incident_patient_safety_relevant_true`, `test_unit_assess_gxp_impact_medium_for_nonempty_set_without_high_signal`, `test_unit_assess_gxp_impact_none_for_empty_set`, `test_unit_rank_highest_impact_picks_node_with_most_descendants`, `test_unit_rank_highest_impact_tie_break_by_node_type_impact_rank`, `test_unit_rank_highest_impact_tie_break_within_one_type_by_lower_node_id`, `test_unit_rank_highest_impact_returns_none_for_empty_set` |
+| **Integration** | Nine tests, one per Bible Section 14.3 Graph Question (`test_integration_q1_...` through `test_integration_q9_...`), plus `test_integration_second_traversal_from_requirement_tracks_real_subgraph` and `test_integration_traversal_from_system_sink_returns_empty_everywhere` |
+| **Negative** | `test_negative_absent_node_raises_networkx_error`, `test_negative_node_from_a_different_systems_graph_raises_networkx_error`, `test_negative_malformed_node_id_with_no_type_prefix_raises_networkx_error`, `test_negative_positive_control_same_graph_returns_correct_nonempty_result` |
+| **Edge-case** | `test_edge_empty_graph_raises_for_any_source`, `test_edge_single_isolated_node_returns_all_empty_buckets`, `test_edge_cycle_terminates_and_excludes_source_includes_others`, `test_edge_self_loop_terminates_and_excludes_source`, `test_edge_disconnected_component_not_reported`, `test_edge_diamond_reports_sink_exactly_once_in_indirect`, `test_edge_node_reachable_by_direct_and_longer_path_classified_as_direct_only`, `test_edge_nodes_with_no_properties_key_return_medium_not_keyerror` |
+
+**What this coverage does and does not claim.** The graph-shape hazards
+(cycle, self-loop, diamond, disconnected component, dual-path node) are
+each proven by their own hand-built `nx.DiGraph` fixture, not by seeded
+data -- the domain graph today is acyclic, so these shapes cannot occur in
+the live seed and must be constructed directly (critical finding 7). The
+nine Graph Question tests against `CHANGE:CR-2026-089` prove the
+traversal's answers are correct for the one real, multi-hop shape the
+seeded demo actually produces; they do not claim every possible graph
+topology has been exercised against live Postgres, only that the pure
+traversal function handles the topologies enumerated above regardless of
+where the graph came from.
