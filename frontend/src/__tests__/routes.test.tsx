@@ -12,6 +12,7 @@ const expectedHeadings: Record<string, string> = {
   '/': 'Command Centre',
   '/copilot': 'Ask GxP Copilot',
   '/audit-readiness': 'Audit Readiness',
+  '/blast-radius': 'Blast Radius',
   '/suppliers': 'Supplier Intelligence',
   '/actions': 'Action / Approval Centre',
   '/assurance-lab': 'Assurance Lab',
@@ -20,8 +21,8 @@ const expectedHeadings: Record<string, string> = {
 }
 
 describe('route table', () => {
-  it('has exactly eight entries', () => {
-    expect(routes).toHaveLength(8)
+  it('has exactly nine entries', () => {
+    expect(routes).toHaveLength(9)
   })
 
   it('has unique paths', () => {

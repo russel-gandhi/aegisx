@@ -2,6 +2,7 @@ import type { ComponentType } from 'react'
 import CommandCentre from './pages/CommandCentre'
 import Copilot from './pages/Copilot'
 import AuditReadiness from './pages/AuditReadiness'
+import BlastRadius from './pages/BlastRadius'
 import Suppliers from './pages/Suppliers'
 import Actions from './pages/Actions'
 import AssuranceLab from './pages/AssuranceLab'
@@ -24,7 +25,7 @@ export const routes: RouteDefinition[] = [
   { path: '/', label: 'Command Centre', Component: CommandCentre }, // 11.1
   { path: '/copilot', label: 'Ask GxP Copilot', Component: Copilot }, // 11.2
   { path: '/audit-readiness', label: 'Audit Readiness', Component: AuditReadiness }, // 11.3
-  // 11.4 (Blast Radius) intentionally absent — lands in Phase 4, SENT-3-04.
+  { path: '/blast-radius', label: 'Blast Radius', Component: BlastRadius }, // 11.4
   { path: '/suppliers', label: 'Supplier Intelligence', Component: Suppliers }, // 11.5
   { path: '/actions', label: 'Actions', Component: Actions }, // 11.6
   { path: '/assurance-lab', label: 'Assurance Lab', Component: AssuranceLab }, // 11.7
