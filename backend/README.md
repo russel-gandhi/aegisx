@@ -222,3 +222,78 @@ cd backend && .venv/Scripts/python -m pytest tests/test_hero_loop.py -q
 and invoke the loop once against a live provider to confirm A0's classification picks a sensible agent subset and A2's narration reads as a coherent compliance finding — the one claim the automated suite above cannot make.
 
 `verification_results` is the shape Phase 4's Assurance Card UI reads its data from — see "AgentFinding conventions (Phase 3)" above for the full field-by-field contract; not restated here.
+
+## Phase 4 evidence graph (plan 04-01, GRAPH-01/GRAPH-03)
+
+`app/graph/evidence_graph.py` builds an in-memory `nx.DiGraph` from live
+domain-table state for one system (`build_graph`), persists it into the
+`graph_nodes`/`graph_edges` cache tables (`persist_graph`), and reads that
+cache back without touching a domain table (`load_graph`). This is the
+Bible Section 10.1 `build_evidence_graph` deliverable, transcribed under
+the deterministic-first constraint (Bible Section 1.3): the module
+contains no model call, and never will — graph relationship derivation
+stays permanently in the Python/NetworkX tier.
+
+**Type-prefixed node ids.** `graph_nodes.node_id` is one `VARCHAR(100)`
+primary key shared by every entity type. Seed data happens to use disjoint
+id prefixes per domain table today, but that is a habit, not a schema
+guarantee — a future collision would silently overwrite an unrelated node.
+Every node id is therefore `"{node_type}:{entity_id}"`, built only via
+`make_node_id`/split only via `split_node_id` (split on the first `:`, so
+an entity id containing a colon still round-trips).
+
+**Frozen allowlists.** `NODE_SPECS` (node type -> table/columns/scope) and
+`RELATION_TYPES` are the only source of a table name or a relation-type
+string that reaches SQL — never a request value, never a database row
+(threat T-04-02). This plan populates `SYSTEM`/`REQUIREMENT`/`TEST_CASE`
+and `{"VERIFIED_BY"}`; plan 04-02 extends both dicts without changing
+their shape.
+
+**Explicit-rebuild-only (D-01/D-02).** `persist_graph` is the only writer
+of the two cache tables anywhere in the codebase — the cache never holds a
+fact not derivable from domain state. The read endpoint below never
+recomputes; an empty cache is a real, expected state (not a bug) until an
+operator calls rebuild.
+
+**Endpoints** (`app/routes/evidence_graph.py`, registered on `app.main:app`):
+
+```bash
+# Rebuild the cache for one system from live domain-table state
+curl -X POST http://127.0.0.1:8000/api/systems/GXP-MFG-DEMO-01/evidence-graph/rebuild
+
+# Read the cache only -- no rebuild triggered by this call
+curl http://127.0.0.1:8000/api/systems/GXP-MFG-DEMO-01/evidence-graph
+```
+
+Both return `404` when `system_id` is absent from `gxp_systems`, `503`
+when the Postgres pool is unavailable (`acquire_pool_or_none()`'s
+degrade-don't-raise contract). A system with an empty cache returns `200`
+with empty `nodes`/`edges` arrays from the GET endpoint, not `404`.
+
+## Phase 4 evidence graph (plan 04-01)
+
+`backend/app/graph/evidence_graph.py` builds an in-memory `networkx.DiGraph` from live domain-table state and persists it into the previously-empty `graph_nodes`/`graph_edges` cache tables (`infra/postgres/initdb/001_schema.sql`). No LLM ever appears in this path (Bible Section 1.3) — every node and edge traces back to a real Postgres row and a real foreign-key-shaped column value.
+
+**Type-prefixed node ids.** `graph_nodes.node_id` is a single `VARCHAR(100)` primary key shared by every entity type. Seed data happens to use disjoint id prefixes per domain table today (`URS-*`, `TC-*`, ...), but that is a seed-data habit, not a schema guarantee — a future collision between two tables' raw ids would otherwise silently overwrite an unrelated node. Every node id is therefore `"{node_type}:{entity_id}"`, produced only by `make_node_id`/`split_node_id`.
+
+**Frozen allowlists.** `NODE_SPECS` (node type -> table, property columns, scope) and `RELATION_TYPES` (permitted `graph_edges.relation_type` values) are the only source of a table name or relation-type string that reaches SQL — never request data, never a database row. This plan populates `SYSTEM`, `REQUIREMENT`, `TEST_CASE` and `{"VERIFIED_BY"}`; plan 04-02 extends both.
+
+**Explicit-rebuild-only (D-02).** `persist_graph()` is the only writer of the two cache tables anywhere in the codebase. The read endpoint below never recomputes — an empty cache is a real, expected state (run the rebuild endpoint first), not a bug silently papered over by an on-read rebuild.
+
+Endpoints (registered on the shared `app` object in `app/main.py`):
+
+```
+POST /api/systems/{system_id}/evidence-graph/rebuild   # build_graph + persist_graph; 404 unknown system, 503 pool down
+GET  /api/systems/{system_id}/evidence-graph            # reads graph_nodes/graph_edges only; never rebuilds
+```
+
+Run commands (from `backend/`, with Postgres up and seeded):
+
+```bash
+.venv/Scripts/python -m uvicorn app.main:app --port 8000
+# in another shell:
+node -e "fetch('http://127.0.0.1:8000/api/systems/GXP-MFG-DEMO-01/evidence-graph/rebuild',{method:'POST'}).then(r=>r.json()).then(j=>console.log(j))"
+node -e "fetch('http://127.0.0.1:8000/api/systems/GXP-MFG-DEMO-01/evidence-graph').then(r=>r.json()).then(j=>console.log(j))"
+```
+
+Tests: `backend/tests/test_evidence_graph.py` (module-level build/persist/load, unit + negative/edge + integration) and `backend/tests/test_routes_evidence_graph.py` (the two HTTP endpoints via `TestClient`, including the D-02 mutate-the-cache-behind-the-endpoint's-back proof).

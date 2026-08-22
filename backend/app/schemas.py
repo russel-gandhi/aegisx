@@ -166,3 +166,31 @@ class OrchestratorOutput(BaseModel):
 
 class ComplianceInput(BaseModel):
     system_id: str
+
+
+# Phase 4 (GRAPH-01/GRAPH-03): evidence graph read/rebuild response models
+# (04-01-PLAN.md <interface_contract>). Mirror `app.graph.evidence_graph`'s
+# in-memory nx.DiGraph node/edge attribute shape at the API boundary.
+class GraphNode(BaseModel):
+    node_id: str
+    node_type: str
+    entity_id: str
+    properties: Dict[str, Any]
+
+
+class GraphEdge(BaseModel):
+    source_id: str
+    target_id: str
+    relation_type: str
+
+
+class EvidenceGraphResponse(BaseModel):
+    system_id: str
+    nodes: List[GraphNode]
+    edges: List[GraphEdge]
+
+
+class EvidenceGraphRebuildResponse(BaseModel):
+    system_id: str
+    node_count: int
+    edge_count: int
