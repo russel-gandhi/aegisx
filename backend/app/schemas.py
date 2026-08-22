@@ -196,6 +196,36 @@ class EvidenceGraphRebuildResponse(BaseModel):
     edge_count: int
 
 
+# Phase 4 (GRAPH-02, plan 04-04): Blast Radius response model. One field
+# per Bible Section 14.3 Graph Question, transcribed from
+# `evidence_graph.blast_radius()`'s return dict verbatim -- this model adds
+# `system_id` (the route's own path parameter) on top. Field-to-question
+# mapping:
+#   direct_dependencies        -- Q1 directly affected entities
+#   indirect_dependencies      -- Q2 indirectly affected entities
+#   affected_requirements      -- Q3 affected requirements
+#   affected_tests             -- Q4 affected tests
+#   affected_risks             -- Q5 affected risks
+#   affected_changes           -- Q6 affected changes
+#   affected_controls          -- Q7 affected controls
+#   affected_systems           -- GRAPH-02's own "affected systems" wording
+#   potential_gxp_impact       -- Q8 potential GxP impact
+#   highest_impact_downstream  -- Q9 highest-impact downstream dependency
+class BlastRadiusResponse(BaseModel):
+    system_id: str
+    source_node_id: str
+    direct_dependencies: List[str]
+    indirect_dependencies: List[str]
+    affected_requirements: List[str]
+    affected_tests: List[str]
+    affected_risks: List[str]
+    affected_changes: List[str]
+    affected_controls: List[str]
+    affected_systems: List[str]
+    potential_gxp_impact: str
+    highest_impact_downstream: Optional[str] = None
+
+
 # Phase 4 (EVID-03, D-04): Assurance Card response models
 # (04-03-PLAN.md <interface_contract>, Bible Section 11.2). The card is
 # assembled from already-computed Phase 3 output -- A2's `build_finding`
