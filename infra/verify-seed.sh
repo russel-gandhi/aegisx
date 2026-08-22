@@ -86,6 +86,15 @@ check_eq "Gap 10: CA-2026-089-1 status == OPEN" "SELECT status FROM change_actio
 check_eq "Fixture: DOC-2026-URS-01 doc_type == URS" "SELECT doc_type FROM documents WHERE id='DOC-2026-URS-01'" "URS"
 check_eq "Fixture: DOC-2026-URS-01 status == APPROVED" "SELECT status FROM documents WHERE id='DOC-2026-URS-01'" "APPROVED"
 
+# 2c. Phase-4 fixture assertions (infra/postgres/seed/003_change_affects_fixture.sql,
+# D-03): the additive DE-2026-DB-01 design element and the three
+# change_affects rows for CR-2026-089 exist, spanning exactly the three
+# expected entity types. Not one of the ten Bible-seeded gaps above, and
+# adds no violation count.
+check_eq "Fixture: DE-2026-DB-01 exists" "SELECT count(*) FROM design_elements WHERE id='DE-2026-DB-01'" "1"
+check_eq "Fixture: change_affects row count for CR-2026-089 == 3" "SELECT count(*) FROM change_affects WHERE change_id='CR-2026-089'" "3"
+check_eq "Fixture: CR-2026-089 entity_type set == DESIGN_ELEMENT,DOCUMENT,REQUIREMENT" "SELECT string_agg(DISTINCT entity_type, ',' ORDER BY entity_type) FROM change_affects WHERE change_id='CR-2026-089'" "DESIGN_ELEMENT,DOCUMENT,REQUIREMENT"
+
 # 3. Nanosecond-magnitude guard (Pitfall 2): union of every seeded _ns
 # value across the six tables that carry one must contain zero values
 # below 1e18 (a second- or millisecond-epoch value would be far smaller).
