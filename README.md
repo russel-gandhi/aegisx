@@ -15,6 +15,21 @@ AegisX AI is an agentic AI co-pilot for always-on, audit-ready GxP IT system man
 
 Backend (FastAPI + LangGraph) and frontend (Vite + React + React Flow) both have working code as of Phase 4: real agents feeding C1 evidence verification, a NetworkX evidence graph built from live Postgres state with Blast Radius traversal, and Assurance Cards rendered end-to-end in the browser. See `.planning/ROADMAP.md` and `.planning/STATE.md` for current phase detail.
 
+## Mentor compliance mapping
+
+AegisX AI was cross-checked against the industry mentor's `HACK-IT-SOP-001_v0.1_IT_System_Lifecycle.md` and `Top_25_Checklists_GxP_IT_Audit_Questions_2026.xlsx` (350 audit questions across 14 lifecycle-phase tabs). AegisX is the **audit agent** those documents describe — not the regulated system under audit — so it is evaluated against the SOP's own "Audit-Agent Answer Contract" (Section 11.4) rather than the full IT-system lifecycle gates a target system must pass.
+
+That contract expects one of five conclusions per control question — Demonstrated / Partially Demonstrated / Not Demonstrated / N/A (with evidence) / Unable to Determine — and a 0–4 corroboration rubric (Absent → Claim → Document → Demonstrated → Corroborated). AegisX's `calculate_confidence()` (C1) uses a different but equivalent vocabulary:
+
+| AegisX confidence | SOP §11.4 conclusion | SOP §11.5 rubric level |
+|---|---|---|
+| `INSUFFICIENT_EVIDENCE` | Unable to Determine | 0 (Absent) / 1 (Claim only) |
+| `LOW` | Partially Demonstrated | 2 (Document, unverified) |
+| `MEDIUM` | Demonstrated (single-source corroboration — DB record **or** OPA rule, not both) | 3 (Demonstrated) |
+| `HIGH` | Demonstrated | 4 (Corroborated — real DB record **and** real OPA policy evaluation agree) |
+
+An `N/A` conclusion has no AegisX equivalent by design — the deterministic-first architecture (Bible Section 1.3) never lets a check silently mark itself not-applicable; an inapplicable check simply passes (no finding is emitted).
+
 ## Prerequisites
 
 - **Docker Desktop** with Compose v2 (on Windows: WSL2 backend enabled)
