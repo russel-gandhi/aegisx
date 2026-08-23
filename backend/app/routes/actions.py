@@ -1,0 +1,275 @@
+"""
+Action/approval HTTP routes (Phase 5, plan 05-01).
+
+Ticket: SENT-4-03, SENT-4-04, SENT-4-05 | Requirement: REM-01..REM-04,
+SAFE-01 | Decisions: D-01, D-02, D-03, D-04
+
+Every route in this module is write-capable and therefore RBAC-gated
+through `c2_gateway.check_rbac`. The Phase 4 read routes
+(`routes/evidence_graph.py`, `routes/findings.py`) are deliberately left
+ungated per D-04 -- this module adds no middleware to them, and this
+docstring is the record that the omission is intentional, not an
+oversight a later pass should "fix."
+
+No response field on any route below is authored by a model at
+response-assembly time. `justification` is the one narrative field this
+module ever returns, and it is written once (by `a7_remediation.
+synthesize_capa`, at proposal-creation time) and read back verbatim on
+every later request -- never re-generated at render time, mirroring
+`routes/findings.py`'s own "no LLM prose assembled at read time"
+guarantee.
+"""
+
+import json
+from typing import Any, Dict
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.agents.a2_compliance import A2_CHECKS, build_finding, narrate_gap
+from app.agents.a7_remediation import synthesize_capa
+from app.agents.c1_verifier import verify_finding
+from app.agents.c2_gateway import check_rbac
+from app.agents.c3_gateway import QUEUED_CATEGORIES, persist_proposal, route_action
+from app.audit_trail import log_event
+from app.db import acquire_pool_or_none
+from app.identity import RequestIdentity, require_identity
+from app.routes.evidence_graph import _system_exists
+from app.schemas import (
+    ActionProposalRecord,
+    ActionProposalsResponse,
+    GenerateCapaResponse,
+)
+
+router = APIRouter()
+
+
+def _row_to_record(row: Dict[str, Any]) -> ActionProposalRecord:
+    payload = row["payload"]
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    return ActionProposalRecord(
+        id=row["id"],
+        action_type=row["action_type"],
+        category=route_action(row["action_type"]),
+        target_system=row["target_system"],
+        payload=payload,
+        status=row["status"],
+        justification=row.get("justification"),
+        finding_id=row.get("finding_id"),
+        model_id=row.get("model_id"),
+        created_at=row.get("created_at"),
+        approved_by=row.get("approved_by"),
+        approved_at=row.get("approved_at"),
+        execution_result=row.get("execution_result"),
+    )
+
+
+async def _find_finding_server_side(pool, system_id: str, finding_id: str):
+    """Re-derive the finding server-side by iterating A2_CHECKS, exactly as
+    `routes/findings.py`'s `get_assurance_cards` does -- the client
+    supplies only `finding_id`, never claim text, so the claim rendered in
+    a later CAPA proposal can never be client-controlled. Returns `None`
+    when no currently-failing check produces a finding with this id (e.g.
+    the check has since started passing, or the id is stale/unknown)."""
+    for check_fn in A2_CHECKS:
+        check_result = await check_fn(pool, system_id)
+        if check_result["passed"]:
+            continue
+        claim, model_id = await narrate_gap(check_result)
+        finding = build_finding(check_result, claim, model_id)
+        if finding["finding_id"] == finding_id:
+            return finding
+    return None
+
+
+@router.post(
+    "/api/systems/{system_id}/findings/{finding_id}/generate-capa",
+    response_model=GenerateCapaResponse,
+)
+async def generate_capa(
+    system_id: str,
+    finding_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+):
+    """D-03: this route is the only trigger for A7 -- it exists precisely
+    because A7 must never fire as a side effect of asking a question. RBAC
+    is checked first, before the pool guard, before any model call, and
+    before any row is written -- an Auditor (or any role without "A7")
+    never reaches Postgres or the LLM router on this path."""
+    if not check_rbac(identity.role, "A7"):
+        raise HTTPException(
+            status_code=403, detail=f"Role {identity.role} may not trigger A7 Remediation"
+        )
+
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+    if not await _system_exists(pool, system_id):
+        raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
+
+    finding = await _find_finding_server_side(pool, system_id, finding_id)
+    if finding is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No currently-failing compliance check produced finding_id {finding_id!r}",
+        )
+    finding["target_system"] = system_id
+
+    verification_result = await verify_finding(pool, finding)
+
+    proposal, model_id = await synthesize_capa(finding, verification_result)
+    if proposal is None:
+        return GenerateCapaResponse(
+            finding_id=finding_id,
+            confidence=verification_result["confidence"],
+            proposal=None,
+            reason="no C1-verified finding available for remediation",
+        )
+
+    category = route_action(proposal["action_type"])
+    if category not in QUEUED_CATEGORIES:
+        await log_event(
+            pool,
+            {
+                "session_id": None,
+                "user_id": identity.user_id,
+                "user_role": identity.role,
+                "agent_id": "A7",
+                "action_type": "PROPOSAL_BLOCKED",
+                "target_system_id": system_id,
+                "target_record_id": None,
+                "output_summary": (
+                    f"A7 proposal for {proposal['action_type']!r} blocked: "
+                    f"category {category!r} is not queued for human approval."
+                ),
+                "evidence_ids": finding["evidence_ids"],
+                "opa_rule_ids": verification_result["opa_rule_ids"],
+                "model_id": model_id,
+                "prompt_version": "A7-v1",
+            },
+        )
+        return GenerateCapaResponse(
+            finding_id=finding_id,
+            confidence=verification_result["confidence"],
+            proposal=None,
+            reason=f"proposed action_type resolves to category {category!r}, not queued for approval",
+        )
+
+    proposal_id = await persist_proposal(pool, proposal, category, identity, finding_id, model_id)
+
+    await log_event(
+        pool,
+        {
+            "session_id": None,
+            "user_id": identity.user_id,
+            "user_role": identity.role,
+            "agent_id": "A7",
+            "action_type": "PROPOSAL_CREATED",
+            "target_system_id": system_id,
+            "target_record_id": proposal_id,
+            "output_summary": (
+                f"A7 created proposal {proposal_id} ({proposal['action_type']}, "
+                f"category={category}) for finding {finding_id}."
+            ),
+            "evidence_ids": finding["evidence_ids"],
+            "opa_rule_ids": verification_result["opa_rule_ids"],
+            "model_id": model_id,
+            "prompt_version": "A7-v1",
+        },
+    )
+
+    row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    return GenerateCapaResponse(
+        finding_id=finding_id,
+        confidence=verification_result["confidence"],
+        proposal=_row_to_record(dict(row)),
+        reason=None,
+    )
+
+
+@router.get("/api/actions", response_model=ActionProposalsResponse)
+async def list_actions(identity: RequestIdentity = Depends(require_identity)):
+    """No RBAC restriction beyond a recognised role (`require_identity`
+    already fails closed on that) -- all three roles may read the queue,
+    per Bible Section 2's Auditor scope ("Read-only System and Compliance
+    metrics") and REM-03's approval-dialog requirement, which presumes the
+    queue itself is visible before anyone can act on it."""
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+
+    rows = await pool.fetch("SELECT * FROM action_proposals ORDER BY created_at ASC, id ASC")
+    return ActionProposalsResponse(proposals=[_row_to_record(dict(row)) for row in rows])
+
+
+@router.post("/api/actions/{proposal_id}/approve", response_model=ActionProposalRecord)
+async def approve_action(
+    proposal_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+):
+    """D-02: this route is the only way a queued proposal ever leaves
+    PENDING_APPROVAL -- there is no auto-approve path, no timeout-based
+    execution, and no category that skips the human click. A later
+    "convenience" shortcut around this route is a decision reversal, not
+    an optimisation, and should be recognised and stopped as such."""
+    if not check_rbac(identity.role, "A7"):
+        raise HTTPException(
+            status_code=403, detail=f"Role {identity.role} may not approve actions"
+        )
+
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+
+    row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Unknown proposal_id: {proposal_id}")
+    row = dict(row)
+
+    if row["status"] != "PENDING_APPROVAL":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Proposal {proposal_id} is {row['status']}, not PENDING_APPROVAL",
+        )
+
+    category = route_action(row["action_type"])
+    if category == "MOCK_WRITE_LOW_RISK":
+        new_status = "EXECUTED"
+        execution_result = f"MOCK-TICKET-{proposal_id}"
+    else:
+        # GXP_RELEVANT_WRITE (the only other QUEUED_CATEGORIES member) --
+        # never auto-executed. Reconciled in c3_gateway.py's own docstring.
+        new_status = "APPROVED"
+        execution_result = (
+            "Approved for out-of-band execution; this system performs no "
+            "write against a validated GxP record."
+        )
+
+    await pool.execute(
+        "UPDATE action_proposals SET status = $1, approved_by = $2, "
+        "approved_at = now(), execution_result = $3 WHERE id = $4",
+        new_status,
+        identity.user_id,
+        execution_result,
+        proposal_id,
+    )
+
+    await log_event(
+        pool,
+        {
+            "session_id": None,
+            "user_id": identity.user_id,
+            "user_role": identity.role,
+            "agent_id": "C3",
+            "action_type": "ACTION_APPROVED",
+            "target_system_id": row["target_system"],
+            "target_record_id": proposal_id,
+            "approval_id": proposal_id,
+            "output_summary": f"{identity.user_id} approved proposal {proposal_id} ({new_status}).",
+            "evidence_ids": [],
+            "opa_rule_ids": [],
+        },
+    )
+
+    updated_row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    return _row_to_record(dict(updated_row))
