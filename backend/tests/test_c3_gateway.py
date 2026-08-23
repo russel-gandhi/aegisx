@@ -258,13 +258,14 @@ def test_persist_proposal_binds_every_value():
     """A `action_type` containing a SQL metacharacter payload round-trips
     as the exact literal string, and exactly one row is inserted -- proof
     the value was bound through a `$N` placeholder, never interpolated
-    (ASVS V5)."""
+    (ASVS V5). Kept under the `action_type VARCHAR(50)` column limit --
+    this is a SQL-binding proof, not a truncation test."""
 
     async def run():
         pool = await get_pool()
         proposal_ids: List[str] = []
         try:
-            payload_action_type = "CREATE_CAPA_RECORD'; DROP TABLE action_proposals; --"
+            payload_action_type = "X'; DROP TABLE action_proposals; --"
             proposal = {
                 "action_type": payload_action_type,
                 "target_system": "GXP-MFG-DEMO-01",
