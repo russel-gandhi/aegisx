@@ -286,3 +286,23 @@ class GenerateCapaResponse(BaseModel):
     confidence: str
     proposal: Optional[ActionProposalRecord] = None
     reason: Optional[str] = None
+
+
+# Phase 5 (AUDIT-02, AUDIT-03): audit-chain HTTP response models
+# (05-03-PLAN.md <artifacts>). Both models are read straight from
+# `audit_trail.verify_chain`/`demonstrate_tamper`'s own return dict --
+# `routes/audit.py` computes nothing of its own, matching this module's
+# existing "no field authored at response-assembly time" guarantee.
+class ChainVerificationResponse(BaseModel):
+    status: str
+    events_checked: Optional[int] = None
+    broken_at_index: Optional[int] = None
+    event_id: Optional[str] = None
+
+
+class TamperDemoResponse(BaseModel):
+    status: str
+    event_id: str
+    rows_modified: int
+    events_checked: Optional[int] = None
+    broken_at_index: Optional[int] = None

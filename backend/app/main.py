@@ -32,12 +32,16 @@ endpoint from `app.routes.findings`.
 
 Plan 05-01 registers a fourth router: the action/approval endpoints from
 `app.routes.actions`.
+
+Plan 05-03 registers a fifth router: the audit chain endpoints from
+`app.routes.audit`.
 """
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.actions import router as actions_router
+from app.routes.audit import router as audit_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
 from app.ws.copilot import router as copilot_ws_router
@@ -66,6 +70,7 @@ app.include_router(copilot_ws_router)
 app.include_router(evidence_graph_router)
 app.include_router(findings_router)
 app.include_router(actions_router)
+app.include_router(audit_router)
 
 
 @app.get("/api/health")
