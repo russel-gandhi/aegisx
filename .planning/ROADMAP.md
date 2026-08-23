@@ -120,7 +120,15 @@ Plans:
   3. C3 Action Gateway routes a proposed action to its correct category (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED); a GxP-relevant write sits `PENDING` in `action_proposals` until a human approves it, and the approval dialog in the Action/Approval Centre UI renders only from server-trusted `ActionProposal` metadata, never LLM-generated UI.
   4. A7 Remediation Agent synthesizes an `ActionProposal`/CAPA narrative only from already-verified (C1-passed) findings, never an unverified claim; the `/api/copilot/stream/{session_id}` WebSocket pushes the pending proposal live, and a human approving it is audit-logged and the action executes end to end.
   5. Finding/verification/approval events are recorded as they occur in a hash-chained, append-only audit trail with `verify_chain()` implemented alongside the chain (not bolted on after); hitting `/api/audit/demonstrate-tamper` executes a raw SQL modification against an audit row, and `verify_chain()` correctly flags the chain as tampered.
-**Plans**: TBD
+**Plans**: 6 plans in 4 waves
+
+Plans:
+- [ ] 05-01-PLAN.md — TRACER: one GxP-relevant write end to end — identity → C2 RBAC → A7 → C3 → PENDING_APPROVAL → approve → hash-chained audit, plus the `action_proposals` schema decision — SENT-4-01/03/04/05/06 (wave 1)
+- [ ] 05-02-PLAN.md — C2 Critical review: entropy + regex injection detection with a recorded threshold, and the full 21-cell RBAC truth table — SENT-4-01, SENT-4-02 (wave 2)
+- [ ] 05-03-PLAN.md — Hash-chain Critical review + `/api/audit/verify` and `/api/audit/demonstrate-tamper`, with canonicalisation and concurrency regression tests — SENT-4-06, SENT-4-07 (wave 2)
+- [ ] 05-04-PLAN.md — C3 five-category routing and A7 verified-findings-only to the Critical-review bar, plus the reject path — SENT-4-03, SENT-4-05 (wave 2)
+- [ ] 05-05-PLAN.md — Live Action / Approval Centre: WebSocket proposal push, persistent role selector, Generate CAPA trigger, approve/reject UI — SENT-4-04, SENT-4-08 (wave 3)
+- [ ] 05-06-PLAN.md — Wire C2/A7/C3 into the compiled graph without a topology change, plus the phase human-verification gate (wave 4)
 **UI hint**: yes
 
 ### Phase 6: Product Experience
@@ -173,7 +181,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Foundation | 8/8 | Complete | 2026-08-20 |
 | 3. Intelligence & Retrieval | 6/6 | Complete | 2026-08-21 |
 | 4. Evidence & Impact | 5/5 | Complete (pending human visual check) | 2026-08-23 |
-| 5. Safety & Remediation | 0/TBD | Not started | - |
+| 5. Safety & Remediation | 0/6 | Planned | - |
 | 6. Product Experience | 0/TBD | Not started | - |
 | 7. Integration & Hardening | 0/TBD | Not started | - |
 | 8. Freeze | 0/TBD | Not started | - |
