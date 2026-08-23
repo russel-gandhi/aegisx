@@ -15,3 +15,7 @@ build/
 .idea/
 .vscode/
 .obsidian/
+
+# Local reference docs (not for commit)
+ARCHITECTURE_DECISIONS.md
+CODEBASE_OVERVIEW.md
