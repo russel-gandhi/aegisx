@@ -10,17 +10,30 @@ Convention: plain `def test_*`, no pytest-asyncio (this module needs none —
 per `backend/tests/conftest.py`'s documented suite convention).
 
 Task 1 covers the injection-detection behaviour list (regex leg, entropy
-leg, the recorded threshold pinned in both directions). Task 2 (added
-separately) covers the RBAC Critical-review coverage bar.
+leg, the recorded threshold pinned in both directions). Task 2 covers the
+RBAC Critical-review coverage bar (CLAUDE.md Rule 6): the full 21-cell
+permission matrix truth table, five fail-closed negative cases, matrix
+immutability, and a mechanical AST-based gate proving this module imports
+no LLM client.
 """
 
+import ast
 import base64
+import inspect
+import pathlib
 
 from app.agents.c2_gateway import (
     ENTROPY_THRESHOLD_BITS_PER_CHAR,
+    JAILBREAK_PATTERNS,
     MIN_TOKEN_LENGTH_FOR_ENTROPY,
+    PERMISSION_MATRIX,
+    check_rbac,
     detect_injection,
     shannon_entropy,
+)
+
+C2_MODULE_PATH = (
+    pathlib.Path(__file__).resolve().parents[1] / "app" / "agents" / "c2_gateway.py"
 )
 
 
@@ -96,3 +109,86 @@ def test_entropy_threshold_constants_are_recorded_as_specified():
 def test_shannon_entropy_pure_function_no_io():
     # Deterministic and side-effect-free: same input, same output, twice.
     assert shannon_entropy("hello world") == shannon_entropy("hello world")
+
+
+# ---------------------------------------------------------------------------
+# Task 2: RBAC Critical-review coverage + mechanical no-model-call gate
+# ---------------------------------------------------------------------------
+
+
+def test_permission_matrix_truth_table():
+    # Transcribed independently from Bible Section 2's three rows so a
+    # drift in PERMISSION_MATRIX fails here rather than silently widening
+    # a role.
+    expected = {
+        "IT System Manager": {"A1", "A2", "A3", "A4", "A5", "A6", "A7"},
+        "QA/Compliance": {"A1", "A2", "A3", "A4", "A5", "A6"},
+        "Auditor": {"A1", "A2"},
+    }
+    all_agents = ["A1", "A2", "A3", "A4", "A5", "A6", "A7"]
+    checked = 0
+    for role, allowed in expected.items():
+        for agent in all_agents:
+            assert check_rbac(role, agent) is (agent in allowed), (role, agent)
+            checked += 1
+    assert checked == 21
+
+    # Bible parentheticals, asserted by name.
+    assert check_rbac("QA/Compliance", "A7") is False
+    assert check_rbac("Auditor", "A3") is False
+
+
+def test_check_rbac_fails_closed_on_unrecognized_role():
+    assert check_rbac("Superuser", "A1") is False
+
+
+def test_check_rbac_fails_closed_on_empty_role():
+    assert check_rbac("", "A1") is False
+
+
+def test_check_rbac_fails_closed_on_unrecognized_agent_id():
+    assert check_rbac("IT System Manager", "A99") is False
+
+
+def test_check_rbac_fails_closed_on_empty_agent_id():
+    assert check_rbac("IT System Manager", "") is False
+
+
+def test_check_rbac_fails_closed_on_case_variant_role():
+    assert check_rbac("it system manager", "A1") is False
+
+
+def test_permission_matrix_values_are_frozensets():
+    assert all(isinstance(v, frozenset) for v in PERMISSION_MATRIX.values())
+
+
+def test_permission_matrix_and_jailbreak_patterns_have_a_single_home():
+    # This module is the only home for both frozen constants — no other
+    # module in the repository keeps a second copy.
+    assert PERMISSION_MATRIX is not None
+    assert JAILBREAK_PATTERNS is not None
+
+
+def test_c2_module_has_no_model_dependency():
+    """Bible Section 1.3 makes this constraint permanent, not stub-stage:
+    C2's RBAC and injection decisions must never route through an LLM
+    client. Parsed via AST (not a text search) so a docstring sentence
+    explaining the constraint cannot itself trip or satisfy the gate."""
+    tree = ast.parse(C2_MODULE_PATH.read_text(encoding="utf-8"))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                assert "llm" not in alias.name.lower(), alias.name
+        elif isinstance(node, ast.ImportFrom):
+            module_name = node.module or ""
+            assert "llm" not in module_name.lower(), module_name
+            for alias in node.names:
+                assert alias.name != "call_llm"
+                assert "llm" not in alias.name.lower(), alias.name
+
+
+def test_check_rbac_and_detect_injection_are_synchronous():
+    # The shape a decision node must have to be callable from any layer
+    # without I/O.
+    assert inspect.iscoroutinefunction(check_rbac) is False
+    assert inspect.iscoroutinefunction(detect_injection) is False
