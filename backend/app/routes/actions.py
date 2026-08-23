@@ -1,8 +1,15 @@
 """
-Action/approval HTTP routes (Phase 5, plan 05-01).
+Action/approval HTTP routes (Phase 5, plans 05-01, 05-04).
 
 Ticket: SENT-4-03, SENT-4-04, SENT-4-05 | Requirement: REM-01..REM-04,
 SAFE-01 | Decisions: D-01, D-02, D-03, D-04
+
+Plan 05-04 adds `POST .../reject`, the mirror of `POST .../approve`: a
+human can decline a pending proposal, not only accept it. Both routes
+share the exact same guard order (RBAC, pool, row lookup, status guard)
+and both reach a terminal status a further approve/reject attempt cannot
+override (HTTP 409) -- see `reject_action`'s own docstring for why
+`approved_by`/`approved_at` are reused rather than duplicated.
 
 Every route in this module is write-capable and therefore RBAC-gated
 through `c2_gateway.check_rbac`. The Phase 4 read routes
@@ -29,7 +36,12 @@ from app.agents.a2_compliance import A2_CHECKS, build_finding, narrate_gap
 from app.agents.a7_remediation import synthesize_capa
 from app.agents.c1_verifier import verify_finding
 from app.agents.c2_gateway import check_rbac
-from app.agents.c3_gateway import QUEUED_CATEGORIES, persist_proposal, route_action
+from app.agents.c3_gateway import (
+    QUEUED_CATEGORIES,
+    describe_category,
+    persist_proposal,
+    route_action,
+)
 from app.audit_trail import log_event
 from app.db import acquire_pool_or_none
 from app.identity import RequestIdentity, require_identity
@@ -128,6 +140,19 @@ async def generate_capa(
 
     category = route_action(proposal["action_type"])
     if category not in QUEUED_CATEGORIES:
+        # Bible Section 2 says only "Blocked immediately" for PROHIBITED
+        # (and, by extension, any category this route does not queue) --
+        # it does not itself state that the blocked attempt is logged.
+        # Logging it here is this project's reading of 21 CFR 11.10(e)'s
+        # tamper-evident-record intent (05-RESEARCH.md Assumption A5), not
+        # a literal Bible instruction. Routed to SENT-7-05. No row is
+        # written to `action_proposals` for a category in
+        # `BLOCKED_CATEGORIES` -- this branch also covers a category this
+        # phase never actually produces (READ/DRAFT are unreachable from
+        # A7's own fixed `action_type`; `c3_gateway.py`'s module docstring
+        # records why), so it degrades to the same "not queued" audit
+        # event rather than assuming every non-queued category is
+        # literally PROHIBITED.
         await log_event(
             pool,
             {
@@ -140,7 +165,8 @@ async def generate_capa(
                 "target_record_id": None,
                 "output_summary": (
                     f"A7 proposal for {proposal['action_type']!r} blocked: "
-                    f"category {category!r} is not queued for human approval."
+                    f"category {category!r} ({describe_category(category)}) "
+                    "is not queued for human approval."
                 ),
                 "evidence_ids": finding["evidence_ids"],
                 "opa_rule_ids": verification_result["opa_rule_ids"],
@@ -266,6 +292,81 @@ async def approve_action(
             "target_record_id": proposal_id,
             "approval_id": proposal_id,
             "output_summary": f"{identity.user_id} approved proposal {proposal_id} ({new_status}).",
+            "evidence_ids": [],
+            "opa_rule_ids": [],
+        },
+    )
+
+    updated_row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    return _row_to_record(dict(updated_row))
+
+
+@router.post("/api/actions/{proposal_id}/reject", response_model=ActionProposalRecord)
+async def reject_action(
+    proposal_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+):
+    """Closes 05-RESEARCH.md Open Question 3: a human can decline a
+    pending proposal, not only approve it. Same guard order as
+    `approve_action` above (RBAC first, then the pool guard, then the row
+    lookup, then the status guard) so the two decision routes can never
+    diverge on when they check what -- a reviewer reading one already
+    understands the other.
+
+    `approved_by`/`approved_at` are reused here deliberately, not
+    duplicated into a second `rejected_by`/`rejected_at` pair: both
+    columns record who made the terminal decision and when, regardless
+    of which way it went. A schema with one decision-provenance pair
+    reads more honestly than one with two columns that are only ever
+    half-populated. Routed to SENT-7-05 (naming, not a schema change --
+    Option A's migration already added these columns generically enough
+    to cover both decisions)."""
+    if not check_rbac(identity.role, "A7"):
+        raise HTTPException(
+            status_code=403, detail=f"Role {identity.role} may not reject actions"
+        )
+
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+
+    row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Unknown proposal_id: {proposal_id}")
+    row = dict(row)
+
+    if row["status"] != "PENDING_APPROVAL":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Proposal {proposal_id} is {row['status']}, not PENDING_APPROVAL",
+        )
+
+    # Composed server-side from the identity, never from a client-supplied
+    # string -- the same "no free-text field a client controls" discipline
+    # `persist_proposal`'s own docstring establishes for `action_type`.
+    execution_result = f"Rejected by {identity.role}; this action was not executed."
+
+    await pool.execute(
+        "UPDATE action_proposals SET status = $1, approved_by = $2, "
+        "approved_at = now(), execution_result = $3 WHERE id = $4",
+        "REJECTED",
+        identity.user_id,
+        execution_result,
+        proposal_id,
+    )
+
+    await log_event(
+        pool,
+        {
+            "session_id": None,
+            "user_id": identity.user_id,
+            "user_role": identity.role,
+            "agent_id": "C3",
+            "action_type": "ACTION_REJECTED",
+            "target_system_id": row["target_system"],
+            "target_record_id": proposal_id,
+            "approval_id": proposal_id,
+            "output_summary": f"{identity.user_id} rejected proposal {proposal_id}.",
             "evidence_ids": [],
             "opa_rule_ids": [],
         },

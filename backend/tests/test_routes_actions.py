@@ -16,16 +16,20 @@ plain `def test_*`, no pytest-asyncio) for the direct-DB assertions
 """
 
 import asyncio
+import json
+from datetime import datetime
 from typing import List
 
 from fastapi.testclient import TestClient
 
+from app.agents import c3_gateway
 from app.agents.a7_remediation import synthesize_capa
 from app.agents.c2_gateway import check_rbac
 from app.agents.c3_gateway import route_action
 from app.audit_trail import verify_chain
 from app.db import get_pool
 from app.main import app
+from app.schemas import ActionProposalRecord
 
 client = TestClient(app)
 
@@ -40,6 +44,37 @@ async def _cleanup(pool, proposal_ids: List[str], event_ids: List[str]) -> None:
         await pool.execute("DELETE FROM action_proposals WHERE id = ANY($1::varchar[])", proposal_ids)
     if event_ids:
         await pool.execute("DELETE FROM audit_events WHERE event_id = ANY($1::varchar[])", event_ids)
+
+
+def _create_pending_proposal():
+    """As `test_full_approval_loop` discovers its own finding_id: walk the
+    seeded demo system's assurance cards and generate-capa against the
+    first one that yields a C1-eligible (non-`None`) proposal. Returns the
+    `proposal` dict (already `status == "PENDING_APPROVAL"`), or `None`
+    when no seeded finding is C1-eligible right now -- callers must treat
+    that as "nothing to test against", not a test failure, exactly as
+    `test_full_approval_loop`/`test_double_approve_returns_409` already
+    do."""
+    cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+    cards = cards_response.json()["cards"]
+    for card in cards:
+        gen = client.post(
+            f"/api/systems/{DEMO_SYSTEM}/findings/{card['finding_id']}/generate-capa",
+            headers=IT_MANAGER_HEADERS,
+        )
+        body = gen.json()
+        if body.get("proposal") is not None:
+            return body["proposal"]
+    return None
+
+
+async def _collect_event_ids_for_proposal(pool, proposal_id: str) -> List[str]:
+    rows = await pool.fetch(
+        "SELECT event_id FROM audit_events WHERE target_record_id = $1 "
+        "OR approval_id = $1",
+        proposal_id,
+    )
+    return [row["event_id"] for row in rows]
 
 
 # --- Unit tests: C2 RBAC (SAFE-01) -----------------------------------------
@@ -258,3 +293,226 @@ def test_evidence_graph_read_route_still_ungated_no_identity_headers():
     read routes."""
     response = client.get(f"/api/systems/{DEMO_SYSTEM}/evidence-graph")
     assert response.status_code == 200
+
+
+# --- Plan 05-04, Task 3: reject path and server-trusted response ----------
+
+
+def test_reject_moves_proposal_to_rejected_and_audits():
+    proposal = _create_pending_proposal()
+    if proposal is None:
+        # No seeded finding is C1-eligible for remediation right now --
+        # test_full_approval_loop already covers the eligible case when
+        # one exists.
+        return
+
+    async def run():
+        pool = await get_pool()
+        proposal_ids = [proposal["id"]]
+        event_ids: List[str] = []
+        try:
+            reject_response = client.post(
+                f"/api/actions/{proposal['id']}/reject", headers=IT_MANAGER_HEADERS
+            )
+            assert reject_response.status_code == 200
+            rejected = reject_response.json()
+            assert rejected["status"] == "REJECTED"
+            assert rejected["approved_by"] == IT_MANAGER_HEADERS["X-User-Id"]
+
+            audit_row = await pool.fetchrow(
+                "SELECT event_id FROM audit_events WHERE action_type = 'ACTION_REJECTED' "
+                "AND approval_id = $1",
+                proposal["id"],
+            )
+            assert audit_row is not None
+
+            event_ids = await _collect_event_ids_for_proposal(pool, proposal["id"])
+        finally:
+            await _cleanup(pool, proposal_ids, event_ids)
+
+    asyncio.run(run())
+
+
+def test_approve_after_reject_returns_409():
+    proposal = _create_pending_proposal()
+    if proposal is None:
+        return
+
+    async def run():
+        pool = await get_pool()
+        proposal_ids = [proposal["id"]]
+        event_ids: List[str] = []
+        try:
+            first = client.post(f"/api/actions/{proposal['id']}/reject", headers=IT_MANAGER_HEADERS)
+            assert first.status_code == 200
+
+            second = client.post(f"/api/actions/{proposal['id']}/approve", headers=IT_MANAGER_HEADERS)
+            assert second.status_code == 409
+
+            event_ids = await _collect_event_ids_for_proposal(pool, proposal["id"])
+        finally:
+            await _cleanup(pool, proposal_ids, event_ids)
+
+    asyncio.run(run())
+
+
+def test_reject_after_approve_returns_409():
+    proposal = _create_pending_proposal()
+    if proposal is None:
+        return
+
+    async def run():
+        pool = await get_pool()
+        proposal_ids = [proposal["id"]]
+        event_ids: List[str] = []
+        try:
+            first = client.post(f"/api/actions/{proposal['id']}/approve", headers=IT_MANAGER_HEADERS)
+            assert first.status_code == 200
+
+            second = client.post(f"/api/actions/{proposal['id']}/reject", headers=IT_MANAGER_HEADERS)
+            assert second.status_code == 409
+
+            event_ids = await _collect_event_ids_for_proposal(pool, proposal["id"])
+        finally:
+            await _cleanup(pool, proposal_ids, event_ids)
+
+    asyncio.run(run())
+
+
+def test_reject_denied_for_auditor_role():
+    proposal = _create_pending_proposal()
+    if proposal is None:
+        return
+
+    async def run():
+        pool = await get_pool()
+        proposal_ids = [proposal["id"]]
+        event_ids: List[str] = []
+        try:
+            response = client.post(
+                f"/api/actions/{proposal['id']}/reject", headers=AUDITOR_HEADERS
+            )
+            assert response.status_code == 403
+
+            row = await pool.fetchrow(
+                "SELECT status FROM action_proposals WHERE id = $1", proposal["id"]
+            )
+            assert row["status"] == "PENDING_APPROVAL"
+
+            event_ids = await _collect_event_ids_for_proposal(pool, proposal["id"])
+        finally:
+            await _cleanup(pool, proposal_ids, event_ids)
+
+    asyncio.run(run())
+
+
+def test_prohibited_proposal_is_never_queued(monkeypatch):
+    """Inject PROHIBITED through `c3_gateway.route_action`'s own frozen
+    allowlist (never by monkeypatching `route_action` itself) -- proves
+    the *real* routing function, not a stand-in, fails closed and that
+    `generate_capa`'s blocked-attempt audit path fires from that real
+    routing decision."""
+    monkeypatch.setitem(c3_gateway.ACTION_CATEGORIES, "CREATE_CAPA_RECORD", "PROHIBITED")
+
+    async def run():
+        pool = await get_pool()
+        event_ids: List[str] = []
+        try:
+            proposals_before = await pool.fetchval("SELECT count(*) FROM action_proposals")
+            blocked_before = await pool.fetchval(
+                "SELECT count(*) FROM audit_events WHERE action_type = 'PROPOSAL_BLOCKED'"
+            )
+
+            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+            cards = cards_response.json()["cards"]
+            blocked_reason = None
+            for card in cards:
+                gen = client.post(
+                    f"/api/systems/{DEMO_SYSTEM}/findings/{card['finding_id']}/generate-capa",
+                    headers=IT_MANAGER_HEADERS,
+                )
+                body = gen.json()
+                if body.get("proposal") is None and body.get("reason") and "not queued" in body["reason"]:
+                    blocked_reason = body["reason"]
+                    break
+
+            if blocked_reason is None:
+                # No seeded finding is C1-eligible right now -- nothing to
+                # route through the (monkeypatched) PROHIBITED category.
+                return
+
+            proposals_after = await pool.fetchval("SELECT count(*) FROM action_proposals")
+            blocked_after = await pool.fetchval(
+                "SELECT count(*) FROM audit_events WHERE action_type = 'PROPOSAL_BLOCKED'"
+            )
+            assert proposals_after == proposals_before
+            assert blocked_after == blocked_before + 1
+
+            blocked_row = await pool.fetchrow(
+                "SELECT event_id FROM audit_events WHERE action_type = 'PROPOSAL_BLOCKED' "
+                "ORDER BY event_id DESC LIMIT 1"
+            )
+            if blocked_row is not None:
+                event_ids.append(blocked_row["event_id"])
+        finally:
+            await _cleanup(pool, [], event_ids)
+
+    asyncio.run(run())
+
+
+def test_approval_response_is_server_trusted():
+    """REM-03: a field the server cannot trace to a database column or to
+    the frozen category allowlist is a field a model could have
+    authored."""
+    expected_fields = {
+        "id",
+        "action_type",
+        "category",
+        "target_system",
+        "payload",
+        "status",
+        "justification",
+        "finding_id",
+        "model_id",
+        "created_at",
+        "approved_by",
+        "approved_at",
+        "execution_result",
+    }
+    assert set(ActionProposalRecord.model_fields.keys()) == expected_fields
+
+    proposal = _create_pending_proposal()
+    if proposal is None:
+        return
+
+    async def run():
+        pool = await get_pool()
+        proposal_ids = [proposal["id"]]
+        event_ids: List[str] = []
+        try:
+            row = await pool.fetchrow(
+                "SELECT * FROM action_proposals WHERE id = $1", proposal["id"]
+            )
+            row = dict(row)
+
+            assert proposal["category"] == route_action(row["action_type"])
+
+            for field in ("id", "action_type", "target_system", "status", "justification", "finding_id", "model_id"):
+                assert proposal[field] == row[field]
+
+            db_payload = row["payload"]
+            if isinstance(db_payload, str):
+                db_payload = json.loads(db_payload)
+            assert proposal["payload"] == db_payload
+
+            assert proposal["approved_by"] == row["approved_by"] is None
+            assert proposal["approved_at"] == row["approved_at"] is None
+            assert proposal["execution_result"] == row["execution_result"] is None
+
+            assert datetime.fromisoformat(proposal["created_at"]) == row["created_at"]
+
+            event_ids = await _collect_event_ids_for_proposal(pool, proposal["id"])
+        finally:
+            await _cleanup(pool, proposal_ids, event_ids)
+
+    asyncio.run(run())

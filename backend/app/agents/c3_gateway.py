@@ -48,6 +48,37 @@ ACTION_CATEGORIES: Dict[str, str] = {
 # itself. Routed to SENT-7-05 for Bible reconciliation.
 QUEUED_CATEGORIES: FrozenSet[str] = frozenset({"MOCK_WRITE_LOW_RISK", "GXP_RELEVANT_WRITE"})
 
+# The one category Bible Section 2's C3 workflow blocks immediately, with
+# no queue row and no out-of-band path. READ and DRAFT are auto-executing
+# per Bible Section 2 and are therefore neither queued nor blocked -- they
+# are simply not reachable from anything A7 emits this phase (A7's only
+# `action_type`, `CREATE_CAPA_RECORD`, always resolves to
+# GXP_RELEVANT_WRITE), which is why this phase's write surface only ever
+# sees the queued and blocked sets.
+BLOCKED_CATEGORIES: FrozenSet[str] = frozenset({"PROHIBITED"})
+
+# Bible Section 2, C3 "Categories" -- each category's own one-line
+# disposition sentence, transcribed verbatim. This is what the approval
+# UI displays as the server-trusted explanation of a proposal's category,
+# so it must come from the Bible's own text rather than from a
+# client-side lookup table (REM-03).
+CATEGORY_DISPOSITIONS: Dict[str, str] = {
+    "READ": "Automatic execution.",
+    "DRAFT": "Saved to local state, automatic execution.",
+    "MOCK_WRITE_LOW_RISK": "Sent to Human Approval Queue.",
+    "GXP_RELEVANT_WRITE": "Blocked. Requires out-of-band execution.",
+    "PROHIBITED": "Blocked immediately.",
+}
+
+
+def describe_category(category: str) -> str:
+    """Return Bible Section 2's own one-line disposition sentence for
+    `category`. Raises `KeyError` for an unknown category -- there is no
+    placeholder string to fall back to, since a category this function
+    cannot describe is a category `route_action` should never have
+    produced in the first place."""
+    return CATEGORY_DISPOSITIONS[category]
+
 
 def route_action(action_type: str) -> str:
     """An unrecognised `action_type` resolves to PROHIBITED, not READ --
