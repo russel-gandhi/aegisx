@@ -44,7 +44,9 @@ from app.graph.evidence_graph import (
     NODE_TYPE_IMPACT_RANK,
     assess_gxp_impact,
     blast_radius,
+    build_graph,
     load_graph,
+    persist_graph,
     rank_highest_impact,
 )
 
@@ -188,8 +190,19 @@ def test_unit_rank_highest_impact_returns_none_for_empty_set():
 
 
 def _load_demo_graph():
+    """Builds the graph from live domain tables and persists it before
+    loading it back via `load_graph`, so this test's own pass does not
+    depend on some earlier process (a dev session, another test file)
+    having already called the rebuild endpoint against this Postgres
+    instance. On a fresh CI runner `graph_nodes`/`graph_edges` start empty;
+    without this rebuild, `load_graph` would silently return an empty
+    graph and every `blast_radius` call below would raise
+    `NetworkXError: source_node_id ... is not in the graph`."""
+
     async def _run():
         pool = await get_pool()
+        G = await build_graph(pool, "GXP-MFG-DEMO-01")
+        await persist_graph(pool, "GXP-MFG-DEMO-01", G)
         return await load_graph(pool, "GXP-MFG-DEMO-01")
 
     return asyncio.run(_run())
