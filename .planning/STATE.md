@@ -1,17 +1,18 @@
 ---
 gsd_state_version: 1.0
-current_phase: 03
+current_phase: 04
+current_phase_name: Evidence & Impact
 status: executing
-stopped_at: Phase 04 context gathered
-last_updated: "2026-08-21T16:21:16.324Z"
-last_activity: 2026-08-21
-last_activity_desc: Phase 03 marked complete
-state_head: 8a620c810976fecb3ec1292fdbd4060e76da9773
+stopped_at: Phase 5 context gathered
+last_updated: "2026-08-23T12:04:01.692Z"
+last_activity: 2026-08-23
+last_activity_desc: Phase 04 all 5 plans merged and verified (198 backend + 64 frontend tests passing, live rebuild/blast-radius/assurance-card checks reproduced); REQUIREMENTS.md EVID-03/GRAPH-01/02/03 marked Done
+state_head: 5163d27ad5792ee4215ba3684f31cd9ea27a976f
 progress:
   total_phases: 8
   completed_phases: 2
-  total_plans: 18
-  completed_plans: 18
+  total_plans: 23
+  completed_plans: 23
   percent: 25
 ---
 
@@ -22,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-19)
 
 **Core value:** Deterministic evidence verification (C1) — AI investigates, but is never blindly trusted; every important conclusion is independently verified with deterministic evidence.
-**Current focus:** Phase 03 — Intelligence & Retrieval
+**Current focus:** Phase 04 — Evidence & Impact
 
 ## Current Position
 
-Phase: 03 — COMPLETE
-Plan: 1 of 6
-Status: Phase 03 complete
-Last activity: 2026-08-21 — Phase 03 marked complete
+Phase: 04 (Evidence & Impact) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 04
+Last activity: 2026-08-22 — Phase 04 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -69,7 +70,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-None yet.
+- Live auto-refresh for /blast-radius and /findings: currently both pages fetch-on-mount/fetch-on-click only (evidence graph cache read is D-02 explicit-rebuild-only; no polling or push). If the underlying graph is rebuilt or a finding changes while a user is on the page, they must reselect/reload to see it. Candidate for Phase 6 (Product Experience) — could ride the existing `/api/copilot/stream/{session_id}` WebSocket infra, or a simpler rebuild-triggered client refetch. Raised by user during Phase 4 manual verification (2026-08-23).
 
 ### Blockers/Concerns
 
@@ -85,6 +86,6 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 ## Session Continuity
 
-Last session: 2026-08-21T16:21:15.877Z
-Stopped at: Phase 04 context gathered
-Resume file: .planning/phases/04-evidence-impact/04-CONTEXT.md
+Last session: 2026-08-23T12:04:01.028Z
+Stopped at: Phase 5 context gathered
+Resume file: .planning/phases/05-safety-remediation/05-CONTEXT.md
