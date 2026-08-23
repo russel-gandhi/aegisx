@@ -32,6 +32,7 @@ endpoint from `app.routes.findings`.
 """
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
@@ -44,6 +45,17 @@ app = FastAPI(
         "Deterministic evidence verification (C1) is the product's core "
         "thesis — see AegisX-AI-Project-Bible-v6.md Section 1."
     ),
+)
+
+# Local dev only: the Vite frontend (127.0.0.1:3000 / localhost:3000) is a
+# different origin than this API (127.0.0.1:8000), so the browser blocks
+# fetch() without an explicit CORS allow — curl/httpx never hit this, which
+# is why this was missed until a real browser session surfaced it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(copilot_ws_router)

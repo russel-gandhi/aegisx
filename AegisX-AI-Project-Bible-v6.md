@@ -1623,6 +1623,143 @@ New functionality should strengthen one of these four pillars rather than create
 
 ---
 
+## 14.1.1 UI/UX Design Direction
+
+### Purpose
+
+This section defines the frontend design philosophy for AegisX. The goal is to ensure AegisX does not look like a typical AI hackathon project or a vibe-coded dashboard. AegisX should feel like a trustworthy enterprise GxP assurance platform suitable for regulated pharmaceutical environments.
+
+The interface should communicate:
+
+> AI investigates.
+> Evidence proves.
+> Deterministic systems verify.
+> Humans remain in control.
+
+### Core Design Principle — Evidence-first, not AI-first
+
+The primary object in AegisX is not the AI agent. The primary object is:
+
+**Finding → Evidence → Verification → Impact → Action**
+
+Every major interaction should answer:
+
+1. What happened?
+2. Why was it identified?
+3. What evidence supports it?
+4. How was it verified?
+5. What is affected?
+6. What action can be taken?
+
+### What AegisX Must NOT Look Like
+
+**Generic AI Chatbot.** Avoid: ChatGPT-style homepage, chat-first experience, AI-generated text as the main product output. The copilot layer is secondary — the investigation workflow is primary.
+
+**Cyberpunk AI Dashboard.** Avoid: neon gradients, purple/blue AI themes, glowing effects, floating particles, sci-fi animations, AI avatars. AegisX is a pharmaceutical assurance system, not a gaming interface.
+
+**Feature-Bombed Dashboard.** Avoid: dozens of KPI cards, fake AI confidence scores, decorative charts, metrics without operational meaning. Every visual element must answer a real user question.
+
+### Desired Design Language
+
+AegisX should resemble: enterprise software, pharmaceutical quality systems, audit management platforms, ServiceNow-style workflows, Palantir-style investigation experiences.
+
+The feeling should be: professional, calm, precise, trustworthy, explainable.
+
+### Hero User Journey
+
+The core experience:
+
+```
+Finding → Evidence → Verification → Blast Radius → Remediation → Human Approval → Audit Trail
+```
+
+### Investigation View
+
+The investigation screen is the hero experience. Structure:
+
+```
+Finding #CMP-042
+
+Issue:      Incomplete validation evidence detected
+Severity:   HIGH
+Status:     VERIFIED
+
+Evidence:
+  - URS-042
+  - Validation Protocol
+  - Test Case TC-042
+
+Verification:
+  Rule: ANNEX 11-S4
+
+Impact:
+  3 requirements affected
+  2 tests affected
+  1 CAPA required
+
+Action:
+  Review remediation proposal
+```
+
+The user should understand the problem, the proof, the reasoning, the impact, and the next step — within seconds.
+
+### Agent Visualization Rules
+
+Agents are infrastructure, not the product. Do not make animated agent dashboards.
+
+Avoid: `A0 Agent → A2 Agent → A7 Agent` style pipeline visualizations.
+
+Instead show an investigation timeline:
+
+```
+09:41  Investigation started
+09:42  Evidence retrieved
+09:42  Policy evaluated
+09:43  Finding verified
+```
+
+Users care about the evidence trail, not the agents.
+
+### Evidence Graph / React Flow
+
+The Evidence Graph is one of the few places where visualization is valuable. Use: clean nodes, clear relationships, click-to-inspect, detail panels. Avoid: glowing nodes, moving particles, decorative animations. The graph exists to communicate traceability.
+
+### Animation Rules
+
+Animations should communicate state changes only.
+
+Allowed: loading transitions, expand/collapse, selection feedback, navigation transitions.
+Avoid: constant motion, decorative animation, AI-thinking animations.
+
+### Guided Demo Layer
+
+The guided demo should teach the trust workflow:
+
+1. AegisX identified a compliance finding
+2. Review supporting evidence
+3. See deterministic verification
+4. Understand downstream impact
+5. Approve remediation
+
+### Visual Style
+
+**Colors** — Prefer white/off-white backgrounds, neutral gray surfaces, subtle borders, professional typography. Semantic colors only, never decorative:
+- Green → Verified, Passed, Approved
+- Amber → Warning, Review needed
+- Red → Failed, Critical issue
+
+**Typography** — Preferred: Inter, Geist, IBM Plex Sans, Source Sans. Avoid futuristic or gaming-aesthetic fonts.
+
+### Final UI Quality Test
+
+Before accepting any page, ask: does this look like (A) an enterprise pharma assurance product, or (B) a student AI dashboard? If B, redesign.
+
+Final impression to aim for: "This system looks trustworthy enough to support regulated decisions."
+
+> This section is binding on all UI-SPEC.md generation and frontend planning/implementation. `/gsd-ui-phase` and any planner producing frontend tasks must treat these as hard constraints, not stylistic suggestions.
+
+---
+
 ## 14.2 Deterministic Verification Centre
 
 ### Purpose

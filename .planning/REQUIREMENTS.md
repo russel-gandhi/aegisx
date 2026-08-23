@@ -29,14 +29,14 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 - [ ] **EVID-01**: C1 Evidence & Grounding Verifier fans in on findings and calls `calculate_confidence()` against the real DB record and real OPA evaluation — never a mock
 - [ ] **EVID-02**: When an LLM claim contradicts DB/OPA truth, C1 returns `INSUFFICIENT_EVIDENCE` (contradiction case explicitly tested)
-- [ ] **EVID-03**: A verified finding renders CLAIM / EVIDENCE / RULE / DETERMINISTIC CHECK / CONFIDENCE, sourced from server-trusted data — never LLM-generated UI
+- [x] **EVID-03**: A verified finding renders CLAIM / EVIDENCE / RULE / DETERMINISTIC CHECK / CONFIDENCE, sourced from server-trusted data — never LLM-generated UI
 - [ ] **EVID-04**: End-to-end hero loop works: user asks "Is GXP-MFG-DEMO-01 audit ready?" → A0 routes → A2 produces a claim → C1 verifies it against real evidence → verified finding is shown
 
 ### Blast Radius
 
-- [ ] **GRAPH-01**: NetworkX evidence graph is built directly from live Postgres state
-- [ ] **GRAPH-02**: Blast Radius traversal returns correct downstream-impact nodes (affected tests/controls/systems) for a seeded change record
-- [ ] **GRAPH-03**: Evidence graph renders in-browser via React Flow from a graph API endpoint
+- [x] **GRAPH-01**: NetworkX evidence graph is built directly from live Postgres state
+- [x] **GRAPH-02**: Blast Radius traversal returns correct downstream-impact nodes (affected tests/controls/systems) for a seeded change record
+- [x] **GRAPH-03**: Evidence graph renders in-browser via React Flow from a graph API endpoint
 
 ### Controlled Remediation
 
@@ -130,10 +130,10 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | EVID-01 | Phase 3 | Pending |
 | EVID-02 | Phase 3 | Pending |
 | EVID-04 | Phase 3 | Pending |
-| EVID-03 | Phase 4 | Pending |
-| GRAPH-01 | Phase 4 | Pending |
-| GRAPH-02 | Phase 4 | Pending |
-| GRAPH-03 | Phase 4 | Pending |
+| EVID-03 | Phase 4 | Done |
+| GRAPH-01 | Phase 4 | Done |
+| GRAPH-02 | Phase 4 | Done |
+| GRAPH-03 | Phase 4 | Done |
 | SAFE-01 | Phase 5 | Pending |
 | SAFE-02 | Phase 5 | Pending |
 | AUDIT-01 | Phase 5 | Pending |

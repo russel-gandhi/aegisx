@@ -2,6 +2,19 @@
 
 AegisX AI is an agentic AI co-pilot for always-on, audit-ready GxP IT system management. It lets a QA/Compliance or IT System Manager user ask natural-language questions about a GxP system's audit readiness, and answers with AI-generated findings that are independently, deterministically verified against real database records and OPA/Rego policy evaluation before being trusted — never presented as unverified LLM output. `AegisX-AI-Project-Bible-v6.md` is the source of truth for this project (Rule 14): when any other document in this repo disagrees with the Bible, the Bible wins, and the drift is reconciled explicitly.
 
+## Status
+
+| Phase | Name | Status |
+|---|---|---|
+| 0 | Environment | ✓ Complete |
+| 1 | Foundation | ✓ Complete |
+| 2 | Intelligence & Retrieval | ✓ Complete |
+| 3 | (folded into 2/4 scope) | — |
+| 4 | Evidence & Impact | ✓ Complete |
+| 5 | Safety & Remediation (C2/C3/A7, audit chain) | ◆ In progress |
+
+Backend (FastAPI + LangGraph) and frontend (Vite + React + React Flow) both have working code as of Phase 4: real agents feeding C1 evidence verification, a NetworkX evidence graph built from live Postgres state with Blast Radius traversal, and Assurance Cards rendered end-to-end in the browser. See `.planning/ROADMAP.md` and `.planning/STATE.md` for current phase detail.
+
 ## Prerequisites
 
 - **Docker Desktop** with Compose v2 (on Windows: WSL2 backend enabled)
@@ -33,7 +46,7 @@ All three services publish on loopback (`127.0.0.1`) only, deliberately — the 
 ├── docker-compose.yml          # D-02: root, zero-arg `docker-compose up`
 ├── .env.example                 # committed credential template (placeholder values only)
 ├── BRANCHING.md                 # D-03 branching convention + Rule 10 file-ownership table
-├── backend/                     # FastAPI + LangGraph app (Phase 2+)
+├── backend/                     # FastAPI + LangGraph app — agents, C1/graph, routes, tests (Phase 2+)
 ├── frontend/                    # Vite + React + TypeScript + Tailwind + React Flow app (Phase 2+)
 ├── policies/                    # Rego policy bundle root — OPA's read-only mount source
 ├── infra/
