@@ -26,6 +26,10 @@ reuse rather than redefine them:
 - `reset_db_pool` (Phase 3, 03-01) — function-scoped, closes the pool
   before and after a test so URL-override tests (e.g. an unreachable-host
   case) start clean and do not leak a stale pool into the next test.
+- `audit_chain_isolation` (Phase 5, 05-03) — function-scoped, yields a
+  list a test appends its own `audit_events.event_id`s to; teardown
+  deletes exactly those rows. See the fixture's own docstring for why
+  rollback-based isolation is not used here.
 
 Fixtures only — no assertions, no import of modules that do not yet exist.
 """
@@ -33,6 +37,7 @@ Fixtures only — no assertions, no import of modules that do not yet exist.
 import asyncio
 import os
 import sys
+from typing import List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -84,3 +89,33 @@ def reset_db_pool():
     asyncio.run(close_pool())
     yield
     asyncio.run(close_pool())
+
+
+@pytest.fixture
+def audit_chain_isolation():
+    """Test isolation for `audit_events` (05-RESEARCH.md Pitfall 3):
+    `audit_events` starts empty and has no seed fixture to reset to, so
+    isolation is entirely each test's own responsibility. Yields a list
+    the test appends its own `event_id`s to; teardown deletes exactly
+    those rows so a later test in the same session sees a clean append
+    point.
+
+    Rollback-based isolation (a test transaction wrapping the whole test
+    body) is deliberately not used: `audit_trail.log_event`'s own `LOCK
+    TABLE audit_events IN EXCLUSIVE MODE`-plus-multi-statement transaction
+    shape makes nesting a test transaction around it fragile
+    (05-RESEARCH.md Pitfall 3). Every test touching `audit_events` must
+    use this fixture.
+    """
+    event_ids: List[str] = []
+    yield event_ids
+
+    async def _cleanup():
+        if not event_ids:
+            return
+        pool = await get_pool()
+        await pool.execute(
+            "DELETE FROM audit_events WHERE event_id = ANY($1::varchar[])", event_ids
+        )
+
+    asyncio.run(_cleanup())

@@ -225,3 +225,34 @@ async def verify_chain(pool) -> Dict[str, Any]:
             }
         curr_hash = recomputed
     return {"status": "VERIFIED", "events_checked": len(rows)}
+
+
+async def demonstrate_tamper(pool, event_id: str) -> Dict[str, Any]:
+    """Deliberate, demo-only tamper vector for AUDIT-03. This is the only
+    code path in this repository permitted to mutate an `audit_events` row
+    after insert -- everything else this codebase writes to that table
+    goes through `log_event`'s own append-only INSERT. Its own invocation
+    is audit-logged by `routes/audit.py`'s `demonstrate_tamper` route
+    *before* this function ever runs, so the act itself is attributable.
+
+    Correction to Bible Section 7.1's own `demonstrate_tamper` (routed to
+    SENT-7-05, alongside this module's two corrections above): the
+    Bible's version issues the UPDATE unconditionally and always returns
+    `verify_chain()`'s verdict. Against a nonexistent `event_id` the
+    UPDATE affects zero rows, the chain is untouched, and `verify_chain()`
+    reports VERIFIED -- a false negative that reads exactly like a
+    passing demo (05-RESEARCH.md Pitfall 3). This version parses
+    asyncpg's own command tag from `conn.execute(...)` (`"UPDATE 0"` /
+    `"UPDATE 1"`) to detect that zero-row case up front and reports
+    `NO_SUCH_EVENT` with `rows_modified: 0` instead of calling
+    `verify_chain` at all.
+    """
+    async with pool.acquire() as conn:
+        command_tag = await conn.execute(
+            "UPDATE audit_events SET output_summary = 'TAMPERED DATA' WHERE event_id = $1",
+            event_id,
+        )
+    rows_modified = int(command_tag.split()[-1])
+    if rows_modified == 0:
+        return {"status": "NO_SUCH_EVENT", "event_id": event_id, "rows_modified": 0}
+    return {**await verify_chain(pool), "event_id": event_id, "rows_modified": 1}
