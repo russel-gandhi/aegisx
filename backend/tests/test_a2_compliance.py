@@ -25,6 +25,7 @@ from app.agents.a2_compliance import (
     A2_CHECKS,
     build_finding,
     run_a2,
+    verify_no_stale_documents,
     verify_periodic_eval_current,
     verify_test_traceability,
     verify_urs_approved,
@@ -167,6 +168,82 @@ def test_verify_test_traceability_passes_when_every_requirement_resolves_non_dra
 
 
 # ---------------------------------------------------------------------------
+# verify_no_stale_documents
+# ---------------------------------------------------------------------------
+
+
+def test_verify_no_stale_documents_passes_against_seeded_system():
+    # Neither seeded system (GXP_SYSTEM's DRAFT O&M / APPROVED URS,
+    # HEALTHY_SYSTEM's empty documents) has a SUPERSEDED/WITHDRAWN/OBSOLETE
+    # row, so this must not introduce a finding for either — proven again,
+    # end to end, by test_run_a2_emits_exactly_two_findings_for_seeded_system
+    # below still asserting exactly two.
+    async def _run():
+        pool = await get_pool()
+        return await verify_no_stale_documents(pool, GXP_SYSTEM)
+
+    result = asyncio.run(_run())
+    assert result["passed"] is True
+    assert result["record"] is None
+
+
+def test_verify_no_stale_documents_fails_on_superseded_row():
+    async def _run():
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            tr = conn.transaction()
+            await tr.start()
+            try:
+                await conn.execute(
+                    "INSERT INTO gxp_systems (id, name, system_owner, lifecycle_state) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-A2-STALE-DOC", "Test Stale-Doc System", "Test Owner", "OPERATIONAL",
+                )
+                await conn.execute(
+                    "INSERT INTO documents (id, system_id, doc_type, status) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-DOC-SUPERSEDED", "TEST-A2-STALE-DOC", "O&M", "SUPERSEDED",
+                )
+                return await verify_no_stale_documents(conn, "TEST-A2-STALE-DOC")
+            finally:
+                await tr.rollback()
+
+    result = asyncio.run(_run())
+    assert result["passed"] is False
+    assert result["record"]["id"] == "TEST-DOC-SUPERSEDED"
+    assert result["record"]["status"] == "SUPERSEDED"
+
+
+def test_verify_no_stale_documents_ignores_approved_and_draft_status():
+    # A DRAFT or APPROVED document is a different defect (never-approved),
+    # already owned by verify_urs_approved / Rego rule 1 — this check must
+    # not double-fire on those statuses.
+    async def _run():
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            tr = conn.transaction()
+            await tr.start()
+            try:
+                await conn.execute(
+                    "INSERT INTO gxp_systems (id, name, system_owner, lifecycle_state) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-A2-NOT-STALE", "Test Not-Stale System", "Test Owner", "OPERATIONAL",
+                )
+                await conn.execute(
+                    "INSERT INTO documents (id, system_id, doc_type, status) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-DOC-DRAFT-ONLY", "TEST-A2-NOT-STALE", "O&M", "DRAFT",
+                )
+                return await verify_no_stale_documents(conn, "TEST-A2-NOT-STALE")
+            finally:
+                await tr.rollback()
+
+    result = asyncio.run(_run())
+    assert result["passed"] is True
+    assert result["record"] is None
+
+
+# ---------------------------------------------------------------------------
 # run_a2 — assembly, conventions, and the narration-cannot-alter-result proof
 # ---------------------------------------------------------------------------
 
@@ -286,10 +363,15 @@ def test_run_a2_postgres_unreachable_returns_bible_failure_behavior(monkeypatch,
     assert findings[0]["confidence_score"] == "LOW"
 
 
-def test_a2_checks_tuple_matches_bible_order():
+def test_a2_checks_tuple_matches_bible_order_plus_staleness_addition():
+    # First three preserve the Bible's own listed order (lines 261-263);
+    # the fourth is AegisX's post-Phase-4 staleness addition (module
+    # docstring, routed to SENT-7-05), appended rather than interleaved so
+    # the Bible-named order itself stays intact and easy to diff.
     names = [fn.__name__ for fn in A2_CHECKS]
     assert names == [
         "verify_urs_approved",
         "verify_periodic_eval_current",
         "verify_test_traceability",
+        "verify_no_stale_documents",
     ]

@@ -15,6 +15,16 @@ the set the Bible names, in the Bible's own listed order
   2. `verify_periodic_eval_current(system_id)`
   3. `verify_test_traceability(system_id)`
 
+A fourth check, `verify_no_stale_documents`, was added post-Phase-4 to
+close a gap surfaced when cross-checking AegisX against the industry
+mentor's `HACK-IT-SOP-001` and its 350-question audit checklist: none of
+the Bible's three named checks detect a SUPERSEDED/WITHDRAWN/OBSOLETE
+document being relied upon as current evidence (source-currency/staleness
+detection, distinct from mere approval-state). It is not a Bible-named
+check — routed to SENT-7-05 for Bible reconciliation like every other
+addition in this module — but follows the same deterministic-first,
+zero-LLM-on-`passed` contract as the other three.
+
 Deterministic-first (Bible Section 1.3, CLAUDE.md): every one of the three
 checks decides `passed` with plain Python/SQL — a `WHERE`/`JOIN` and, for
 the periodic-evaluation check, a comparison against `time.time_ns()`. No
@@ -140,6 +150,42 @@ async def verify_periodic_eval_current(pool, system_id: str) -> Dict[str, Any]:
     }
 
 
+async def verify_no_stale_documents(pool, system_id: str) -> Dict[str, Any]:
+    """Deterministic check: is no document for `system_id` marked
+    SUPERSEDED/WITHDRAWN/OBSOLETE — i.e. no longer the current version of
+    its type, but still present in the corpus as if it might be relied
+    upon as governing evidence?
+
+    `passed` is Python boolean logic against a real row's `status` — no
+    model is consulted (Bible Section 1.3, D-03). This is source-currency
+    detection distinct from `verify_urs_approved`'s approval-state check:
+    a document can be `APPROVED` (someone signed it) and still be stale
+    (a newer version has since superseded it). The `documents` table has
+    no `superseded_by` link (schema closed for Phase 3, CLAUDE.md Rule 7),
+    so this check is scoped to what the existing `status` column can
+    already represent — it flags the stale row, it does not attempt to
+    resolve which document replaced it.
+
+    Reuses `ANNEX11-S4-DOC-001` (the same citation `verify_urs_approved`
+    generalizes rule 1 under) since both checks answer the same
+    regulatory question — "is this document current and approved" — from
+    two different angles (never-approved vs. no-longer-current).
+    """
+    row = await pool.fetchrow(
+        "SELECT id, doc_type, status FROM documents WHERE system_id = $1 "
+        "AND status IN ('SUPERSEDED', 'WITHDRAWN', 'OBSOLETE') ORDER BY id LIMIT 1",
+        system_id,
+    )
+    record: Optional[Dict[str, Any]] = dict(row) if row is not None else None
+    passed = record is None
+    return {
+        "check": "verify_no_stale_documents",
+        "rule_id": "ANNEX11-S4-DOC-001",
+        "passed": passed,
+        "record": record,
+    }
+
+
 async def verify_test_traceability(pool, system_id: str) -> Dict[str, Any]:
     """Deterministic check: does every requirement for `system_id` resolve
     to a linked, non-DRAFT test case?
@@ -197,6 +243,7 @@ A2_CHECKS: Tuple[Callable[[Any, str], Awaitable[Dict[str, Any]]], ...] = (
     verify_urs_approved,
     verify_periodic_eval_current,
     verify_test_traceability,
+    verify_no_stale_documents,
 )
 
 # check name -> short human-readable description of what failed, used only
@@ -206,6 +253,7 @@ _CHECK_DESCRIPTIONS: Dict[str, str] = {
     "verify_urs_approved": "the User Requirements Specification is missing or not in APPROVED state",
     "verify_periodic_eval_current": "the periodic evaluation is overdue",
     "verify_test_traceability": "a requirement lacks linked, non-DRAFT test case evidence",
+    "verify_no_stale_documents": "a superseded/withdrawn/obsolete document remains in the corpus and may be mistaken for current governing evidence",
 }
 
 
