@@ -253,3 +253,36 @@ class AssuranceCard(BaseModel):
 class AssuranceCardsResponse(BaseModel):
     system_id: str
     cards: List[AssuranceCard]
+
+
+# Phase 5 (REM-01..REM-04, SAFE-01, D-01..D-04): action-proposal /
+# approval-workflow response models (05-01-PLAN.md <artifacts>). Every
+# field here is read from an already-computed `action_proposals` row or
+# from `c3_gateway.route_action`'s derived category -- never authored by a
+# model at response-assembly time (`routes/actions.py`'s own module
+# docstring makes this the same guarantee `AssuranceCard` already gives).
+class ActionProposalRecord(BaseModel):
+    id: str
+    action_type: str
+    category: str
+    target_system: str
+    payload: Dict[str, Any]
+    status: str
+    justification: Optional[str] = None
+    finding_id: Optional[str] = None
+    model_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    execution_result: Optional[str] = None
+
+
+class ActionProposalsResponse(BaseModel):
+    proposals: List[ActionProposalRecord]
+
+
+class GenerateCapaResponse(BaseModel):
+    finding_id: str
+    confidence: str
+    proposal: Optional[ActionProposalRecord] = None
+    reason: Optional[str] = None
