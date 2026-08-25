@@ -25,9 +25,17 @@ synthesize_capa`, at proposal-creation time) and read back verbatim on
 every later request -- never re-generated at render time, mirroring
 `routes/findings.py`'s own "no LLM prose assembled at read time"
 guarantee.
+
+Plan 05-05 (REM-04, UI-02) adds one further effect to `generate_capa`:
+once a proposal is durably persisted and audit-logged, its record is
+pushed to every connected `/api/copilot/stream/{session_id}` client via
+`app.ws.copilot.broadcast_json`. That push is best-effort -- see
+`_broadcast_new_proposal`'s own docstring for why a broadcast failure is
+logged and swallowed rather than raised.
 """
 
 import json
+import logging
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -51,6 +59,9 @@ from app.schemas import (
     ActionProposalsResponse,
     GenerateCapaResponse,
 )
+from app.ws.copilot import broadcast_json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -74,6 +85,25 @@ def _row_to_record(row: Dict[str, Any]) -> ActionProposalRecord:
         approved_at=row.get("approved_at"),
         execution_result=row.get("execution_result"),
     )
+
+
+async def _broadcast_new_proposal(record: ActionProposalRecord) -> None:
+    """Push the just-created proposal to every connected copilot-stream
+    client (REM-04, UI-02, SENT-4-04).
+
+    Deliberately best-effort: by the time this is called, `persist_proposal`
+    has already durably written the row and `log_event` has already
+    audit-logged `PROPOSAL_CREATED` -- the proposal is a completed,
+    audit-logged fact regardless of whether any client is listening or the
+    broadcast itself raises. A dead/misbehaving socket must not roll back
+    or fail an otherwise-successful `generate-capa` request, so any
+    exception here is logged and swallowed, never re-raised."""
+    try:
+        await broadcast_json(
+            {"event": "action_proposal_created", "proposal": record.model_dump(mode="json")}
+        )
+    except Exception:
+        logger.warning("broadcast_json failed for proposal %s", record.id, exc_info=True)
 
 
 async def _find_finding_server_side(pool, system_id: str, finding_id: str):
@@ -205,10 +235,12 @@ async def generate_capa(
     )
 
     row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
+    record = _row_to_record(dict(row))
+    await _broadcast_new_proposal(record)
     return GenerateCapaResponse(
         finding_id=finding_id,
         confidence=verification_result["confidence"],
-        proposal=_row_to_record(dict(row)),
+        proposal=record,
         reason=None,
     )
 
