@@ -1,6 +1,7 @@
 /**
- * REST client for the evidence-graph and assurance-card backend contracts
- * (SENT-3-01/GRAPH-03; SENT-3-05/EVID-03).
+ * REST client for the evidence-graph, assurance-card, and action/approval
+ * backend contracts (SENT-3-01/GRAPH-03; SENT-3-05/EVID-03;
+ * SENT-4-03/04/05, REM-01..REM-04, SAFE-01).
  *
  * Mirrors `backend/app/routes/evidence_graph.py` exactly:
  *   - GET  /api/systems/{system_id}/evidence-graph -> EvidenceGraphResponse
@@ -9,10 +10,18 @@
  * And `backend/app/routes/findings.py` (plan 04-03):
  *   - GET  /api/systems/{system_id}/assurance-cards -> AssuranceCardsResponse
  *
+ * And `backend/app/routes/actions.py` (plans 05-01/05-04/05-05):
+ *   - POST /api/systems/{system_id}/findings/{finding_id}/generate-capa -> GenerateCapaResponse
+ *   - GET  /api/actions -> ActionProposalsResponse
+ *   - POST /api/actions/{proposal_id}/approve -> ActionProposalRecord
+ *   - POST /api/actions/{proposal_id}/reject -> ActionProposalRecord
+ *
  * Follows `lib/ws.ts`'s conventions: a Vite env var with a default correct
  * for local development, kept out of `.env.example` (a cross-cutting file
  * BRANCHING.md §5 requires be changed in its own separate PR).
  */
+
+import { identityHeaders } from './identity'
 
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000'
 
@@ -23,10 +32,61 @@ function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase()
 
+// Carries the parsed FastAPI `detail` field separately from `message`, so
+// a call site can distinguish a 403 (RBAC denial -- one UI-contract
+// sentence) from a 5xx (a different sentence) rather than pattern-matching
+// on `message` text.
+export class ApiError extends Error {
+  status: number
+  detail: string
+
+  constructor(status: number, detail: string, message: string) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+  }
+}
+
+async function parseErrorDetail(response: Response): Promise<string> {
+  try {
+    const body: unknown = await response.json()
+    if (
+      typeof body === 'object' &&
+      body !== null &&
+      'detail' in body &&
+      typeof (body as { detail: unknown }).detail === 'string'
+    ) {
+      return (body as { detail: string }).detail
+    }
+  } catch {
+    // Response body was not JSON (or had no `detail` field) -- fall
+    // through to the generic status-only detail below.
+  }
+  return `Request failed with status ${response.status}`
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`)
+  const response = await fetch(`${API_BASE}${path}`, { headers: identityHeaders() })
   if (!response.ok) {
-    throw new Error(`GET ${path} failed with status ${response.status}`)
+    const detail = await parseErrorDetail(response)
+    throw new ApiError(response.status, detail, `GET ${path} failed with status ${response.status}`)
+  }
+  return (await response.json()) as T
+}
+
+export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...identityHeaders(),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) {
+    const detail = await parseErrorDetail(response)
+    throw new ApiError(response.status, detail, `POST ${path} failed with status ${response.status}`)
   }
   return (await response.json()) as T
 }
@@ -115,4 +175,55 @@ export function fetchBlastRadius(systemId: string, nodeId: string): Promise<Blas
   return apiGet<BlastRadiusResponse>(
     `/api/systems/${encodeURIComponent(systemId)}/blast-radius?node_id=${encodeURIComponent(nodeId)}`,
   )
+}
+
+// Phase 5 (REM-01..REM-04, SAFE-01, D-01..D-04): action-proposal /
+// approval-workflow contract, mirroring `backend/app/schemas.py`'s
+// ActionProposalRecord / ActionProposalsResponse / GenerateCapaResponse
+// field for field. Nullable backend fields are `string | null`, never
+// optional-and-defaulted -- a missing server field must stay visibly
+// missing, never silently absent from the object shape.
+export interface ActionProposalData {
+  id: string
+  action_type: string
+  category: string
+  target_system: string
+  payload: Record<string, unknown>
+  status: string
+  justification: string | null
+  finding_id: string | null
+  model_id: string | null
+  created_at: string | null
+  approved_by: string | null
+  approved_at: string | null
+  execution_result: string | null
+}
+
+export interface ActionProposalsResponse {
+  proposals: ActionProposalData[]
+}
+
+export interface GenerateCapaResponse {
+  finding_id: string
+  confidence: string
+  proposal: ActionProposalData | null
+  reason: string | null
+}
+
+export function fetchActionProposals(): Promise<ActionProposalsResponse> {
+  return apiGet<ActionProposalsResponse>('/api/actions')
+}
+
+export function generateCapa(systemId: string, findingId: string): Promise<GenerateCapaResponse> {
+  return apiPost<GenerateCapaResponse>(
+    `/api/systems/${encodeURIComponent(systemId)}/findings/${encodeURIComponent(findingId)}/generate-capa`,
+  )
+}
+
+export function approveAction(proposalId: string): Promise<ActionProposalData> {
+  return apiPost<ActionProposalData>(`/api/actions/${encodeURIComponent(proposalId)}/approve`)
+}
+
+export function rejectAction(proposalId: string): Promise<ActionProposalData> {
+  return apiPost<ActionProposalData>(`/api/actions/${encodeURIComponent(proposalId)}/reject`)
 }

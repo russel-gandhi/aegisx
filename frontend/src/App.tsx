@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import PrototypeBanner from './components/PrototypeBanner'
 import NavBar from './components/NavBar'
+import RoleSelector from './components/RoleSelector'
 import { routes } from './routes'
 
 function NotFound() {
@@ -19,6 +20,7 @@ export function AppShell() {
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <PrototypeBanner />
       <NavBar />
+      <RoleSelector />
       <main className="p-6">
         <Routes>
           {routes.map(({ path, Component }) => (
