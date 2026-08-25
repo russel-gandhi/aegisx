@@ -11,6 +11,24 @@ is the single source of truth `action_proposals` rows are read through
 schema decision (Option A) deliberately did not add a `category` column,
 to avoid a second source of truth that could silently drift from this
 allowlist.
+
+Phase 5 plan 05-06 adds `run_c3` -- the node adapter `app.graph.state`'s
+`action_gateway_c3` delegates to. It performs no database write of its
+own: persistence is `persist_proposal`'s job, and it is called from the
+HTTP `generate-capa` route, the only place an identity exists to
+attribute the row to (a graph invocation has no HTTP-request identity of
+its own). `run_c3` only categorises `state["proposed_actions"]` (which is
+empty on every path except an explicit `remediation_requested` graph
+invocation, per `a7_remediation.run_a7`'s own D-03 gate) and composes a
+server-trusted summary sentence. When nothing was proposed and nothing is
+blocked, it returns the exact sentence this node's Phase 2/3 stub body
+always returned ("Execution complete. Actions queued for approval.") --
+a deliberate backward-compatible degenerate case, not a coincidence: it
+is what keeps `backend/tests/test_graph_topology.py`'s pre-existing
+`test_ainvoke_completes_through_all_eleven_stub_nodes` assertion true
+unedited (05-06-PLAN.md's own acceptance criterion) for the common case
+where a plain question is asked and no remediation was ever requested,
+since that path genuinely has nothing to name. Routed to SENT-7-05.
 """
 
 import json
@@ -136,3 +154,42 @@ async def persist_proposal(
         model_id,
     )
     return proposal_id
+
+
+async def run_c3(state: Dict[str, Any]) -> Dict[str, Any]:
+    """C3 node body: categorise `state["proposed_actions"]` via
+    `route_action` and compose a server-trusted `final_synthesis` sentence
+    naming how many fall in `QUEUED_CATEGORIES` vs `BLOCKED_CATEGORIES`.
+
+    When `state["blocked"]` is true (C2's verdict, propagated unchanged
+    through every node in between), the sentence instead names
+    `state["blocked_reason"]` -- proposed_actions is always empty on a
+    blocked request anyway (`a7_remediation.run_a7` also checks
+    `state["blocked"]`), but this branch is checked first so the reason a
+    request never got this far is what a caller reading `final_synthesis`
+    alone actually sees.
+
+    The zero-queued/zero-blocked case returns the module's own
+    pre-Phase-5 stub literal verbatim -- see module docstring for why."""
+    if state.get("blocked"):
+        return {"final_synthesis": f"Execution complete. Blocked: {state.get('blocked_reason')}"}
+
+    proposed_actions = state.get("proposed_actions", [])
+    queued = 0
+    blocked_count = 0
+    for proposal in proposed_actions:
+        category = route_action(proposal.get("action_type", ""))
+        if category in QUEUED_CATEGORIES:
+            queued += 1
+        elif category in BLOCKED_CATEGORIES:
+            blocked_count += 1
+
+    if queued == 0 and blocked_count == 0:
+        return {"final_synthesis": "Execution complete. Actions queued for approval."}
+
+    return {
+        "final_synthesis": (
+            f"Execution complete. {queued} action(s) queued for approval, "
+            f"{blocked_count} blocked."
+        )
+    }

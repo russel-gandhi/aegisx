@@ -18,12 +18,29 @@ whitespace-split tokens that catches obfuscated (e.g. base64) payloads
 the regex leg cannot see. Neither leg calls a model -- this is what Bible
 Section 2 means by "Bypasses LLM interpretation entirely" and what
 Section 1.3 makes a permanent constraint on this module.
+
+Phase 5 plan 05-06 adds `run_c2` -- the node adapter `app.graph.state`'s
+`safety_gateway_c2` delegates to, in the same shape every other real node
+in this graph follows (`c1_verifier.run_c1`): takes the graph `state`
+dict, performs no I/O and no model call, returns a partial-state dict,
+and never raises to the graph. `permitted_agents` is how RBAC reaches the
+fan-out without a topology change: C2 publishes the caller's allowed
+agent-id set and `app.graph.state.route_specialists`'s unchanged
+conditional edge intersects `active_agents` against it, exactly the "data
+change through an unchanged edge" pattern this module's own docstring
+already describes for A0's Phase 3 subset routing. This is defence in
+depth, not the only RBAC gate: the graph is an in-process path with no
+HTTP identity of its own, and every write-capable HTTP route
+(`routes/actions.py`) already enforces `check_rbac`/`identity.py`
+independently at the request boundary.
 """
 
 import math
 import re
 from collections import Counter
-from typing import Dict, FrozenSet, Optional, Tuple
+from typing import Any, Dict, FrozenSet, Optional, Tuple
+
+from app.agents.a0_orchestrator import extract_user_query
 
 # Bible Section 2, C2 "Permission Matrix", transcribed verbatim. The
 # note "(Cannot trigger Remediation A7)" on QA/Compliance is enforced
@@ -106,3 +123,50 @@ def detect_injection(text: str) -> Optional[str]:
             return f"high_entropy_token:{token[:16]}..."
 
     return None
+
+
+async def run_c2(state: Dict[str, Any]) -> Dict[str, Any]:
+    """C2 node body: RBAC role check, then deterministic injection
+    detection, then publish the caller's permitted agent-id set.
+
+    Performs no I/O and no model call (module docstring); never raises to
+    the graph. `role`/`query` are read up front regardless of which check
+    ultimately decides the outcome -- reading both is cheap and keeps this
+    function's shape a straight read-then-branch, matching `run_c1`'s own
+    node-adapter style.
+
+    Fail-closed order: an absent or unrecognised role is rejected before
+    injection detection even runs (T-05-37 -- absent identity is not a
+    permissive default, and there is nothing meaningful to check
+    `permitted_agents` against without a role). Only once the role is
+    known good does `detect_injection` get a turn (T-05-35/T-05-36's
+    other half): a jailbreak/high-entropy query from a *valid* role is
+    still blocked, with `permitted_agents` empty either way so a caller
+    that ignored `blocked` still fans out to nothing.
+    """
+    role = state.get("user_role")
+    query = extract_user_query(state)
+
+    if role is None or role not in PERMISSION_MATRIX:
+        return {
+            "blocked": True,
+            "blocked_reason": f"rbac_unknown_role:{role}",
+            "permitted_agents": [],
+            "user_intent": "blocked",
+        }
+
+    reason = detect_injection(query)
+    if reason:
+        return {
+            "blocked": True,
+            "blocked_reason": reason,
+            "permitted_agents": [],
+            "user_intent": "blocked",
+        }
+
+    return {
+        "blocked": False,
+        "blocked_reason": None,
+        "permitted_agents": sorted(PERMISSION_MATRIX[role]),
+        "user_intent": "safe",
+    }

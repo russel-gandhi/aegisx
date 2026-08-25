@@ -15,6 +15,16 @@ authority and violate REM-01's "already-verified findings only" contract.
 D-03: A7 fires only when `routes/actions.py`'s generate-capa route is
 called explicitly by a human action -- never as a side effect of asking a
 question, and never from inside the graph's normal fan-out.
+
+Phase 5 plan 05-06 adds `run_a7` -- the node adapter `app.graph.state`'s
+`remediation_a7` delegates to. It defaults to producing nothing inside
+the graph (`{"proposed_actions": []}`) unless `state["remediation_requested"]`
+is explicitly true, which is a real implementation of D-03 rather than a
+leftover stub: remediation is an opt-in user action taken on a finding
+already on screen, never a side effect of asking a question or of A0's
+ordinary fan-out. The HTTP `generate-capa` route (`routes/actions.py`)
+remains the only caller that sets `remediation_requested` -- nothing
+inside the graph's own topology ever does (T-05-39).
 """
 
 import json
@@ -242,3 +252,31 @@ async def synthesize_capa(
         },
         response.model_id,
     )
+
+
+async def run_a7(state: Dict[str, Any]) -> Dict[str, Any]:
+    """A7 node body: propose nothing unless remediation was explicitly
+    requested on an unblocked state (see module docstring, D-03).
+
+    When eligible, iterates `state["findings"]`, looks each finding's
+    verdict up in `state["verification_results"]` by `finding_id` (never
+    the finding's own adjacent `confidence_score`, per the module
+    docstring), and calls `synthesize_capa` for each -- collecting only
+    the proposals `synthesize_capa` actually returns (`None` for a
+    not-eligible confidence grade is dropped, never appended as a
+    placeholder)."""
+    if state.get("blocked") or not state.get("remediation_requested"):
+        return {"proposed_actions": []}
+
+    findings = state.get("findings", [])
+    verification_results = state.get("verification_results", {})
+
+    proposed_actions = []
+    for finding in findings:
+        finding_id = finding.get("finding_id")
+        verification_result = verification_results.get(finding_id, {})
+        proposal, _model_id = await synthesize_capa(finding, verification_result)
+        if proposal is not None:
+            proposed_actions.append(proposal)
+
+    return {"proposed_actions": proposed_actions}

@@ -32,6 +32,13 @@ fallback (T-03-12: an externally-produced classification can never widen
 `active_agents` beyond the six ids this graph already owns). `run_a0`
 itself never raises to its caller; a routing decision it cannot make is
 not an error the graph should propagate.
+
+Phase 5 update (plan 05-06): `run_a0` now short-circuits on
+`state["blocked"]` (set by the real `app.agents.c2_gateway.run_c2`, which
+now precedes this node in the compiled graph) before attempting any
+classification, and `_extract_user_query` was renamed to the public
+`extract_user_query` so C2 reads the user query through the same function
+rather than a second copy.
 """
 
 import asyncio
@@ -82,10 +89,18 @@ A0_SYSTEM_PROMPT = (
 )
 
 
-def _extract_user_query(state: Dict[str, Any]) -> str:
+def extract_user_query(state: Dict[str, Any]) -> str:
     """The most recent message's text content, or `""` when `messages` is
     empty. `state["messages"]` holds `BaseMessage` instances (see
-    `app.graph.state.AgentState`); this module reads only `.content`."""
+    `app.graph.state.AgentState`); this module reads only `.content`.
+
+    Public since Phase 5 plan 05-06 (renamed from `_extract_user_query`):
+    `app.agents.c2_gateway.run_c2` imports this function so C2 and A0 read
+    the user query through one function rather than two copies -- the same
+    single-source-of-truth discipline this codebase already applies to
+    `PERMISSION_MATRIX`/`ACTION_CATEGORIES`. No other module in the
+    repository referenced the private name, so this was a straight
+    rename."""
     messages = state.get("messages") or []
     if not messages:
         return ""
@@ -142,8 +157,21 @@ async def run_a0(state: Dict[str, Any]) -> Dict[str, Any]:
     alongside `ValueError` (every classification-failure mode
     `classify_intent` raises) so both land on the identical fallback.
     Never raises to its caller.
+
+    Phase 5 plan 05-06 (T-05-35): the very first statement returns
+    immediately when `state["blocked"]` is true (C2's RBAC/injection
+    verdict), before any classification is attempted. A0 is the first
+    node after C2 and the first place this graph would otherwise call a
+    model, so returning here is what makes "blocked before it reaches an
+    agent" literally true -- a blocked payload never reaches any provider,
+    and `route_specialists`' own `permitted_agents` intersection (an empty
+    set on a blocked request) independently guarantees no specialist Send
+    fires either, even if this short-circuit were ever removed.
     """
-    user_query = _extract_user_query(state)
+    if state.get("blocked"):
+        return {"active_agents": [], "user_intent": "blocked"}
+
+    user_query = extract_user_query(state)
     system_id = state["system_id"]
     try:
         result = await asyncio.wait_for(
