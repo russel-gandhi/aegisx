@@ -81,6 +81,7 @@ from typing import Any, Callable, Awaitable, Dict, Optional, Tuple
 
 from app.db import acquire_pool_or_none
 from app.llm_router import call_llm
+from app import narration_cache
 from app.schemas import ALCOAScore
 
 logger = logging.getLogger(__name__)
@@ -278,6 +279,19 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     re-derives `passed`. Generic across all three Bible-named checks (not
     specific to periodic evaluation), since `run_a2` now narrates whichever
     of the three checks failed.
+
+    The text may now come from a previous identical request rather than a
+    fresh model call: the (text, model_id) pair is memoized in
+    `app.narration_cache`, keyed on a digest of this exact prompt string
+    (quick task 260826-0b5). Every field that reaches the prompt —
+    `check_name`, `description`, `record_id`, `rule_id`, and the whole
+    `record!r` — is therefore inside the key by construction, so an edited
+    record is a guaranteed cache miss. This function still cannot re-derive
+    `passed`; every caller re-runs its own checks regardless of whether
+    this call is a hit or a miss. A degraded response is never cached (see
+    `app.narration_cache`'s module docstring) — only a successful router
+    response is stored, as the same `(text, model_id)` pair returned here,
+    so a later hit reproduces the same `model_attribution`.
     """
     record = check_result["record"] or {}
     record_id = record.get("id", "no matching record")
@@ -292,6 +306,12 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
         f"other_fields={record!r}. Write one compliance finding sentence "
         "describing this gap."
     )
+
+    key = narration_cache.cache_key(prompt)
+    cached = narration_cache.get(key)
+    if cached is not None:
+        return cached
+
     response = await call_llm(
         task="compliance",
         prompt=prompt,
@@ -300,7 +320,10 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     )
     if response.degraded:
         return _deterministic_gap_sentence(check_result), "deterministic-fallback"
-    return response.text, response.model_id
+
+    result = (response.text, response.model_id)
+    narration_cache.put(key, result)
+    return result
 
 
 def build_finding(check_result: Dict[str, Any], claim: str, model_id: str) -> Dict[str, Any]:
