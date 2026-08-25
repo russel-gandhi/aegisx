@@ -436,3 +436,76 @@ seeded demo actually produces; they do not claim every possible graph
 topology has been exercised against live Postgres, only that the pure
 traversal function handles the topologies enumerated above regardless of
 where the graph came from.
+
+## Narration memo cache (quick task 260826-0b5)
+
+`GET /api/systems/{system_id}/assurance-cards` re-narrated every failing
+compliance check through the LLM router on every single request, and
+`POST /api/actions/generate-capa` re-derived findings server-side by
+narrating every failing check until one matched the requested
+`finding_id` -- a single live testing session burned 811 Gemini requests
+for what amounted to 2-3 distinct findings' worth of text. `app/narration_cache.py`
+fixes this by memoizing `app.agents.a2_compliance.narrate_gap()`'s LLM
+call itself, in-process, so all three of its call sites (`run_a2`,
+`routes/findings.py::get_assurance_cards`, and
+`routes/actions.py::_find_finding_server_side`) share one memo.
+
+**What is cached.** Only the narration pair -- `(claim_text, model_id)`.
+Nothing else `narrate_gap` touches is stored, and the module cannot
+reach anything else: `app/narration_cache.py` imports nothing from
+`app.*`, so it has no access to `verify_finding`, OPA, or any `passed`
+boolean. Every deterministic field a caller reads elsewhere (`passed`,
+`confidence`, `db_record_found`, `opa_corroborated`) is recomputed
+against live Postgres and live OPA on every request, cache hit or not.
+
+**The key.** A hex digest of `narrate_gap`'s finished prompt string, which
+is built from the check name, its description, `record_id`, `rule_id`,
+and the whole `record!r`. Every field that reaches the model is therefore
+inside the key by construction -- an edited record produces a different
+prompt, a different key, and a miss.
+
+**No TTL, no rebuild endpoint.** Because the key *is* the input, staleness
+is structurally impossible rather than merely unlikely, so there is
+nothing to invalidate and no rebuild routine to keep in sync with the
+prompt template. This is deliberately not the same pattern as
+`app/graph/evidence_graph.py`'s rebuild/read split (D-02): that split
+exists because `graph_nodes`/`graph_edges` are *snapshot* caches of
+domain state that can genuinely drift, so a human-triggered rebuild
+endpoint is the only way to refresh them. Narration has no such gap, so
+copying that pattern here would be a control with no job. A Postgres
+table was also considered and rejected -- it would require a schema
+change, and the schema is closed (CLAUDE.md Rule 7).
+
+**Degraded results are never stored.** When the LLM router degrades (no
+provider key, or every provider fails), `narrate_gap` returns its
+deterministic fallback sentence and does not call `narration_cache.put()`.
+Caching that would latch a provider outage into memory for the lifetime
+of the process -- the endpoint would keep serving fallback text long
+after the provider recovered.
+
+**No in-flight de-duplication.** Two concurrent requests for the same
+cold key can both call the provider. A module-level `asyncio.Lock` would
+fix that, but a module-level asyncio primitive is bound to the event loop
+that created it -- the exact failure mode `backend/tests/conftest.py`
+documents at length for asyncpg pools under this suite's
+`asyncio.run()`-per-test convention. Sequential repeats (the same user
+reloading the same page) are the dominant real-world cost here, so this
+is accepted deliberately, not overlooked.
+
+**Cross-system key sharing is intentional.** A check whose `record` is
+`None` builds a prompt with no system identifier in it, so two systems
+that both lack, say, a URS document hit the same cache entry. That is
+correct dedup, not leakage: nothing system-specific is in the prompt, so
+nothing system-specific can come out. `finding_id`, `evidence_ids` and
+`confidence` are all computed per-system outside the cache, from the
+live check result and C1's verification, never from the cached text.
+
+**Per-process, not shared.** This is an in-process `OrderedDict`, bounded
+at 256 entries with least-recently-used eviction (the demo corpus
+produces findings in the low tens, so the bound exists to make unbounded
+growth structurally impossible rather than to actively manage memory).
+Under multiple uvicorn workers each worker keeps its own copy -- still
+correct, just less effective, since a request that lands on a different
+worker than the one that warmed the cache is a cold miss there. Not a
+problem for this single-process demo deployment; recorded here for
+whoever adds a second worker later.

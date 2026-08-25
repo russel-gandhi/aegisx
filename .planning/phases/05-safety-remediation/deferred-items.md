@@ -41,3 +41,52 @@ the same OPA-corroboration path.
 `backend/app/opa_client.py`, `backend/app/agents/c1_verifier.py`,
 `infra/opa/*` was touched). Flagged here for a future OPA/Rego-owning
 plan (or `/gsd-secure-phase 05`) to investigate the bundle/container state.
+
+**Update (quick task 260826-0b5):** this worktree's fresh pre-edit
+baseline, captured after fast-forwarding to `main` at `8de5437` (which
+includes the intervening `fix(llm-router)` commits), shows **325 passed,
+0 failed** — all 13 of the above are now passing. Superseded, not
+re-flagged; left in place above as the historical record of what was
+observed on the pre-`fix(llm-router)` baseline.
+
+## Logged during quick task 260826-0b5
+
+**`app/llm_router.py` calls `load_dotenv()` at import, and `conftest.py`
+has no fixture stripping provider keys for the suite.** Verified
+empirically (without printing any secret value — the check below only
+prints a truthy/falsy boolean):
+
+```python
+from dotenv import load_dotenv
+load_dotenv()
+import os
+print(bool(os.getenv("GEMINI_API_KEY")))  # -> True
+```
+
+Result: **`True`** — `GEMINI_API_KEY` resolves from the repo-root `.env`
+(`C:\Users\Kashish Gandhi\Desktop\Sentinel_AI\.env`, confirmed via
+`dotenv.find_dotenv()`). Any test exercising the narration path
+(`narrate_gap`, `run_a2`, `get_assurance_cards`, `generate-capa`) without
+explicitly stubbing a key via `monkeypatch.delenv(...)` therefore makes a
+**real Gemini provider call** during an ordinary `pytest` run — the
+mechanism behind the 811-request session that motivated this quick task
+in the first place, and independent of the narration cache added by this
+task (the cache reduces the *count* of real calls for repeated identical
+prompts; it does not stop the first call for each distinct prompt from
+being real).
+
+Affected files: `backend/app/llm_router.py` (the `load_dotenv()` call
+site), `backend/tests/conftest.py` (no suite-wide key-stripping fixture
+exists), and any test file that calls `narrate_gap`/`run_a2`/
+`get_assurance_cards`/`generate-capa` without its own explicit
+`monkeypatch.delenv` for every provider key
+(`backend/tests/test_routes_actions.py` and `backend/tests/test_ws_broadcast.py`
+were confirmed to have no such stubbing when checked during this task).
+
+**Action:** none taken. A suite-wide key-stripping fixture (autouse,
+`monkeypatch`-based, deleting all five provider-key env vars unless a
+test explicitly opts back in) is the obvious remedy, but implementing it
+was out of this task's declared scope — it would flip every
+currently-real-provider test onto the deterministic-fallback path,
+which is a behavior change to tests this task's `<files>` list does not
+own. Flagged here for a future plan or `/gsd-secure-phase` pass.

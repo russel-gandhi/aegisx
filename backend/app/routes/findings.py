@@ -13,6 +13,13 @@ existing return values -- both Critical-review Phase 3 modules are
 read-only inputs here and are not modified by this plan (critical
 finding 2, CLAUDE.md Rule 10).
 
+That narration step may now serve text generated for a byte-identical
+earlier prompt rather than issuing a fresh model call every time
+(quick task 260826-0b5, `app/narration_cache.py`) -- every field this
+route reads from C1 (`confidence`, `db_record_found`, `opa_corroborated`)
+is still recomputed against live Postgres and live OPA on every request,
+regardless of whether the narration itself was a cache hit or a miss.
+
 Calls A2's three deterministic check functions and C1's verifier
 directly rather than invoking the compiled LangGraph: the graph would
 fan out to five specialists this card has no use for, and would lose
