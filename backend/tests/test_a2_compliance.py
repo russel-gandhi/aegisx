@@ -19,7 +19,7 @@ import asyncio
 import httpx
 import respx
 
-from app import db
+from app import db, narration_cache
 from app.db import get_pool
 from app.agents.a2_compliance import (
     A2_CHECKS,
@@ -328,7 +328,13 @@ def test_run_a2_narration_mocked_vs_degraded_same_two_checks_fail(monkeypatch):
     mocked_rule_ids = {f["regulatory_citations"][0] for f in mocked_findings}
 
     # Degraded run: no provider key anywhere — claim is the deterministic
-    # template, attribution records the fallback.
+    # template, attribution records the fallback. This test's whole point
+    # is to exercise both narration paths in one body, so the mocked run
+    # above must not leave a cached entry for the degraded run below to
+    # hit (quick task 260826-0b5); the autouse conftest fixture only
+    # clears between tests, not mid-test, so this explicit clear is what
+    # keeps the degraded path reachable here.
+    narration_cache.clear()
     _no_provider_keys(monkeypatch)
 
     async def _run_degraded():

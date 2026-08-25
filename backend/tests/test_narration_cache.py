@@ -22,8 +22,10 @@ import copy
 import httpx
 import respx
 
+import app.opa_client as opa_client_module
 from app import narration_cache
 from app.agents.a2_compliance import narrate_gap
+from app.db import get_pool
 from app.routes.findings import get_assurance_cards
 
 GXP_SYSTEM = "GXP-MFG-DEMO-01"
@@ -222,4 +224,160 @@ def test_integration_two_consecutive_assurance_card_reads_issue_one_request_per_
     second_claims = {c.finding_id: c.claim for c in second.cards}
     assert first_claims == second_claims
     assert len(first_claims) > 0
+    narration_cache.clear()
+
+
+def test_integration_field_mutation_invalidates_cache_by_producing_a_new_prompt(monkeypatch):
+    # Each single-field mutation of the check_result is asserted independently
+    # so a field silently dropped from the prompt shows up here rather than
+    # being masked by the others.
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    base_record = {"id": "DOC-CACHE-MUT-BASE", "status": "DRAFT"}
+    mutations = [
+        ("record.id", lambda cr: {**cr, "record": {**cr["record"], "id": "DOC-CACHE-MUT-OTHER"}}),
+        ("record.status", lambda cr: {**cr, "record": {**cr["record"], "status": "OBSOLETE"}}),
+        ("rule_id", lambda cr: {**cr, "rule_id": "ANNEX11-S11-PE-001"}),
+    ]
+
+    for label, mutate in mutations:
+        narration_cache.clear()
+        base = _sample_check_result(record=dict(base_record))
+
+        async def _run(base=base, mutate=mutate):
+            with respx.mock:
+                route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+                first = await narrate_gap(base)
+                mutated = mutate(copy.deepcopy(base))
+                second = await narrate_gap(mutated)
+                return first, second, route.call_count
+
+        first, second, call_count = asyncio.run(_run())
+        assert call_count == 2, f"mutation {label} did not produce a fresh request"
+        assert first[0] != second[0], f"mutation {label} did not change narrated text"
+
+    narration_cache.clear()
+
+
+def test_integration_postgres_edit_flows_through_to_fresh_narration(monkeypatch):
+    # Established insert-inside-a-transaction-then-rollback pattern (see
+    # test_a2_compliance.py::test_verify_urs_approved_fails_when_urs_document_not_approved).
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    async def _run():
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            tr = conn.transaction()
+            await tr.start()
+            try:
+                await conn.execute(
+                    "INSERT INTO gxp_systems (id, name, system_owner, lifecycle_state) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-NC-PG-EDIT", "Test Narration-Cache PG-Edit System", "Test Owner", "OPERATIONAL",
+                )
+                await conn.execute(
+                    "INSERT INTO documents (id, system_id, doc_type, status) "
+                    "VALUES ($1, $2, $3, $4)",
+                    "TEST-DOC-NC-PG-EDIT", "TEST-NC-PG-EDIT", "URS", "DRAFT",
+                )
+                row = await conn.fetchrow(
+                    "SELECT id, status FROM documents WHERE id = $1", "TEST-DOC-NC-PG-EDIT"
+                )
+                check_result_1 = {
+                    "check": "verify_urs_approved",
+                    "rule_id": "ANNEX11-S4-DOC-001",
+                    "passed": False,
+                    "record": dict(row),
+                }
+
+                with respx.mock:
+                    route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+                    first = await narrate_gap(check_result_1)
+
+                    await conn.execute(
+                        "UPDATE documents SET status = $1 WHERE id = $2",
+                        "OBSOLETE", "TEST-DOC-NC-PG-EDIT",
+                    )
+                    row2 = await conn.fetchrow(
+                        "SELECT id, status FROM documents WHERE id = $1", "TEST-DOC-NC-PG-EDIT"
+                    )
+                    check_result_2 = {
+                        "check": "verify_urs_approved",
+                        "rule_id": "ANNEX11-S4-DOC-001",
+                        "passed": False,
+                        "record": dict(row2),
+                    }
+                    second = await narrate_gap(check_result_2)
+                    return first, second, route.call_count
+            finally:
+                await tr.rollback()
+
+    narration_cache.clear()
+    first, second, call_count = asyncio.run(_run())
+    assert call_count == 2
+    assert first[0] != second[0]
+    narration_cache.clear()
+
+
+def test_integration_full_cache_hit_still_recomputes_deterministic_grades(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    async def _run():
+        with respx.mock:
+            respx.route(host="127.0.0.1", port=8181).pass_through()
+            # A closed port under respx interception raises
+            # AllMockedAssertionError, not a real connection failure — mock
+            # it to raise the same httpx.ConnectError a real closed port
+            # would, which is what opa_client.py's except clause catches.
+            respx.route(host="127.0.0.1", port=9).mock(
+                side_effect=httpx.ConnectError("connection refused (simulated)")
+            )
+            respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            warmed = await get_assurance_cards(GXP_SYSTEM)
+
+            monkeypatch.setattr(
+                opa_client_module,
+                "OPA_URL",
+                "http://127.0.0.1:9/v1/data/sentinel/gxp/violation",
+            )
+            second = await get_assurance_cards(GXP_SYSTEM)
+            return warmed, second
+
+    narration_cache.clear()
+    warmed, second = asyncio.run(_run())
+
+    warmed_claims = {c.finding_id: c.claim for c in warmed.cards}
+    second_claims = {c.finding_id: c.claim for c in second.cards}
+    assert warmed_claims == second_claims
+    assert len(second.cards) > 0
+    assert all(c.confidence == "INSUFFICIENT_EVIDENCE" for c in second.cards)
+    assert all(c.deterministic_check.opa_corroborated is False for c in second.cards)
+    narration_cache.clear()
+
+
+def test_integration_outage_never_latches_into_cache(monkeypatch):
+    check_result = _sample_check_result(record={"id": "DOC-CACHE-OUTAGE-01", "status": "DRAFT"})
+    narration_cache.clear()
+    _no_provider_keys(monkeypatch)
+
+    async def _run_degraded():
+        with respx.mock:
+            # No routes registered — an accidental outbound call fails loudly.
+            return await narrate_gap(check_result)
+
+    degraded_claim, degraded_model = asyncio.run(_run_degraded())
+    assert degraded_model == "deterministic-fallback"
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    async def _run_recovered():
+        with respx.mock:
+            route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            claim, model_id = await narrate_gap(copy.deepcopy(check_result))
+            return claim, model_id, route.call_count
+
+    recovered_claim, recovered_model, call_count = asyncio.run(_run_recovered())
+    assert call_count == 1
+    assert recovered_model == "gemini-3.6-flash"
+    assert recovered_claim != degraded_claim
     narration_cache.clear()

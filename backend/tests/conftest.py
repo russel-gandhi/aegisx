@@ -30,6 +30,19 @@ reuse rather than redefine them:
   list a test appends its own `audit_events.event_id`s to; teardown
   deletes exactly those rows. See the fixture's own docstring for why
   rollback-based isolation is not used here.
+- `_clear_narration_cache` (quick task 260826-0b5) — autouse,
+  function-scoped, no yield value. `app.narration_cache` introduced
+  process-global state that a mocked test's response can leave behind
+  for a later test in the same session to hit. Without this fixture,
+  `test_a2_compliance.py`'s `test_run_a2_narration_mocked_vs_degraded_same_two_checks_fail`,
+  `test_hero_tracer.py`'s `test_degraded_path_no_provider_key_same_finding_and_score`,
+  and `test_hero_loop.py`'s `test_hero_keyless_run_falls_back_to_full_agent_set_and_deterministic_fallback`
+  — every one of which asserts `model_attribution ==
+  "deterministic-fallback"` — could instead be handed an earlier test's
+  cached real-model text. Clearing on both sides (before AND after each
+  test) is cheaper to reason about than picking one side: it protects a
+  test regardless of whether contamination would have arrived from
+  before or been left behind for after.
 
 Fixtures only — no assertions, no import of modules that do not yet exist.
 """
@@ -58,6 +71,7 @@ if sys.platform == "win32":
 
 from app.db import close_pool, get_pool
 from app.main import app
+from app import narration_cache
 
 
 @pytest.fixture(scope="session")
@@ -119,3 +133,16 @@ def audit_chain_isolation():
         )
 
     asyncio.run(_cleanup())
+
+
+@pytest.fixture(autouse=True)
+def _clear_narration_cache():
+    """Autouse test isolation for `app.narration_cache`'s process-global
+    state (quick task 260826-0b5). See this module's docstring's fixture
+    list for which specific tests this protects and why. Clears both
+    before and after every test in the suite, not just the ones that
+    happen to touch narration today — a future test elsewhere in the
+    suite gains the same protection automatically."""
+    narration_cache.clear()
+    yield
+    narration_cache.clear()
