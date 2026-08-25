@@ -145,7 +145,7 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
             respx.route(host="127.0.0.1", port=8181).pass_through()
             respx.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-2.5-flash:generateContent"
+                "gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
             return await compiled_graph.ainvoke(_initial_state())
 
@@ -154,7 +154,7 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     finding = _finding_by_id(result, EXPECTED_FINDING_ID)
     assert finding["regulatory_citations"] == ["ANNEX11-S11-PE-001"]
     assert finding["evidence_ids"] == ["PE-2024-01"]
-    assert finding["model_attribution"] == "gemini-2.5-flash"
+    assert finding["model_attribution"] == "gemini-3.6-flash"
     assert finding["claim"] == GEMINI_SUCCESS_BODY["candidates"][0]["content"]["parts"][0]["text"]
 
     trc_finding = _finding_by_id(result, EXPECTED_TRC_FINDING_ID)
@@ -229,7 +229,7 @@ def test_evidence_provenance_reads_live_seeded_row(monkeypatch):
             respx.route(host="127.0.0.1", port=8181).pass_through()
             respx.post(
                 "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-2.5-flash:generateContent"
+                "gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
             return await compiled_graph.ainvoke(_initial_state())
 

@@ -53,7 +53,7 @@ GEMINI_SUCCESS_BODY = {
 
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 
 
@@ -324,7 +324,7 @@ def test_run_a2_narration_mocked_vs_degraded_same_two_checks_fail(monkeypatch):
     expected_claim = GEMINI_SUCCESS_BODY["candidates"][0]["content"]["parts"][0]["text"]
     for finding in mocked_findings:
         assert finding["claim"] == expected_claim
-        assert finding["model_attribution"] == "gemini-2.5-flash"
+        assert finding["model_attribution"] == "gemini-3.6-flash"
     mocked_rule_ids = {f["regulatory_citations"][0] for f in mocked_findings}
 
     # Degraded run: no provider key anywhere — claim is the deterministic

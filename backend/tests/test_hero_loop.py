@@ -30,7 +30,7 @@ Provider mock routing (03-06-PLAN.md <critical_findings>): A0's
 classification call (task="orchestrator" -> `gemini_flash_thinking`) and
 A2/A4's narration calls (task="compliance"/"change" -> `gemini_flash_fast`)
 all resolve to the *same* Gemini `generateContent` URL — both
-`PROVIDER_CONFIG` entries share `model="gemini-2.5-flash"` and the same
+`PROVIDER_CONFIG` entries share `model="gemini-3.6-flash"` and the same
 `base_url`. A single fixed respx response would feed A0's classification
 JSON into A2's narration prompt (or vice versa) and the fully-mocked
 scenario would assert nothing meaningful. `_gemini_side_effect` below
@@ -94,7 +94,7 @@ REQUIRED_VERIFICATION_KEYS = {
 # resolves to exactly one of these four.
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -169,7 +169,7 @@ def _mock_all_four_providers(active_agents_named):
     )
     respx.post(GROQ_URL).mock(
         return_value=_openai_body(
-            "Gap narrated by a mocked Groq response.", "llama-3.3-70b-versatile"
+            "Gap narrated by a mocked Groq response.", "openai/gpt-oss-120b"
         )
     )
     respx.post(OPENROUTER_URL).mock(

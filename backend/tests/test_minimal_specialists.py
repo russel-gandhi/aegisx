@@ -33,7 +33,7 @@ from app.agents.minimal_specialists import (
 SYSTEM_ID = "GXP-MFG-DEMO-01"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
@@ -172,7 +172,7 @@ def test_a3_deepseek_timeout_downgrades_to_gemini_and_narrates(monkeypatch):
     findings = [f for f in result["findings"] if f["finding_id"].startswith("A3-")]
     assert len(findings) == 1
     finding = findings[0]
-    assert finding["model_attribution"] == "gemini-2.5-flash"
+    assert finding["model_attribution"] == "gemini-3.6-flash"
     assert finding["claim"] == "Risk RSK-2024-11 is overdue for review."
     assert finding["regulatory_citations"] == ["ICH-Q9-RSK-001"]
     assert finding["evidence_ids"] == ["RSK-2024-11"]

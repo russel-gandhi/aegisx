@@ -25,7 +25,7 @@ from app.agents.a0_orchestrator import (
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-2.5-flash:generateContent"
+    "gemini-3.6-flash:generateContent"
 )
 SYSTEM_ID = "GXP-MFG-DEMO-01"
 QUERY = "Is GXP-MFG-DEMO-01 audit ready?"
