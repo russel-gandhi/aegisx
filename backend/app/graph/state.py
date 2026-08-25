@@ -61,10 +61,23 @@ the graph-assembly block are byte-identical to Phase 2. `remediation_a7`,
 `safety_gateway_c2`, and `action_gateway_c3` remain deliberately stubbed:
 A7 lands in Phase 5 (SENT-4-05), and C2/C3 are Phase 5 deterministic
 gateways (SENT-4-01/4-02/4-03).
+
+Phase 5 update (plan 05-06): the last three stub bodies are replaced with
+real delegates, in exactly the one-line style `compliance_a2` and
+`evidence_verifier_c1` already established — `safety_gateway_c2` ->
+`app.agents.c2_gateway.run_c2`, `remediation_a7` ->
+`app.agents.a7_remediation.run_a7`, `action_gateway_c3` ->
+`app.agents.c3_gateway.run_c3`. `route_specialists` gains one further
+intersection against `state.get("permitted_agents")` — C2's RBAC verdict
+— so RBAC reaches the fan-out as a data change through this same
+unchanged conditional edge, exactly as A0's Phase 3 subset routing already
+does. C2, C1, and C3 remain permanently closed to model occupancy (Bible
+Section 1.3); A7 is the one node in this fixed topology ever permitted a
+model call, and only over findings C1 has already verified.
 """
 
 import operator
-from typing import Annotated, Any, Dict, List, Sequence, TypedDict
+from typing import Annotated, Any, Dict, List, Optional, Sequence, TypedDict
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph import END, StateGraph
@@ -93,9 +106,15 @@ except ImportError:  # pragma: no cover - exercised only if the submodule moves
 
 # Phase 3 (plans 03-02, 03-03): every node body this module delegates to a
 # real implementation. Imported at module top level per plan instruction.
+# Phase 5 (plan 05-06) adds run_c2, run_a7, run_c3 to this same import
+# block -- C2, A7, and C3 are the last three stub bodies this module ever
+# had.
 from app.agents.a0_orchestrator import run_a0
 from app.agents.a2_compliance import run_a2
+from app.agents.a7_remediation import run_a7
 from app.agents.c1_verifier import run_c1
+from app.agents.c2_gateway import run_c2
+from app.agents.c3_gateway import run_c3
 from app.agents.minimal_specialists import run_a1, run_a3, run_a4, run_a5, run_a6
 
 
@@ -145,19 +164,39 @@ class AgentState(TypedDict):
     proposed_actions: Annotated[List[ActionProposal], operator.add]
     verification_results: Dict[str, Any]
     final_synthesis: str
+    # Phase 5 (plan 05-06): identity and RBAC/injection verdict fields.
+    # None of these six takes a reducer — exactly one node writes each
+    # (C2 writes user_role/permitted_agents/blocked/blocked_reason's
+    # counterpart verdict; the caller supplies user_id/user_role/
+    # remediation_requested as initial state), so last-writer-wins is
+    # correct, the same reasoning the class docstring already gives for
+    # every other unreduced field here.
+    user_id: str
+    user_role: str
+    permitted_agents: List[str]
+    blocked: bool
+    blocked_reason: Optional[str]
+    remediation_requested: bool
 
 
-# --- Eleven stub node coroutines -------------------------------------------
-# Every node below is a literal-returning stub for this phase. None of them
-# performs an LLM call, a database call, or an OPA/network call. C2, C1, and
-# C3 in particular must stay this way permanently (see module docstring).
+# --- Eleven node coroutines --------------------------------------------------
+# As of Phase 5 plan 05-06, every one of the eleven nodes below delegates to
+# a real implementation under app.agents — none remains a literal-returning
+# stub. C2, C1, and C3 permanently perform no LLM call, no database call,
+# and no OPA/network call of their own; A7 is the one node in this fixed
+# topology ever permitted a model call (see module docstring).
 
 
 async def safety_gateway_c2(state: AgentState) -> Dict[str, Any]:
-    """C2 - Policy & Safety Gateway. Stub: admits every request. Real RBAC
-    and deterministic-regex injection detection land in Phase 5
-    (SAFE-01/02, SENT-4-01/4-02) — deterministic Python only, never an LLM."""
-    return {"user_intent": "safe"}
+    """C2 - Policy & Safety Gateway. Delegates to
+    `app.agents.c2_gateway.run_c2` (Phase 5, plan 05-06, SAFE-01/02): real
+    RBAC (fail-closed on an absent or unrecognised role) and deterministic
+    regex + Shannon-entropy injection detection — zero LLM in the decision
+    path, permanently (Bible Section 1.3). Publishes `permitted_agents`,
+    which `route_specialists` below intersects against `active_agents`
+    with no change to this module's topology. This module performs no
+    RBAC or injection-detection logic of its own."""
+    return await run_c2(state)
 
 
 async def orchestrator_a0(state: AgentState) -> Dict[str, Any]:
@@ -235,18 +274,28 @@ async def evidence_verifier_c1(state: AgentState) -> Dict[str, Any]:
 
 
 async def remediation_a7(state: AgentState) -> Dict[str, Any]:
-    """A7 - Remediation. Stub: no proposed actions. Real synthesis of
-    `ActionProposal`/CAPA narratives (Phase 5, SENT-4-05) is LLM-generated
-    from already-verified findings only, per Bible Section 1.3."""
-    return {"proposed_actions": []}
+    """A7 - Remediation. Delegates to
+    `app.agents.a7_remediation.run_a7` (Phase 5, plan 05-06, SENT-4-05,
+    REM-01, D-03): synthesizes `ActionProposal`/CAPA narratives from
+    already-verified (C1-graded HIGH/MEDIUM/LOW) findings only, and only
+    when `state["remediation_requested"]` is explicitly true — never as a
+    side effect of asking a question or of A0's ordinary fan-out. This is
+    the one node in the fixed topology ever permitted a model call (Bible
+    Section 1.3); this module itself performs no LLM call of its own."""
+    return await run_a7(state)
 
 
 async def action_gateway_c3(state: AgentState) -> Dict[str, Any]:
-    """C3 - Action Gateway. Stub: fixed completion message. Real routing
-    (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED,
-    Phase 5 SENT-4-03) is deterministic Python — never an LLM occupying
-    this node."""
-    return {"final_synthesis": "Execution complete. Actions queued for approval."}
+    """C3 - Action Gateway. Delegates to
+    `app.agents.c3_gateway.run_c3` (Phase 5, plan 05-06, SENT-4-03,
+    REM-02/03): deterministic five-category routing (READ / DRAFT /
+    MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED) over
+    `state["proposed_actions"]`, composing a server-trusted
+    `final_synthesis` summary — never an LLM occupying this node, and this
+    module performs no database write of its own (persistence is
+    `persist_proposal`'s job, called from the HTTP route where an identity
+    exists)."""
+    return await run_c3(state)
 
 
 def route_specialists(state: AgentState) -> List[Send]:
@@ -257,10 +306,34 @@ def route_specialists(state: AgentState) -> List[Send]:
     `active_agents` rather than a topology change here — narrowing or
     widening the list changes the fan-out with no edit to this function
     or to the graph edges below.
+
+    Phase 5 update (plan 05-06, T-05-36): the `Send` set is further
+    intersected against `state["permitted_agents"]` — the RBAC-permitted
+    subset `app.agents.c2_gateway.run_c2` publishes — so an under-privileged
+    role's query can only narrow the fan-out A0 selected, never widen it
+    (e.g. an Auditor cannot reach A3–A6 even when A0's own classification
+    names them). This is still a data change through the same unchanged
+    conditional edge below, exactly as the paragraph above already claims
+    for A0's own subset routing — this function's node list, the graph's
+    edges, and the assembly block are untouched.
+
+    `permitted_agents` defaults to `active_agents` itself (i.e. no
+    restriction) when the key is entirely absent from `state` — this
+    matters only for a direct unit-test call that bypasses C2 (this
+    module's own `test_graph_topology.py` calls `route_specialists`
+    standalone, with no C2 verdict in state at all). Every real
+    `compiled_graph.ainvoke()` invocation runs C2 first, which always sets
+    `permitted_agents` — to the RBAC-permitted set, or to `[]` on a
+    blocked request — before `route_specialists` is ever reached, so this
+    default never masks a real RBAC decision.
     """
+    permitted = state.get("permitted_agents")
+    if permitted is None:
+        permitted = state["active_agents"]
     return [
         Send(agent_name, {"messages": state["messages"], "system_id": state["system_id"]})
         for agent_name in state["active_agents"]
+        if agent_name in permitted
     ]
 
 

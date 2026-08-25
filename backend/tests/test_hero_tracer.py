@@ -114,6 +114,10 @@ def _initial_state():
         "proposed_actions": [],
         "verification_results": {},
         "final_synthesis": "",
+        # Phase 5 plan 05-06: C2 now fails closed on an absent role, so a
+        # real graph invocation must carry identity.
+        "user_id": "test-user",
+        "user_role": "IT System Manager",
     }
 
 
