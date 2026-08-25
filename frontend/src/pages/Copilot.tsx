@@ -50,9 +50,15 @@ export default function Copilot() {
         <ul className="mt-2 space-y-1 text-sm text-slate-400" data-testid="ws-frames">
           {frames.map((frame, i) => (
             <li key={i}>
-              {frame.event === 'connected'
-                ? `connected (session ${frame.session_id})`
-                : `echo: ${frame.payload}`}
+              {frame.event === 'connected' && `connected (session ${frame.session_id})`}
+              {frame.event === 'echo' && `echo: ${frame.payload}`}
+              {/* Phase 5 (05-05) added `action_proposal_created` to this
+                  stream's frame union (see lib/ws.ts). This page does not
+                  yet render that frame shape -- the live Approval Centre
+                  (pages/Actions.tsx) is where it is consumed -- so it is
+                  intentionally a no-op here rather than a build error. */}
+              {frame.event === 'action_proposal_created' &&
+                `proposal created: ${frame.proposal.id}`}
             </li>
           ))}
         </ul>

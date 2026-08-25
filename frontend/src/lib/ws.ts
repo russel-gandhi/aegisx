@@ -1,16 +1,21 @@
 /**
- * WebSocket client for /api/copilot/stream/{session_id} (SENT-1-08, UI-01).
+ * WebSocket client for /api/copilot/stream/{session_id} (SENT-1-08, UI-01,
+ * SENT-4-04/REM-04/UI-02).
  *
  * Wire contract, matching backend/app/ws/copilot.py exactly:
  *   - On connect: {"event": "connected", "session_id": <string>}
  *   - Per echoed frame: {"event": "echo", "payload": <string>}
+ *   - On a new action proposal (any connected client, any session):
+ *     {"event": "action_proposal_created", "proposal": ActionProposalData}
  *
  * A discriminated union on `event` rather than a loose record matters
- * because Phase 5 adds a proposal-push frame and Phase 6 adds agent-state
- * frames to this same stream -- a union makes each addition a
- * compile-time prompt to handle the new case; a loose record makes it a
- * runtime surprise.
+ * because this same stream keeps growing (this plan adds the
+ * proposal-push frame; Phase 6 adds agent-state frames) -- a union makes
+ * each addition a compile-time prompt to handle the new case; a loose
+ * record makes it a runtime surprise.
  */
+
+import type { ActionProposalData } from './api'
 
 export interface ConnectedFrame {
   event: 'connected'
@@ -22,7 +27,16 @@ export interface EchoFrame {
   payload: string
 }
 
-export type CopilotStreamFrame = ConnectedFrame | EchoFrame
+// Phase 5 (REM-04, UI-02, plan 05-05): pushed to every connected client
+// (session-agnostic, see backend/app/ws/copilot.py's own docstring) the
+// moment `POST .../generate-capa` durably persists and audit-logs a new
+// proposal.
+export interface ActionProposalCreatedFrame {
+  event: 'action_proposal_created'
+  proposal: ActionProposalData
+}
+
+export type CopilotStreamFrame = ConnectedFrame | EchoFrame | ActionProposalCreatedFrame
 
 export interface CopilotStreamHandlers {
   onFrame: (frame: CopilotStreamFrame) => void
