@@ -42,8 +42,8 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 - [ ] **REM-01**: A7 Remediation Agent synthesizes an `ActionProposal`/CAPA narrative from already-verified findings only (never unverified claims)
 - [ ] **REM-02**: C3 Action Gateway routes actions by category (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED)
-- [ ] **REM-03**: GxP-relevant writes sit `PENDING` in `action_proposals` until human approval; approval dialog renders only from server-trusted proposal metadata
-- [ ] **REM-04**: Human approval queue works end-to-end: proposal → WebSocket push → approve → audit-logged → executed
+- [x] **REM-03**: GxP-relevant writes sit `PENDING` in `action_proposals` until human approval; approval dialog renders only from server-trusted proposal metadata
+- [x] **REM-04**: Human approval queue works end-to-end: proposal → WebSocket push → approve → audit-logged → executed
 
 ### Safety Gateway
 
@@ -59,7 +59,7 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 ### Frontend Shell
 
 - [x] **UI-01**: React + TypeScript + Vite + Tailwind app boots with routing scaffolded and a React Flow canvas mounted
-- [ ] **UI-02**: `/api/copilot/stream/{session_id}` WebSocket accepts a connection and streams live agent state end-to-end
+- [x] **UI-02**: `/api/copilot/stream/{session_id}` WebSocket accepts a connection and streams live agent state end-to-end
 - [ ] **UI-03**: Command Centre dashboard shows a readiness dial and health mini-cards
 - [ ] **UI-04**: Ask GxP Copilot page provides chat + live agent topology visualization
 
@@ -141,9 +141,9 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | AUDIT-03 | Phase 5 | Pending |
 | REM-01 | Phase 5 | Pending |
 | REM-02 | Phase 5 | Pending |
-| REM-03 | Phase 5 | Pending |
-| REM-04 | Phase 5 | Pending |
-| UI-02 | Phase 5 | Pending |
+| REM-03 | Phase 5 | Complete |
+| REM-04 | Phase 5 | Complete |
+| UI-02 | Phase 5 | Complete |
 | UI-03 | Phase 6 | Pending |
 | UI-04 | Phase 6 | Pending |
 
