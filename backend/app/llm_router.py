@@ -5,7 +5,7 @@ Ticket: SENT-2-01/SENT-2-02 substrate | Requirements: ORC-02, ORC-03
 
 Source: AegisX-AI-Project-Bible-v6.md Section 8.1 (`PROVIDER_CONFIG`)
 and 8.2 (router logic, the `openrouter_fallback` cascade). Transcribed
-with three corrections, each recorded in `backend/README.md` under
+with six corrections, each recorded in `backend/README.md` under
 "Bible deviations (backend tier)" and routed to SENT-7-05:
 
   - `deepseek_r1["model"]`: Bible's "deepseek-reasoner" is retired;
@@ -16,9 +16,17 @@ with three corrections, each recorded in `backend/README.md` under
   - Google entries' `api_key_env`: the Bible specifies "GOOGLE_API_KEY",
     but `.env.example` (D-01) gains `GEMINI_API_KEY`. Both are accepted,
     `GEMINI_API_KEY` checked first (Deviation 6).
+  - Both Google entries' `model`: the retired Gemini 2.5 flash id is no
+    longer served; corrected to the currently served flash model
+    (Deviation 10).
+  - `gemini_flash_fast["thinking_budget"]`: Bible's `0` is now rejected
+    by Google with HTTP 400; corrected to `1`, the smallest accepted
+    value (Deviation 11).
+  - `groq_llama["model"]`: the retired Llama 3.3 70B id is no longer
+    served; corrected to "openai/gpt-oss-120b" (Deviation 12).
 
 Every other PROVIDER_CONFIG key — provider, base_url, rpm_limit,
-thinking_budget, use_for — is unchanged from the Bible.
+use_for — is unchanged from the Bible.
 
 House style mirrors `backend/app/opa_client.py`: raw httpx (no
 per-provider SDK), explicit `timeout=` on every outbound call, logging
@@ -47,12 +55,13 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Bible Section 8.1, transcribed with the three corrections documented in
-# this module's docstring and in backend/README.md Deviations 4-6.
+# Bible Section 8.1, transcribed with the six corrections documented in
+# this module's docstring and in backend/README.md Deviations 4-6, 10-12.
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     "gemini_flash_thinking": {
         "provider": "google",
-        "model": "gemini-2.5-flash",
+        # Deviation 10: retired Gemini 2.5 flash id corrected.
+        "model": "gemini-3.6-flash",
         "thinking_budget": 512,
         "base_url": "https://generativelanguage.googleapis.com/v1beta",
         # Deviation 6: GEMINI_API_KEY checked first, GOOGLE_API_KEY accepted
@@ -63,8 +72,11 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "gemini_flash_fast": {
         "provider": "google",
-        "model": "gemini-2.5-flash",
-        "thinking_budget": 0,
+        # Deviation 10: retired Gemini 2.5 flash id corrected.
+        "model": "gemini-3.6-flash",
+        # Deviation 11: Bible's 0 is now rejected with HTTP 400; 1 is the
+        # smallest accepted value.
+        "thinking_budget": 1,
         "base_url": "https://generativelanguage.googleapis.com/v1beta",
         "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
         "rpm_limit": 60,
@@ -81,7 +93,8 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     },
     "groq_llama": {
         "provider": "groq",
-        "model": "llama-3.3-70b-versatile",
+        # Deviation 12: retired Llama 3.3 70B id corrected.
+        "model": "openai/gpt-oss-120b",
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": ("GROQ_API_KEY",),
         "rpm_limit": 300,

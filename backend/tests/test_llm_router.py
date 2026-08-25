@@ -29,7 +29,7 @@ GEMINI_SUCCESS_BODY = {
 
 OPENAI_COMPATIBLE_SUCCESS_BODY = {
     "choices": [{"message": {"content": "Incident routed to A5."}}],
-    "model": "llama-3.3-70b-versatile",
+    "model": "openai/gpt-oss-120b",
 }
 
 
@@ -50,7 +50,7 @@ def test_call_llm_parses_mocked_gemini_response(monkeypatch):
     async def _run():
         with respx.mock:
             route = respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
             result = await call_llm(task="orchestrator", prompt="Is GXP-MFG-DEMO-01 audit ready?")
             return result, route
@@ -58,7 +58,7 @@ def test_call_llm_parses_mocked_gemini_response(monkeypatch):
     result, route = asyncio.run(_run())
     assert route.called
     assert result.text == "The system appears audit ready."
-    assert result.model_id == "gemini-2.5-flash"
+    assert result.model_id == "gemini-3.6-flash"
     assert result.degraded is False
 
     sent_request = route.calls.last.request
@@ -74,13 +74,13 @@ def test_call_llm_parses_mocked_gemini_response(monkeypatch):
     )
 
 
-def test_call_llm_compliance_task_uses_zero_thinking_budget(monkeypatch):
+def test_call_llm_compliance_task_uses_minimum_thinking_budget(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
 
     async def _run():
         with respx.mock:
             route = respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
             await call_llm(task="compliance", prompt="Check URS-042.")
             return route
@@ -89,7 +89,7 @@ def test_call_llm_compliance_task_uses_zero_thinking_budget(monkeypatch):
     import json as _json
 
     sent_body = _json.loads(route.calls.last.request.content)
-    assert sent_body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 0
+    assert sent_body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 1
 
 
 def test_call_llm_parses_mocked_openai_compatible_response(monkeypatch):
@@ -106,7 +106,7 @@ def test_call_llm_parses_mocked_openai_compatible_response(monkeypatch):
     result, route = asyncio.run(_run())
     assert route.called
     assert result.text == "Incident routed to A5."
-    assert result.model_id == "llama-3.3-70b-versatile"
+    assert result.model_id == "openai/gpt-oss-120b"
 
 
 def test_call_llm_cascades_to_openrouter_on_429(monkeypatch):
@@ -116,7 +116,7 @@ def test_call_llm_cascades_to_openrouter_on_429(monkeypatch):
     async def _run():
         with respx.mock:
             respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(429, json={"error": "rate limited"}))
             openrouter_route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
                 return_value=httpx.Response(
@@ -144,7 +144,7 @@ def test_call_llm_cascades_to_openrouter_on_500_and_timeout(monkeypatch):
     async def _run_500():
         with respx.mock:
             respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(500, json={"error": "internal"}))
             openrouter_route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
                 return_value=httpx.Response(
@@ -162,7 +162,7 @@ def test_call_llm_cascades_to_openrouter_on_500_and_timeout(monkeypatch):
     async def _run_timeout():
         with respx.mock:
             respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(side_effect=httpx.TimeoutException("timed out"))
             openrouter_route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
                 return_value=httpx.Response(
@@ -211,7 +211,7 @@ def test_call_llm_never_logs_the_key_value_on_failure(monkeypatch, caplog):
     async def _run():
         with respx.mock:
             respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(500, json={"error": "internal"}))
             return await call_llm(task="orchestrator", prompt="q")
 
