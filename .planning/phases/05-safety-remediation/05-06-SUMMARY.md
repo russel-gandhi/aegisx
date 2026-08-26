@@ -227,21 +227,26 @@ None for Tasks 1-2 — no external service configuration required (Postgres/OPA/
 
 ## Human verification
 
-**Status: PENDING — Task 3 is a `gate="blocking"` checkpoint. This plan STOPS here.**
+**Status: PASSED — Task 3 checkpoint cleared 2026-08-26.**
 
-Per the standard checkpoint protocol (`workflow.auto_advance` is `false` in `.planning/config.json`, and no `_auto_chain_active` override is set), this is not an auto-approvable checkpoint. Tasks 1 and 2 are fully complete, committed, and verified (18 new tests, 0 regressions across the full backend suite). Task 3 requires a human to walk the following nine items in a real browser at `http://localhost:3000`, once the stack is running against this plan's merged code:
+All nine items confirmed working by the human operator against the merged `main` checkout, after two intermediate quick-task fixes were required to get the environment into a testable state (see below):
 
-1. The role selector is visible in the app chrome on every page and shows `IT System Manager`, `QA/Compliance`, `Auditor`.
-2. As `Auditor`, open `/findings` and click Generate CAPA — the permission sentence from the UI contract appears inline, and no proposal is created.
-3. Switch to `IT System Manager` and click Generate CAPA on the same finding — a confirmation naming a proposal id appears.
-4. With `/actions` open in a second tab during step 3, the new proposal appears there with no manual refresh and the live indicator shows connected.
-5. On `/actions`, the card shows ACTION TYPE, CATEGORY, TARGET SYSTEM, JUSTIFICATION, PAYLOAD and a `PENDING_APPROVAL` badge; a large payload scrolls inside its box rather than stretching the page.
-6. Click Reject on one proposal — the confirmation names that proposal's own action type and target system, and after confirming, the badge reads `REJECTED`.
-7. Click Approve on another — the button reads `Approving...` while in flight and the badge lands on `APPROVED` or `EXECUTED`.
-8. `curl -s http://127.0.0.1:8000/api/audit/verify` reports `VERIFIED`; then run the tamper demo against one of the event ids just created and confirm it reports `TAMPERED` with a `broken_at_index`.
-9. Nothing on `/`, `/copilot`, `/blast-radius`, or `/findings` regressed visually from Phase 4.
+1. Role selector visible in app chrome on every page, showing all three roles — **confirmed**.
+2. Auditor + Generate CAPA → inline permission-denied, no proposal created — **confirmed**.
+3. IT System Manager + Generate CAPA → proposal id confirmation — **confirmed**.
+4. `/actions` second tab shows new proposal live, no refresh — **confirmed**.
+5. Proposal card renders all required fields + `PENDING_APPROVAL` badge, payload scrolls in fixed box — **confirmed**.
+6. Reject → confirmation names action_type/target_system, badge → `REJECTED` — **confirmed**.
+7. Approve → "Approving..." in flight, badge → `APPROVED`/`EXECUTED` — **confirmed**.
+8. `/api/audit/verify` → `VERIFIED`; tamper demo → `TAMPERED` with `broken_at_index` — **confirmed**.
+9. No visual regression on `/`, `/copilot`, `/blast-radius`, `/findings` — **confirmed**.
 
-**Resume signal:** Type "approved" or describe which of the nine items failed and what you saw.
+**Environment issues found and fixed during this checkpoint (outside this plan's own scope, logged here for traceability):**
+- OPA container was bind-mounted from a deleted worktree path, serving zero policies — every finding graded `INSUFFICIENT_EVIDENCE` regardless of true state. Fixed by recreating the container against `main`'s own `./policies` mount (not a code change, an environment fix).
+- `llm_router.py`'s Gemini/Groq model names had been retired by their providers (`gemini-2.5-flash`, `llama-3.3-70b-versatile`) — fixed via quick task, see `.planning/quick/260825-wga-.../`.
+- Assurance-card narration had no caching and ran fully sequential/uncapped, plus CAPA generation (A7) had no wall-clock ceiling — both fixed via two follow-up quick tasks (`.planning/quick/260826-0b5-.../`, `.planning/quick/260826-p1q-.../`, `.planning/quick/260826-rsw-.../`), bringing cold-path latency down from 18-50s to ~1-3s.
+
+None of these were regressions introduced by 05-06 itself — they were latent environment/provider-drift issues that this checkpoint was the first opportunity to surface, since it's the first point the full stack became walkable end-to-end.
 
 ## Next Phase Readiness
 
@@ -259,10 +264,11 @@ Per the standard checkpoint protocol (`workflow.auto_advance` is `false` in `.pl
 - Commit `c26a134` exists in `git log`: **FOUND**
 - Commit `86d8579` exists in `git log`: **FOUND**
 - Plan `<verification>` items 1-3 re-run: `cd backend && .venv/Scripts/python.exe -m pytest` — 312 passed, 13 pre-existing failures (unchanged from baseline, see Deviations) — **PASS** (no regression); `python -c "from app.graph.state import graph; print(len(graph.nodes))"` — `11` — **PASS**; `test_topology_is_unchanged_after_wiring` passes and every pre-existing `test_graph_topology.py` assertion passes unedited — **PASS**
-- Plan `<verification>` item 4 (human verification checklist answered and recorded): **PENDING — Task 3 checkpoint not yet reached by a human**
-- Plan `<must_haves><truths>` re-checked (Tasks 1-2 scope): jailbreak query blocked, no specialist/model call reaches it — **PASS**; Auditor cannot fan out to A3-A6 even when A0 selects them — **PASS**; A7 does not synthesize inside the graph unless remediation was explicitly requested (D-03) — **PASS**; eleven-node topology/edge list byte-identical to Phase 2's, existing topology assertions pass unchanged — **PASS**; "the full Monitor-to-Audit Phase 5 surface is walkable by a human in the browser end to end" — **PENDING (Task 3)**
+- Plan `<verification>` item 4 (human verification checklist answered and recorded): **PASS — all 9 items confirmed 2026-08-26**
+- Plan `<must_haves><truths>` re-checked (Tasks 1-2 scope): jailbreak query blocked, no specialist/model call reaches it — **PASS**; Auditor cannot fan out to A3-A6 even when A0 selects them — **PASS**; A7 does not synthesize inside the graph unless remediation was explicitly requested (D-03) — **PASS**; eleven-node topology/edge list byte-identical to Phase 2's, existing topology assertions pass unchanged — **PASS**; "the full Monitor-to-Audit Phase 5 surface is walkable by a human in the browser end to end" — **PASS**
 
 ---
 *Phase: 05-safety-remediation*
 *Tasks 1-2 completed: 2026-08-25*
-*Task 3: awaiting human checkpoint*
+*Task 3 (human verification): completed 2026-08-26*
+*Plan status: complete*

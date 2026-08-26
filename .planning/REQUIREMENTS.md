@@ -40,21 +40,21 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 ### Controlled Remediation
 
-- [ ] **REM-01**: A7 Remediation Agent synthesizes an `ActionProposal`/CAPA narrative from already-verified findings only (never unverified claims)
-- [ ] **REM-02**: C3 Action Gateway routes actions by category (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED)
+- [x] **REM-01**: A7 Remediation Agent synthesizes an `ActionProposal`/CAPA narrative from already-verified findings only (never unverified claims)
+- [x] **REM-02**: C3 Action Gateway routes actions by category (READ / DRAFT / MOCK_WRITE_LOW_RISK / GXP_RELEVANT_WRITE / PROHIBITED)
 - [x] **REM-03**: GxP-relevant writes sit `PENDING` in `action_proposals` until human approval; approval dialog renders only from server-trusted proposal metadata
 - [x] **REM-04**: Human approval queue works end-to-end: proposal → WebSocket push → approve → audit-logged → executed
 
 ### Safety Gateway
 
-- [ ] **SAFE-01**: C2 enforces RBAC (IT System Manager / QA-Compliance / Auditor) exactly per the Bible's permission matrix, with zero LLM in the decision path
-- [ ] **SAFE-02**: C2 detects prompt injection via entropy + regex, with zero LLM in the decision path; blocks known jailbreak phrases from the Bible deterministically
+- [x] **SAFE-01**: C2 enforces RBAC (IT System Manager / QA-Compliance / Auditor) exactly per the Bible's permission matrix, with zero LLM in the decision path
+- [x] **SAFE-02**: C2 detects prompt injection via entropy + regex, with zero LLM in the decision path; blocks known jailbreak phrases from the Bible deterministically
 
 ### Audit Trail
 
-- [ ] **AUDIT-01**: Hash-chained append-only audit trail records finding/verification/approval events
-- [ ] **AUDIT-02**: `verify_chain()` is implemented alongside the chain (not after) and detects tampering
-- [ ] **AUDIT-03**: `/api/audit/demonstrate-tamper` executes a raw SQL modification and `verify_chain()` correctly flags it
+- [x] **AUDIT-01**: Hash-chained append-only audit trail records finding/verification/approval events
+- [x] **AUDIT-02**: `verify_chain()` is implemented alongside the chain (not after) and detects tampering
+- [x] **AUDIT-03**: `/api/audit/demonstrate-tamper` executes a raw SQL modification and `verify_chain()` correctly flags it
 
 ### Frontend Shell
 
@@ -134,13 +134,13 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | GRAPH-01 | Phase 4 | Done |
 | GRAPH-02 | Phase 4 | Done |
 | GRAPH-03 | Phase 4 | Done |
-| SAFE-01 | Phase 5 | Pending |
-| SAFE-02 | Phase 5 | Pending |
-| AUDIT-01 | Phase 5 | Pending |
-| AUDIT-02 | Phase 5 | Pending |
-| AUDIT-03 | Phase 5 | Pending |
-| REM-01 | Phase 5 | Pending |
-| REM-02 | Phase 5 | Pending |
+| SAFE-01 | Phase 5 | Complete |
+| SAFE-02 | Phase 5 | Complete |
+| AUDIT-01 | Phase 5 | Complete |
+| AUDIT-02 | Phase 5 | Complete |
+| AUDIT-03 | Phase 5 | Complete |
+| REM-01 | Phase 5 | Complete |
+| REM-02 | Phase 5 | Complete |
 | REM-03 | Phase 5 | Complete |
 | REM-04 | Phase 5 | Complete |
 | UI-02 | Phase 5 | Complete |
