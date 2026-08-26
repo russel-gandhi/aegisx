@@ -20,15 +20,20 @@ import json
 from datetime import datetime
 from typing import List
 
+import httpx
+import respx
 from fastapi.testclient import TestClient
 
+from app import narration_cache
 from app.agents import c3_gateway
+from app.agents.a2_compliance import A2_CHECKS, finding_id_for_check
 from app.agents.a7_remediation import synthesize_capa
 from app.agents.c2_gateway import check_rbac
 from app.agents.c3_gateway import route_action
 from app.audit_trail import verify_chain
 from app.db import get_pool
 from app.main import app
+from app.routes.actions import _find_finding_server_side
 from app.schemas import ActionProposalRecord
 
 client = TestClient(app)
@@ -516,3 +521,76 @@ def test_approval_response_is_server_trusted():
             await _cleanup(pool, proposal_ids, event_ids)
 
     asyncio.run(run())
+
+
+# ---------------------------------------------------------------------------
+# _find_finding_server_side -- narrates only the matching check
+# (quick task 260826-p1q Task 2)
+# ---------------------------------------------------------------------------
+
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _openai_body(text: str, model: str = "openai/gpt-oss-120b") -> dict:
+    return {"choices": [{"message": {"content": text}}], "model": model}
+
+
+async def _first_failing_finding_id(pool, system_id: str):
+    """Computes the finding_id `_find_finding_server_side` would need to be
+    asked for to hit its FIRST currently-failing check -- without calling
+    `narrate_gap` itself, so this helper never inflates the narration call
+    count a test built around it is trying to measure."""
+    for check_fn in A2_CHECKS:
+        check_result = await check_fn(pool, system_id)
+        if not check_result["passed"]:
+            return finding_id_for_check(check_result)
+    return None
+
+
+def test_find_finding_server_side_issues_exactly_one_narration_call_on_a_match(monkeypatch):
+    narration_cache.clear()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        pool = await get_pool()
+        target = await _first_failing_finding_id(pool, DEMO_SYSTEM)
+        assert target is not None, "expected at least one failing check against the seeded demo system"
+        with respx.mock:
+            respx.route(host="127.0.0.1", port=8181).pass_through()
+            route = respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=_openai_body("Gap narrated for the matching check."))
+            )
+            finding = await _find_finding_server_side(pool, DEMO_SYSTEM, target)
+            return target, finding, route.call_count
+
+    target, finding, call_count = asyncio.run(_run())
+    assert finding is not None
+    assert finding["finding_id"] == target
+    # Exactly one narration call -- the matching check, and no others,
+    # even though DEMO_SYSTEM has more than one currently-failing check.
+    assert call_count == 1
+    narration_cache.clear()
+
+
+def test_find_finding_server_side_issues_zero_narration_calls_for_unknown_id(monkeypatch):
+    narration_cache.clear()
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        pool = await get_pool()
+        with respx.mock:
+            respx.route(host="127.0.0.1", port=8181).pass_through()
+            route = respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=_openai_body("This must never be requested."))
+            )
+            finding = await _find_finding_server_side(
+                pool, DEMO_SYSTEM, "A2-NO-SUCH-RULE-ID-NO-RECORD"
+            )
+            return finding, route.call_count
+
+    finding, call_count = asyncio.run(_run())
+    assert finding is None
+    # No currently-failing check produces this id -- zero narration calls,
+    # not one per failing check the old narrate-then-compare loop issued.
+    assert call_count == 0
+    narration_cache.clear()

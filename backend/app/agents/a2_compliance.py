@@ -354,6 +354,26 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     return result
 
 
+def finding_id_for_check(check_result: Dict[str, Any]) -> str:
+    """Derive the `finding_id` `build_finding` will produce for this
+    `check_result`, without narrating or assembling the rest of the
+    finding.
+
+    Depends only on `check_result["rule_id"]` and `check_result["record"]`
+    — the same two fields `build_finding` reads to compute the same
+    string — so a caller that needs the id before deciding whether to
+    narrate (`routes/actions.py::_find_finding_server_side`, quick task
+    260826-p1q) can derive it here and the two are structurally unable to
+    drift. Neither `finding_id` form depends on claim text or model id.
+    """
+    rule_id = check_result["rule_id"]
+    record = check_result["record"]
+    if record is None:
+        return f"A2-{rule_id}-NO-RECORD"
+    record_id = record.get("id", "unknown")
+    return f"A2-{rule_id}-{record_id}"
+
+
 def build_finding(check_result: Dict[str, Any], claim: str, model_id: str) -> Dict[str, Any]:
     """Assemble the `AgentFinding` per the plan's `<interface_contract>` table.
 
@@ -361,13 +381,16 @@ def build_finding(check_result: Dict[str, Any], claim: str, model_id: str) -> Di
     `verify_urs_approved` against a system with no URS document) yields an
     empty `evidence_ids` list rather than a fabricated identifier, and a
     `finding_id` whose record segment is the literal marker `NO-RECORD` —
-    never an invented primary key.
+    never an invented primary key. `finding_id` itself is computed by
+    `finding_id_for_check` so this and any caller needing the id in
+    advance cannot disagree.
     """
     rule_id = check_result["rule_id"]
     record = check_result["record"]
+    finding_id = finding_id_for_check(check_result)
     if record is None:
         return {
-            "finding_id": f"A2-{rule_id}-NO-RECORD",
+            "finding_id": finding_id,
             "claim": claim,
             "regulatory_citations": [rule_id],
             "confidence_score": "UNVERIFIED",
@@ -378,7 +401,7 @@ def build_finding(check_result: Dict[str, Any], claim: str, model_id: str) -> Di
 
     record_id = record.get("id", "unknown")
     return {
-        "finding_id": f"A2-{rule_id}-{record_id}",
+        "finding_id": finding_id,
         "claim": claim,
         "regulatory_citations": [rule_id],
         "confidence_score": "UNVERIFIED",

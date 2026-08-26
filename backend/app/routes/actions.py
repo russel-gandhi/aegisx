@@ -40,7 +40,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.agents.a2_compliance import A2_CHECKS, build_finding, narrate_gap
+from app.agents.a2_compliance import A2_CHECKS, build_finding, finding_id_for_check, narrate_gap
 from app.agents.a7_remediation import synthesize_capa
 from app.agents.c1_verifier import verify_finding
 from app.agents.c2_gateway import check_rbac
@@ -112,15 +112,33 @@ async def _find_finding_server_side(pool, system_id: str, finding_id: str):
     supplies only `finding_id`, never claim text, so the claim rendered in
     a later CAPA proposal can never be client-controlled. Returns `None`
     when no currently-failing check produces a finding with this id (e.g.
-    the check has since started passing, or the id is stale/unknown)."""
+    the check has since started passing, or the id is stale/unknown).
+
+    Narrates only the matching check (quick task 260826-p1q): the id
+    comparison now runs BEFORE narration, using `finding_id_for_check` to
+    derive the candidate id from `check_result` alone -- neither
+    `finding_id` form depends on claim text, so the id is knowable before
+    any LLM call is made. This makes a `generate-capa` request issue at
+    most one narration call instead of one per failing check.
+
+    First-match-wins ordering is preserved deliberately: `verify_urs_approved`
+    and `verify_no_stale_documents` both cite `ANNEX11-S4-DOC-001`, so two
+    different checks can collide on the same `finding_id` when their record
+    ids also match. `A2_CHECKS` is still iterated in its own fixed order and
+    the loop still returns on the FIRST match -- same outcome as the old
+    narrate-then-compare loop, just without narrating the checks that were
+    never going to match. Deliberately NOT `asyncio.gather`: gathering would
+    narrate every failing check up front, defeating the entire point of this
+    fix.
+    """
     for check_fn in A2_CHECKS:
         check_result = await check_fn(pool, system_id)
         if check_result["passed"]:
             continue
+        if finding_id_for_check(check_result) != finding_id:
+            continue
         claim, model_id = await narrate_gap(check_result)
-        finding = build_finding(check_result, claim, model_id)
-        if finding["finding_id"] == finding_id:
-            return finding
+        return build_finding(check_result, claim, model_id)
     return None
 
 

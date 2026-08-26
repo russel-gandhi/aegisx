@@ -3,10 +3,10 @@ import { Link } from 'react-router-dom'
 import AssuranceCard from '../components/AssuranceCard'
 import {
   ApiError,
-  fetchAssuranceCards,
   fetchEvidenceGraph,
   generateCapa,
-  type AssuranceCardsResponse,
+  streamAssuranceCards,
+  type AssuranceCardData,
 } from '../lib/api'
 
 // D-03: A7 Remediation only runs on this explicit "Generate CAPA" click --
@@ -34,8 +34,16 @@ type LoadState = 'loading' | 'error' | 'ready'
 // Routed to SENT-7-05 for Bible reconciliation.
 export default function FindingInvestigation() {
   const [systemId, setSystemId] = useState(SYSTEM_OPTIONS[0].id)
+  // 'loading': stream in progress, more cards may still arrive.
+  // 'ready': terminal frame arrived -- the accumulated `cards` array is
+  //   final for this systemId. 'error': the stream itself failed (not to
+  //   be confused with an in-stream error frame, which is reported the
+  //   same way -- see the streaming effect below).
   const [state, setState] = useState<LoadState>('loading')
-  const [data, setData] = useState<AssuranceCardsResponse | null>(null)
+  // Accumulates as each card frame arrives (quick task 260826-p1q) --
+  // replaces the old single-response object so the page can paint the
+  // first card without waiting for the terminal frame.
+  const [cards, setCards] = useState<AssuranceCardData[]>([])
 
   // Bible Section 14.3's Finding -> Evidence -> Verification -> Blast
   // Radius exposure tree, third branch: a lookup from a card's evidence id
@@ -86,21 +94,35 @@ export default function FindingInvestigation() {
   }
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
 
-    fetchAssuranceCards(systemId)
-      .then((response) => {
-        if (cancelled) return
-        setData(response)
-        setState('ready')
-      })
-      .catch(() => {
-        if (cancelled) return
-        setState('error')
-      })
+    streamAssuranceCards(
+      systemId,
+      {
+        onCard: (card) => {
+          setCards((prev) => [...prev, card])
+        },
+        onDone: () => {
+          setState('ready')
+        },
+        onError: () => {
+          setState('error')
+        },
+      },
+      controller.signal,
+    ).catch((error: unknown) => {
+      // An aborted fetch (system switched mid-stream, or this effect's
+      // cleanup ran) rejects with an AbortError -- that is expected
+      // cancellation, not a failure, so it must not flip the page into
+      // the error state.
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+      setState('error')
+    })
 
     return () => {
-      cancelled = true
+      controller.abort()
     }
   }, [systemId])
 
@@ -149,7 +171,7 @@ export default function FindingInvestigation() {
           value={systemId}
           onChange={(e) => {
             setState('loading')
-            setData(null)
+            setCards([])
             setSystemId(e.target.value)
           }}
         >
@@ -162,74 +184,80 @@ export default function FindingInvestigation() {
       </div>
 
       <div className="mt-6 space-y-4">
+        {/* The loading line stays visible for the whole stream, not just
+            until the first card -- more cards may still be in flight even
+            after one has painted. It disappears only once the terminal
+            frame arrives ('ready') or the stream fails ('error'). */}
         {state === 'loading' && <p className="text-slate-400">Loading assurance cards...</p>}
         {state === 'error' && (
           <p className="text-red-400">
             Error loading assurance cards. Confirm the backend is running and reachable.
           </p>
         )}
-        {state === 'ready' && data && data.cards.length === 0 && (
+        {/* Only renders once the terminal frame has confirmed a zero
+            count -- an empty `cards` array mid-stream ('loading') merely
+            means the first card has not landed yet, not that every check
+            passed. */}
+        {state === 'ready' && cards.length === 0 && (
           <p className="text-slate-400">
             {`Every deterministic check for ${systemId} currently passes -- no findings to review.`}
           </p>
         )}
-        {state === 'ready' &&
-          data &&
-          data.cards.map((card) => {
-            const capaState = capaStates[card.finding_id] ?? { status: 'idle' }
-            const isLoading = capaState.status === 'loading'
-            return (
-              <div key={card.finding_id}>
-                <AssuranceCard card={card} />
-                {/* Bible Section 14.3 UI constraint: Blast Radius reached
-                    from the finding investigation experience rather than
-                    presented as an unrelated standalone feature -- this is
-                    the third exposure-tree branch (Finding -> Evidence ->
-                    Verification -> Blast Radius). Rendered beside the card,
-                    not inside it, so AssuranceCard.tsx stays exactly as
-                    reusable as plan 04-03 built it for Phase 6 (D-04).
-                    D-03 (05-05): the Generate CAPA trigger lives in this
-                    same flex row -- it is an opt-in follow-up action on a
-                    finding the operator is already looking at, not a new
-                    page or a side effect of the initial query. */}
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  {card.evidence_ids.length > 0 &&
-                    card.evidence_ids
-                      .filter((evidenceId) => evidenceNodeIndex[evidenceId] !== undefined)
-                      .map((evidenceId) => (
-                        <Link
-                          key={evidenceId}
-                          to={`/blast-radius?node=${encodeURIComponent(evidenceNodeIndex[evidenceId])}`}
-                          className="text-sm text-sky-400 underline hover:text-sky-300"
-                        >
-                          {`Blast Radius: ${evidenceId}`}
-                        </Link>
-                      ))}
-                  <button
-                    type="button"
-                    disabled={isLoading}
-                    onClick={() => handleGenerateCapa(card.finding_id)}
-                    className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isLoading ? 'Generating...' : 'Generate CAPA'}
-                  </button>
-                </div>
-                {capaState.status === 'success' && (
-                  <p className="mt-2 text-sm text-emerald-400">
-                    {'Proposal '}
-                    <span className="font-semibold">{capaState.proposalId}</span>
-                    {' created. '}
-                    <Link to="/actions" className="underline hover:text-emerald-300">
-                      View in Action / Approval Centre
-                    </Link>
-                  </p>
-                )}
-                {capaState.status === 'error' && (
-                  <p className="mt-2 text-sm text-red-400">{capaState.message}</p>
-                )}
+        {cards.map((card) => {
+          const capaState = capaStates[card.finding_id] ?? { status: 'idle' }
+          const isLoading = capaState.status === 'loading'
+          return (
+            <div key={card.finding_id}>
+              <AssuranceCard card={card} />
+              {/* Bible Section 14.3 UI constraint: Blast Radius reached
+                  from the finding investigation experience rather than
+                  presented as an unrelated standalone feature -- this is
+                  the third exposure-tree branch (Finding -> Evidence ->
+                  Verification -> Blast Radius). Rendered beside the card,
+                  not inside it, so AssuranceCard.tsx stays exactly as
+                  reusable as plan 04-03 built it for Phase 6 (D-04).
+                  D-03 (05-05): the Generate CAPA trigger lives in this
+                  same flex row -- it is an opt-in follow-up action on a
+                  finding the operator is already looking at, not a new
+                  page or a side effect of the initial query. */}
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                {card.evidence_ids.length > 0 &&
+                  card.evidence_ids
+                    .filter((evidenceId) => evidenceNodeIndex[evidenceId] !== undefined)
+                    .map((evidenceId) => (
+                      <Link
+                        key={evidenceId}
+                        to={`/blast-radius?node=${encodeURIComponent(evidenceNodeIndex[evidenceId])}`}
+                        className="text-sm text-sky-400 underline hover:text-sky-300"
+                      >
+                        {`Blast Radius: ${evidenceId}`}
+                      </Link>
+                    ))}
+                <button
+                  type="button"
+                  disabled={isLoading}
+                  onClick={() => handleGenerateCapa(card.finding_id)}
+                  className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoading ? 'Generating...' : 'Generate CAPA'}
+                </button>
               </div>
-            )
-          })}
+              {capaState.status === 'success' && (
+                <p className="mt-2 text-sm text-emerald-400">
+                  {'Proposal '}
+                  <span className="font-semibold">{capaState.proposalId}</span>
+                  {' created. '}
+                  <Link to="/actions" className="underline hover:text-emerald-300">
+                    View in Action / Approval Centre
+                  </Link>
+                </p>
+              )}
+              {capaState.status === 'error' && (
+                <p className="mt-2 text-sm text-red-400">{capaState.message}</p>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

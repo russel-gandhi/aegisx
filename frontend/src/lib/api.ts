@@ -7,8 +7,10 @@
  *   - GET  /api/systems/{system_id}/evidence-graph -> EvidenceGraphResponse
  *   - POST /api/systems/{system_id}/evidence-graph/rebuild -> EvidenceGraphRebuildResponse
  *
- * And `backend/app/routes/findings.py` (plan 04-03):
+ * And `backend/app/routes/findings.py` (plan 04-03; streaming sibling
+ * added quick task 260826-p1q):
  *   - GET  /api/systems/{system_id}/assurance-cards -> AssuranceCardsResponse
+ *   - GET  /api/systems/{system_id}/assurance-cards/stream -> text/event-stream
  *
  * And `backend/app/routes/actions.py` (plans 05-01/05-04/05-05):
  *   - POST /api/systems/{system_id}/findings/{finding_id}/generate-capa -> GenerateCapaResponse
@@ -147,6 +149,112 @@ export function fetchAssuranceCards(systemId: string): Promise<AssuranceCardsRes
   return apiGet<AssuranceCardsResponse>(
     `/api/systems/${encodeURIComponent(systemId)}/assurance-cards`,
   )
+}
+
+// Streaming sibling of fetchAssuranceCards (quick task 260826-p1q). Mirrors
+// backend/app/routes/findings.py's `_stream_cards` discriminated union on
+// `event`, matching `lib/ws.ts`'s convention exactly.
+export interface AssuranceCardFrame {
+  event: 'card'
+  card: AssuranceCardData
+}
+
+export interface AssuranceCardDoneFrame {
+  event: 'done'
+  system_id: string
+  count: number
+}
+
+export interface AssuranceCardErrorFrame {
+  event: 'error'
+  detail: string
+}
+
+export type AssuranceCardStreamFrame =
+  | AssuranceCardFrame
+  | AssuranceCardDoneFrame
+  | AssuranceCardErrorFrame
+
+export interface AssuranceCardStreamHandlers {
+  onCard: (card: AssuranceCardData) => void
+  onDone: (systemId: string, count: number) => void
+  onError: (detail: string) => void
+}
+
+/**
+ * Streams assurance cards for `systemId` over SSE, reading the response
+ * body with `fetch` + `body.getReader()` rather than `EventSource` -- the
+ * browser `EventSource` API cannot set request headers at all, and this
+ * route (like the blocking one) is read over `identityHeaders()` so it
+ * stays RBAC-extensible (backend module docstring, Design Note 1).
+ *
+ * Buffers chunks and only parses frames terminated by a blank line ("\n\n")
+ * -- a card's JSON can and will be split across two network chunks, so a
+ * chunk is never parsed directly. Any complete trailing frame is flushed
+ * when the reader reports done; an incomplete remainder is discarded.
+ */
+export async function streamAssuranceCards(
+  systemId: string,
+  handlers: AssuranceCardStreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE}/api/systems/${encodeURIComponent(systemId)}/assurance-cards/stream`,
+    { headers: identityHeaders(), signal },
+  )
+  if (!response.ok) {
+    const detail = await parseErrorDetail(response)
+    throw new ApiError(
+      response.status,
+      detail,
+      `GET assurance-cards/stream failed with status ${response.status}`,
+    )
+  }
+  if (response.body === null) {
+    throw new ApiError(0, 'empty stream body', 'assurance-cards/stream returned no body')
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  const dispatch = (rawFrame: string) => {
+    const dataLine = rawFrame
+      .split('\n')
+      .find((line) => line.startsWith('data: '))
+    if (dataLine === undefined) {
+      return
+    }
+    const frame = JSON.parse(dataLine.slice('data: '.length)) as AssuranceCardStreamFrame
+    if (frame.event === 'card') {
+      handlers.onCard(frame.card)
+    } else if (frame.event === 'done') {
+      handlers.onDone(frame.system_id, frame.count)
+    } else {
+      handlers.onError(frame.detail)
+    }
+  }
+
+  for (;;) {
+    const { value, done } = await reader.read()
+    if (done) {
+      const remainder = buffer.trim()
+      if (remainder.length > 0) {
+        dispatch(remainder)
+      }
+      return
+    }
+    buffer += decoder.decode(value, { stream: true })
+    let separatorIndex = buffer.indexOf('\n\n')
+    while (separatorIndex !== -1) {
+      const rawFrame = buffer.slice(0, separatorIndex)
+      buffer = buffer.slice(separatorIndex + 2)
+      if (rawFrame.trim().length > 0) {
+        dispatch(rawFrame)
+      }
+      separatorIndex = buffer.indexOf('\n\n')
+    }
+  }
 }
 
 // Phase 4 (GRAPH-02, plan 04-05): Blast Radius contract, mirroring
