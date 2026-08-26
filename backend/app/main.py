@@ -35,16 +35,54 @@ Plan 05-01 registers a fourth router: the action/approval endpoints from
 
 Plan 05-03 registers a fifth router: the audit chain endpoints from
 `app.routes.audit`.
+
+Quick task 260826-p1q (Task 3) adds a `lifespan` context manager: on
+startup it schedules `app.prewarm.prewarm_narration_cache()` as a
+background `asyncio.create_task` WITHOUT awaiting it, so the ASGI
+`lifespan.startup.complete` message -- and therefore `/api/health` -- is
+never delayed by a narration call. On shutdown it cancels that task and
+awaits it with `CancelledError` suppressed, so neither a live `uvicorn
+--reload` nor this test suite ever leaks it. This is also what keeps the
+pre-warm inert under `pytest`: Starlette's `TestClient` only runs the ASGI
+lifespan protocol when entered as `with client:`
+(`starlette/testclient.py`), and `tests/conftest.py`'s session-scoped
+`client` fixture is a bare `TestClient(app)`, never entered that way --
+`load_dotenv()` (`app/llm_router.py`) can pick up a live provider key in
+this environment, and an auto-firing pre-warm would make every `pytest`
+invocation issue real, billed provider calls. Do not "fix" this by adding
+`with client:` anywhere in the suite; see `app/prewarm.py`'s own docstring
+and `tests/test_prewarm.py`.
 """
+
+import asyncio
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.prewarm import prewarm_narration_cache
 from app.routes.actions import router as actions_router
 from app.routes.audit import router as audit_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
 from app.ws.copilot import router as copilot_ws_router
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Scheduled, not awaited: `yield` is reached (and the ASGI
+    # startup-complete message sent) before any narration call resolves --
+    # this is what structurally guarantees the pre-warm never delays
+    # readiness. The reference is held on `app.state` so nothing garbage-
+    # collects the task mid-flight.
+    app.state.prewarm_task = asyncio.create_task(prewarm_narration_cache())
+    yield
+    app.state.prewarm_task.cancel()
+    try:
+        await app.state.prewarm_task
+    except asyncio.CancelledError:
+        pass
+
 
 app = FastAPI(
     title="AegisX AI",
@@ -53,6 +91,7 @@ app = FastAPI(
         "Deterministic evidence verification (C1) is the product's core "
         "thesis — see AegisX-AI-Project-Bible-v6.md Section 1."
     ),
+    lifespan=lifespan,
 )
 
 # Local dev only: the Vite frontend (127.0.0.1:3000 / localhost:3000) is a
