@@ -27,11 +27,24 @@ remains the only caller that sets `remediation_requested` -- nothing
 inside the graph's own topology ever does (T-05-39).
 """
 
+import asyncio
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, FrozenSet, Optional, Tuple
 
 from app.llm_router import call_llm
+
+logger = logging.getLogger(__name__)
+
+# Total wall-clock ceiling (260826-rsw) for `synthesize_capa`'s call_llm
+# invocation, enforced by `asyncio.wait_for` -- NOT the same as call_llm's
+# own `timeout` argument. `call_llm` reuses its `timeout` value for its
+# internal OpenRouter cascade attempt, so a raw `timeout=6.0` alone would
+# permit a ~12s worst case; the outer `wait_for` below is the real ceiling.
+# 6.0s rather than narration's 3.0s (260826-p1q): a four-field CAPA needs
+# more generation room than one sentence (Design Note 4).
+A7_REMEDIATION_CEILING_SECONDS = 6.0
 
 # Bible Section 6, "A7: Remediation Agent Prompt", transcribed verbatim.
 A7_SYSTEM_PROMPT = (
@@ -133,11 +146,13 @@ def _build_capa_payload(finding: Dict[str, Any], narrative_fields: Dict[str, str
 
 def _deterministic_capa(finding: Dict[str, Any], verification_result: Dict[str, Any]) -> Dict[str, Any]:
     """Used when the LLM router degrades (no provider key configured, or
-    every provider/cascade failed) OR the router returned a response that
+    every provider/cascade failed), OR the router returned a response that
     is not the well-formed four-key JSON this module requested (a
     malformed narrative is exactly as unusable for a compliance CAPA as a
     missing one -- Rule 2, this system must not persist a broken CAPA
-    structure just because a model call nominally "succeeded"). Returns
+    structure just because a model call nominally "succeeded"), OR
+    `synthesize_capa`'s `A7_REMEDIATION_CEILING_SECONDS` wall-clock
+    ceiling fired before the call returned at all (260826-rsw). Returns
     the same proposal shape with template narrative fields and
     `model_id = "deterministic-fallback"`.
 
@@ -193,12 +208,31 @@ async def synthesize_capa(
     -- the exact REM-01 violation this fail-closed gate exists to
     prevent.
 
-    Otherwise call the LLM router (task="remediation", already routed to
-    `gemini_flash_thinking` per `llm_router.PROVIDER_CONFIG`) with
-    `json_output=True` to narrate the four `CAPA_NARRATIVE_FIELDS` from
-    the finding's own already-verified evidence, or fall back to
-    `_deterministic_capa` when the router degrades or returns output that
-    does not parse into exactly those four keys.
+    Otherwise call the LLM router (task="remediation", routed to
+    `groq_llama` per `llm_router.PROVIDER_CONFIG` -- 260826-rsw moved this
+    off `gemini_flash_thinking`, which the Bible names but which measured
+    ~18s per call with no wall-clock ceiling) with `json_output=True` to
+    narrate the four `CAPA_NARRATIVE_FIELDS` from the finding's own
+    already-verified evidence, or fall back to `_deterministic_capa` when
+    the router degrades or returns output that does not parse into
+    exactly those four keys.
+
+    The call is bounded by a TOTAL wall-clock ceiling
+    (`A7_REMEDIATION_CEILING_SECONDS`, 6.0s) via `asyncio.wait_for`, not
+    merely `call_llm`'s own `timeout` argument: `call_llm` reuses that
+    same timeout value for its internal cascade to `openrouter_fallback`,
+    so a raw `timeout=6.0` alone would permit a ~12s worst case
+    (260826-rsw Design Note 4, mirroring 260826-p1q's Design Note 2 for
+    narration). On a Groq TIMEOUT the outer `wait_for` fires first and the
+    cascade gets no second attempt (a 6s budget is a 6s budget); on a
+    Groq FAST failure (missing key, 429, 5xx -- all sub-millisecond)
+    `call_llm`'s cascade to OpenRouter still runs normally inside what
+    budget remains. Hitting the ceiling, a degraded response, malformed
+    JSON, or a missing narrative key all return the same
+    deterministic-fallback pair via `_deterministic_capa`, and all now log
+    a warning naming the failure so a future `json_output` plumbing
+    regression is loud rather than silent (Design Note 5) -- the
+    behaviour on each of these paths is otherwise unchanged.
 
     The prompt embeds the finding's `claim`, `regulatory_citations`, and
     `evidence_ids`, plus C1's own `confidence`, and labels the finding
@@ -224,23 +258,45 @@ async def synthesize_capa(
         '"effectiveness_check". Do not include due_date or owner -- those '
         "are computed by this system, not by you."
     )
-    response = await call_llm(
-        task="remediation",
-        prompt=prompt,
-        system_instruction=A7_SYSTEM_PROMPT,
-        timeout=20.0,
-        json_output=True,
-    )
+    try:
+        response = await asyncio.wait_for(
+            call_llm(
+                task="remediation",
+                prompt=prompt,
+                system_instruction=A7_SYSTEM_PROMPT,
+                timeout=A7_REMEDIATION_CEILING_SECONDS,
+                json_output=True,
+            ),
+            timeout=A7_REMEDIATION_CEILING_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.warning(
+            "A7 remediation call exceeded the %.1fs wall-clock ceiling. "
+            "Returning deterministic-fallback CAPA.",
+            A7_REMEDIATION_CEILING_SECONDS,
+        )
+        return _deterministic_capa(finding, verification_result), "deterministic-fallback"
+
     if response.degraded:
         return _deterministic_capa(finding, verification_result), "deterministic-fallback"
 
     try:
         parsed = json.loads(response.text)
         narrative_fields = {field: str(parsed[field]) for field in CAPA_NARRATIVE_FIELDS}
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except (json.JSONDecodeError, KeyError, TypeError) as e:
         # Malformed model output -- treated identically to a degraded
         # router (module docstring, `_deterministic_capa`): this system
-        # never persists a CAPA built from an unparseable narrative.
+        # never persists a CAPA built from an unparseable narrative. Logged
+        # (260826-rsw Design Note 5) so a future json_output plumbing
+        # regression -- which degrades silently to this exact branch --
+        # leaves a trace instead of looking like an ordinary, expected
+        # fallback.
+        logger.warning(
+            "A7 remediation response from model_id=%r failed to parse into "
+            "the four required CAPA narrative fields (%s: %s). Returning "
+            "deterministic-fallback CAPA.",
+            response.model_id, type(e).__name__, e,
+        )
         return _deterministic_capa(finding, verification_result), "deterministic-fallback"
 
     return (

@@ -5,7 +5,7 @@ Ticket: SENT-2-01/SENT-2-02 substrate | Requirements: ORC-02, ORC-03
 
 Source: AegisX-AI-Project-Bible-v6.md Section 8.1 (`PROVIDER_CONFIG`)
 and 8.2 (router logic, the `openrouter_fallback` cascade). Transcribed
-with six corrections, each recorded in `backend/README.md` under
+with corrections, each recorded in `backend/README.md` under
 "Bible deviations (backend tier)" and routed to SENT-7-05:
 
   - `deepseek_r1["model"]`: Bible's "deepseek-reasoner" is retired;
@@ -24,9 +24,20 @@ with six corrections, each recorded in `backend/README.md` under
     value (Deviation 11).
   - `groq_llama["model"]`: the retired Llama 3.3 70B id is no longer
     served; corrected to "openai/gpt-oss-120b" (Deviation 12).
+  - `use_for`: NOT byte-identical to the Bible any more. Quick task
+    260826-p1q added a dedicated "narration" key to
+    `groq_llama["use_for"]` (never Bible-listed under any entry). Quick
+    task 260826-rsw then moved "remediation" from
+    `gemini_flash_thinking["use_for"]` to `groq_llama["use_for"]`
+    alongside it — Bible Section 8.1 lists "remediation" under the
+    Google thinking entry; this router now routes it to Groq instead,
+    under the total wall-clock ceiling `a7_remediation.synthesize_capa`
+    enforces (recorded in `backend/README.md`'s Bible deviations
+    section). "orchestrator" and "synthesis" are untouched and remain
+    on `gemini_flash_thinking`.
 
-Every other PROVIDER_CONFIG key — provider, base_url, rpm_limit,
-use_for — is unchanged from the Bible.
+Every other PROVIDER_CONFIG key — provider, base_url, rpm_limit — is
+unchanged from the Bible.
 
 House style mirrors `backend/app/opa_client.py`: raw httpx (no
 per-provider SDK), explicit `timeout=` on every outbound call, logging
@@ -55,8 +66,17 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Bible Section 8.1, transcribed with the six corrections documented in
-# this module's docstring and in backend/README.md Deviations 4-6, 10-12.
+# Groq `max_completion_tokens` budgets (`_build_openai_compatible_request`),
+# named constants so the pair is greppable and tunable from one place.
+# Reasoning tokens are charged against this same cap (see that function's
+# comment), so an overrun surfaces only as a truncated/malformed response —
+# never as an error — which is exactly the failure mode a generous budget
+# exists to avoid (260826-rsw Design Note 2).
+GROQ_MAX_COMPLETION_TOKENS_DEFAULT = 512
+GROQ_MAX_COMPLETION_TOKENS_JSON = 2048
+
+# Bible Section 8.1, transcribed with the corrections documented in this
+# module's docstring and in backend/README.md Deviations 4-6, 10-13.
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     "gemini_flash_thinking": {
         "provider": "google",
@@ -68,7 +88,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # as a documented alias when the first is unset.
         "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
         "rpm_limit": 60,
-        "use_for": ["orchestrator", "synthesis", "remediation"],
+        "use_for": ["orchestrator", "synthesis"],
     },
     "gemini_flash_fast": {
         "provider": "google",
@@ -98,7 +118,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": ("GROQ_API_KEY",),
         "rpm_limit": 300,
-        "use_for": ["incident", "access", "high_volume", "narration"],
+        "use_for": ["incident", "access", "high_volume", "narration", "remediation"],
     },
     "openrouter_fallback": {
         "provider": "openrouter",
@@ -166,24 +186,44 @@ def _build_google_request(entry: Dict[str, Any], api_key: str, prompt: str,
 
 
 def _build_openai_compatible_request(entry: Dict[str, Any], api_key: str, prompt: str,
-                                      system_instruction: str) -> Dict[str, Any]:
+                                      system_instruction: str, json_output: bool) -> Dict[str, Any]:
     messages = []
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     messages.append({"role": "user", "content": prompt})
     body: Dict[str, Any] = {"model": entry["model"], "messages": messages}
+    if json_output:
+        # Standard OpenAI-compatible JSON-mode field (260826-rsw Design Note
+        # 3). Applies to every provider this builder serves — Groq, DeepSeek,
+        # AND OpenRouter — unlike `reasoning_effort`/`max_completion_tokens`
+        # below, which are a Groq gpt-oss vendor extension. OpenRouter is
+        # A7's own cascade fallback: gating this on Groq alone would mean
+        # the fallback silently loses JSON mode and returns prose. If
+        # `openrouter/auto` ever rejects this field, that is a 4xx which
+        # `call_llm` already turns into a logged non-cascading degraded
+        # response (accepted consequence, not a bug to "fix" later).
+        body["response_format"] = {"type": "json_object"}
     if entry["provider"] == "groq":
         # `openai/gpt-oss-120b` is a Groq *reasoning* model: reasoning tokens
         # are charged against `max_completion_tokens`, so a tight cap without
         # a low reasoning effort can truncate to `finish_reason: "length"`
-        # with null content (Design Note 4, 260826-p1q-PLAN.md). 512 is a
-        # generous floor for a one-sentence narration, not a tight budget.
-        # `reasoning_effort` is a documented Groq gpt-oss field;
-        # `reasoning_format` is explicitly NOT supported for these models —
-        # do not add it. Gate strictly on provider=="groq": OpenRouter shares
-        # this same builder and may 400 on an unrecognized field.
+        # with null content (Design Note 4, 260826-p1q-PLAN.md). The budget
+        # is selected by output shape (260826-rsw Design Note 2):
+        # `GROQ_MAX_COMPLETION_TOKENS_DEFAULT` (512) is a generous floor for
+        # a one-sentence narration; `GROQ_MAX_COMPLETION_TOKENS_JSON` (2048)
+        # is sized for a four-field structured CAPA payload, where reasoning
+        # tokens plus ~400-600 content tokens can otherwise overrun the
+        # narration-sized floor and surface only as a generic-looking CAPA,
+        # never as an error. `reasoning_effort` is a documented Groq gpt-oss
+        # field; `reasoning_format` is explicitly NOT supported for these
+        # models — do not add it. Both fields are gated strictly on
+        # provider=="groq": OpenRouter shares this same builder and may 400
+        # on an unrecognized field (unlike `response_format` above, which is
+        # the standard field, not a vendor extension).
         body["reasoning_effort"] = "low"
-        body["max_completion_tokens"] = 512
+        body["max_completion_tokens"] = (
+            GROQ_MAX_COMPLETION_TOKENS_JSON if json_output else GROQ_MAX_COMPLETION_TOKENS_DEFAULT
+        )
     url = f"{entry['base_url']}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "content-type": "application/json"}
     return {"url": url, "headers": headers, "json": body}
@@ -225,7 +265,7 @@ async def _send_one(entry_key: str, prompt: str, system_instruction: str,
     if entry["provider"] == "google":
         request = _build_google_request(entry, api_key, prompt, system_instruction, json_output)
     else:
-        request = _build_openai_compatible_request(entry, api_key, prompt, system_instruction)
+        request = _build_openai_compatible_request(entry, api_key, prompt, system_instruction, json_output)
 
     async with httpx.AsyncClient() as client:
         response = await client.post(

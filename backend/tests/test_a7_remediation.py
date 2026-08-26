@@ -18,18 +18,27 @@ its own namespace (`app.agents.a7_remediation.call_llm`) — this needs no
 provider key, matches `tests/test_a2_compliance.py`'s "no provider key
 needed" goal, and lets `test_prompt_labels_finding_text_as_untrusted`
 capture the exact prompt text passed to the fake, which respx-level HTTP
-mocking cannot do as directly (it only sees the outer Google request
-body).
+mocking cannot do as directly (it only sees the outer request body). The
+fake's `model_id`/`provider` values are the Groq ones (260826-rsw moved
+remediation off `gemini_flash_thinking` onto `groq_llama`) — the fake
+stands in for a Groq request/response shape, not a Google one. The
+respx-level tests added by 260826-rsw (`GROQ_API_KEY`, no `call_llm`
+monkeypatch, a mocked Groq endpoint) are the proof that the flag actually
+reaches the wire from A7's own call site; the monkeypatch-based tests
+above remain provider-agnostic by design.
 """
 
 import ast
 import asyncio
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
+import httpx
 import pytest
+import respx
 
 from app.agents import a7_remediation
 from app.agents.a7_remediation import A7_ELIGIBLE_CONFIDENCE, synthesize_capa
@@ -37,6 +46,8 @@ from app.agents.c3_gateway import ACTION_CATEGORIES
 from app.llm_router import LLMResponse
 
 A7_MODULE_PATH = Path(__file__).resolve().parents[1] / "app" / "agents" / "a7_remediation.py"
+
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 FINDING: Dict[str, Any] = {
     "finding_id": "A2-ANNEX11-S4-DOC-001-DOC-2026-URS-01",
@@ -46,22 +57,28 @@ FINDING: Dict[str, Any] = {
     "target_system": "GXP-MFG-DEMO-01",
 }
 
-CAPA_NARRATIVE_JSON = json.dumps(
-    {
-        "root_cause": "Root cause narrative from the model.",
-        "corrective_action": "Corrective action narrative from the model.",
-        "preventive_action": "Preventive action narrative from the model.",
-        "effectiveness_check": "Effectiveness-check narrative from the model.",
-    }
-)
+CAPA_NARRATIVE_FIELDS_DICT = {
+    "root_cause": "Root cause narrative from the model.",
+    "corrective_action": "Corrective action narrative from the model.",
+    "preventive_action": "Preventive action narrative from the model.",
+    "effectiveness_check": "Effectiveness-check narrative from the model.",
+}
+
+CAPA_NARRATIVE_JSON = json.dumps(CAPA_NARRATIVE_FIELDS_DICT)
+
+
+def _groq_body(text: str, model: str = "openai/gpt-oss-120b") -> dict:
+    """Copied from `tests/test_routes_actions.py`'s own `_openai_body`
+    helper convention rather than invented fresh (260826-rsw Task 1f)."""
+    return {"choices": [{"message": {"content": text}}], "model": model}
 
 
 async def _fake_call_llm_success(**kwargs) -> LLMResponse:
     _fake_call_llm_success.captured_kwargs = kwargs
     return LLMResponse(
         text=CAPA_NARRATIVE_JSON,
-        model_id="gemini-2.5-flash",
-        provider="google",
+        model_id="openai/gpt-oss-120b",
+        provider="groq",
         degraded=False,
     )
 
@@ -110,7 +127,7 @@ def test_synthesize_capa_returns_a_proposal_for_each_eligible_confidence(confide
     async def run():
         proposal, model_id = await synthesize_capa(FINDING, {"confidence": confidence})
         assert proposal is not None
-        assert model_id == "gemini-2.5-flash"
+        assert model_id == "openai/gpt-oss-120b"
 
     asyncio.run(run())
 
@@ -208,7 +225,7 @@ def test_degraded_router_still_produces_a_proposal_with_fallback_attribution(mon
 
 def test_malformed_json_narrative_falls_back_to_deterministic_capa(monkeypatch):
     async def fake_call_llm_malformed(**kwargs) -> LLMResponse:
-        return LLMResponse(text="not valid json", model_id="gemini-2.5-flash", provider="google", degraded=False)
+        return LLMResponse(text="not valid json", model_id="openai/gpt-oss-120b", provider="groq", degraded=False)
 
     monkeypatch.setattr(a7_remediation, "call_llm", fake_call_llm_malformed)
 
@@ -233,6 +250,117 @@ def test_prompt_labels_finding_text_as_untrusted(monkeypatch):
         assert "untrusted" in prompt.lower()
 
     asyncio.run(run())
+
+
+# --- 260826-rsw: guard against a future edit dropping task/json_output ----
+
+
+def test_synthesize_capa_calls_call_llm_with_remediation_task_and_json_output(monkeypatch):
+    """The guard against a future edit silently dropping the remediation
+    task key or the json_output=True flag at the call site -- the exact
+    class of regression this plan exists to prevent from being silent."""
+    monkeypatch.setattr(a7_remediation, "call_llm", _fake_call_llm_success)
+
+    async def run():
+        await synthesize_capa(FINDING, {"confidence": "HIGH"})
+        kwargs = _fake_call_llm_success.captured_kwargs
+        assert kwargs["task"] == "remediation"
+        assert kwargs["json_output"] is True
+
+    asyncio.run(run())
+
+
+# --- 260826-rsw: respx-level proof -- json mode actually reaches the wire -
+
+
+def test_respx_synthesize_capa_through_real_call_llm_reaches_groq_with_json_mode(monkeypatch):
+    """The proof that matters (plan constraint): drives the REAL call_llm
+    against a mocked Groq endpoint and asserts three things together --
+    the outbound request body carries JSON mode, the returned proposal's
+    four narrative values are the model's own strings (not the template),
+    and the attribution is the provider-reported model id. Any one alone
+    can pass while the json_output plumbing is silently broken."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(
+                    200, json=_groq_body(CAPA_NARRATIVE_JSON, model="openai/gpt-oss-120b")
+                )
+            )
+            proposal, model_id = await synthesize_capa(FINDING, {"confidence": "HIGH"})
+            return proposal, model_id, route
+
+    proposal, model_id, route = asyncio.run(_run())
+
+    assert route.called
+    sent_body = json.loads(route.calls.last.request.content)
+    assert sent_body["response_format"] == {"type": "json_object"}
+
+    assert proposal is not None
+    assert model_id == "openai/gpt-oss-120b"
+    capa = proposal["payload"]["capa"]
+    for field, expected_text in CAPA_NARRATIVE_FIELDS_DICT.items():
+        assert capa[field] == expected_text
+
+
+def test_respx_null_content_groq_truncation_falls_back_and_logs_a_warning(monkeypatch, caplog):
+    """A Groq reasoning-model truncation (finish_reason='length', null
+    message content) must be handled -- not raised -- and must not be
+    silent: `_parse_openai_compatible_response` coerces None to '', which
+    then fails json.loads, landing in the logged parse-failure branch."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "choices": [{"message": {"content": None}, "finish_reason": "length"}],
+                        "model": "openai/gpt-oss-120b",
+                    },
+                )
+            )
+            with caplog.at_level(logging.WARNING):
+                proposal, model_id = await synthesize_capa(FINDING, {"confidence": "MEDIUM"})
+            return proposal, model_id, route
+
+    proposal, model_id, route = asyncio.run(_run())
+
+    assert route.called
+    assert proposal is not None
+    assert model_id == "deterministic-fallback"
+    assert any("openai/gpt-oss-120b" in record.getMessage() for record in caplog.records)
+
+
+# --- 260826-rsw: wall-clock ceiling is bounded, not roughly doubled -------
+
+
+def test_ceiling_breach_returns_deterministic_fallback_within_roughly_the_ceiling(monkeypatch):
+    """Design Note 4's property: on a hanging provider, synthesize_capa
+    returns within roughly A7_REMEDIATION_CEILING_SECONDS, not roughly
+    twice it -- proving the outer asyncio.wait_for is the real ceiling,
+    not merely call_llm's own (reused-for-cascade) timeout argument."""
+
+    async def _hanging_call_llm(**kwargs):
+        await asyncio.sleep(a7_remediation.A7_REMEDIATION_CEILING_SECONDS * 3)
+        return LLMResponse(text="unreachable", model_id="unreachable", provider="groq", degraded=False)
+
+    monkeypatch.setattr(a7_remediation, "call_llm", _hanging_call_llm)
+
+    async def run():
+        start = asyncio.get_event_loop().time()
+        proposal, model_id = await synthesize_capa(FINDING, {"confidence": "LOW"})
+        elapsed = asyncio.get_event_loop().time() - start
+        return proposal, model_id, elapsed
+
+    proposal, model_id, elapsed = asyncio.run(run())
+
+    assert proposal is not None
+    assert model_id == "deterministic-fallback"
+    assert elapsed < a7_remediation.A7_REMEDIATION_CEILING_SECONDS * 2
 
 
 # --- Critical-review addition: AST gate -- A7 never imports the verifier --

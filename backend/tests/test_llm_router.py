@@ -20,7 +20,12 @@ import pytest
 import respx
 
 from app import llm_router
-from app.llm_router import PROVIDER_CONFIG, call_llm, select_provider
+from app.llm_router import (
+    PROVIDER_CONFIG,
+    _build_openai_compatible_request,
+    call_llm,
+    select_provider,
+)
 
 
 GEMINI_SUCCESS_BODY = {
@@ -37,6 +42,22 @@ def test_select_provider_routes_by_task():
     assert select_provider("orchestrator") == "gemini_flash_thinking"
     assert select_provider("compliance") == "gemini_flash_fast"
     assert select_provider("fallback") == "openrouter_fallback"
+
+
+def test_select_provider_routes_remediation_to_groq_not_google(monkeypatch):
+    """260826-rsw: 'remediation' moved from gemini_flash_thinking to
+    groq_llama. This must hold in BOTH directions -- the moved key
+    resolves to Groq, AND the two keys that stay on the Google thinking
+    entry (orchestrator, synthesis) are unaffected by the move. A
+    half-done edit (append-only, leaving 'remediation' on Google too)
+    would pass the first assertion and fail nothing else visibly, since
+    select_provider returns the FIRST match and Google is declared first
+    -- this is exactly what a no-op edit would look like."""
+    assert select_provider("remediation") == "groq_llama"
+    assert select_provider("orchestrator") == "gemini_flash_thinking"
+    assert select_provider("synthesis") == "gemini_flash_thinking"
+    assert "remediation" not in PROVIDER_CONFIG["gemini_flash_thinking"]["use_for"]
+    assert "remediation" in PROVIDER_CONFIG["groq_llama"]["use_for"]
 
 
 def test_select_provider_raises_keyerror_on_unknown_task():
@@ -241,3 +262,78 @@ def test_leak_key_absent_from_log_on_missing_key_path(monkeypatch, caplog):
     # path logs cleanly with no key material to leak in the first place.
     for record in caplog.records:
         assert "sk-" not in record.getMessage()
+
+
+# ---------------------------------------------------------------------------
+# _build_openai_compatible_request -- json_output plumbing (260826-rsw)
+# ---------------------------------------------------------------------------
+#
+# T-rsw-02: this is the plan's whole premise. Presence AND absence of
+# response_format are both asserted -- absence is what protects every
+# already-shipped narration/incident/access call from silently changing
+# shape.
+
+
+@pytest.mark.parametrize("entry_key", ["groq_llama", "deepseek_r1", "openrouter_fallback"])
+def test_build_openai_compatible_request_carries_response_format_when_json_output_true(entry_key):
+    entry = PROVIDER_CONFIG[entry_key]
+    request = _build_openai_compatible_request(entry, "test-key", "prompt", "system", True)
+    assert request["json"]["response_format"] == {"type": "json_object"}
+
+
+@pytest.mark.parametrize("entry_key", ["groq_llama", "deepseek_r1", "openrouter_fallback"])
+def test_build_openai_compatible_request_omits_response_format_when_json_output_false(entry_key):
+    entry = PROVIDER_CONFIG[entry_key]
+    request = _build_openai_compatible_request(entry, "test-key", "prompt", "system", False)
+    assert "response_format" not in request["json"]
+
+
+def test_build_openai_compatible_request_groq_completion_cap_differs_by_json_output():
+    entry = PROVIDER_CONFIG["groq_llama"]
+    without_json = _build_openai_compatible_request(entry, "k", "p", "s", False)
+    with_json = _build_openai_compatible_request(entry, "k", "p", "s", True)
+    assert without_json["json"]["max_completion_tokens"] == 512
+    assert with_json["json"]["max_completion_tokens"] > 512
+
+
+@pytest.mark.parametrize("json_output", [True, False])
+def test_build_openai_compatible_request_openrouter_never_carries_groq_vendor_fields(json_output):
+    entry = PROVIDER_CONFIG["openrouter_fallback"]
+    request = _build_openai_compatible_request(entry, "k", "p", "s", json_output)
+    assert "reasoning_effort" not in request["json"]
+    assert "max_completion_tokens" not in request["json"]
+
+
+def test_call_llm_remediation_task_reaches_groq_with_json_mode_on_the_wire(monkeypatch):
+    """The end-to-end proof: driving the REAL call_llm through the
+    remediation task key hits the Groq endpoint (proving the routing move
+    landed) with a captured request body carrying JSON mode (proving the
+    json_output flag actually reaches the wire), not merely that a mock
+    happened to return parseable text."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={
+                        "choices": [{"message": {"content": '{"root_cause": "x"}'}}],
+                        "model": "openai/gpt-oss-120b",
+                    },
+                )
+            )
+            result = await call_llm(
+                task="remediation", prompt="Draft a CAPA.", json_output=True
+            )
+            return result, route
+
+    result, route = asyncio.run(_run())
+    assert route.called
+    assert result.degraded is False
+
+    import json as _json
+
+    sent_body = _json.loads(route.calls.last.request.content)
+    assert sent_body["response_format"] == {"type": "json_object"}
+    assert sent_body["max_completion_tokens"] == 2048
