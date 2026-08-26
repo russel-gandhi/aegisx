@@ -12,6 +12,7 @@ sees a clean append point (05-RESEARCH.md Pitfall 3).
 
 import asyncio
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.audit_trail import log_event, verify_chain
@@ -21,6 +22,8 @@ from app.main import app
 client = TestClient(app)
 
 IT_MANAGER_HEADERS = {"X-User-Id": "test-it-manager", "X-User-Role": "IT System Manager"}
+AUDITOR_HEADERS = {"X-User-Id": "test-auditor", "X-User-Role": "Auditor"}
+QA_COMPLIANCE_HEADERS = {"X-User-Id": "test-qa-compliance", "X-User-Role": "QA/Compliance"}
 
 
 def _event(action_type: str) -> dict:
@@ -49,6 +52,43 @@ def test_demonstrate_tamper_without_identity_headers_returns_422():
         "/api/audit/demonstrate-tamper", json={"event_id": "EVT-does-not-exist"}
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+    "denied_headers,sentinel_event_id",
+    [
+        (AUDITOR_HEADERS, "EVT-cr01-denied-auditor-260827-045"),
+        (QA_COMPLIANCE_HEADERS, "EVT-cr01-denied-qa-compliance-260827-045"),
+    ],
+)
+def test_demonstrate_tamper_denies_non_it_manager_roles_before_any_write(
+    audit_chain_isolation, denied_headers, sentinel_event_id
+):
+    """CR-01: only IT System Manager (the sole `PERMISSION_MATRIX` holder
+    of "A7") may invoke the tamper demo. Auditor and QA/Compliance are
+    both denied with 403, and -- because the guard runs before
+    `acquire_pool_or_none` and before `log_event` -- neither denial writes
+    a `TAMPER_DEMO_INVOKED` row for this sentinel `event_id`."""
+
+    async def run():
+        response = client.post(
+            "/api/audit/demonstrate-tamper",
+            json={"event_id": sentinel_event_id},
+            headers=denied_headers,
+        )
+        assert response.status_code == 403
+
+        pool = await get_pool()
+        invoked_row = await pool.fetchrow(
+            "SELECT event_id FROM audit_events WHERE action_type = 'TAMPER_DEMO_INVOKED' "
+            "AND target_record_id = $1",
+            sentinel_event_id,
+        )
+        if invoked_row is not None:
+            audit_chain_isolation.append(invoked_row["event_id"])
+        assert invoked_row is None
+
+    asyncio.run(run())
 
 
 def test_demonstrate_tamper_unknown_event_id_returns_no_such_event(audit_chain_isolation):
