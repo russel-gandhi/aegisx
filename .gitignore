@@ -19,3 +19,6 @@ build/
 # Local reference docs (not for commit)
 ARCHITECTURE_DECISIONS.md
 CODEBASE_OVERVIEW.md
+
+# Synthetic test data corpus (local only, not for commit)
+Dummy_data/
