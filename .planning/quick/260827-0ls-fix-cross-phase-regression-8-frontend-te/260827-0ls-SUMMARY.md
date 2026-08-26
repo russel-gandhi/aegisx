@@ -127,3 +127,11 @@ None - no external service configuration required.
 ---
 *Phase: quick*
 *Completed: 2026-08-27*
+
+## Self-Check: PASSED
+
+- FOUND: frontend/src/__tests__/helpers/sseFetch.ts
+- FOUND: frontend/src/__tests__/streamAssuranceCards.test.ts
+- FOUND: commit 0ed5a15
+- FOUND: commit 3b12497
+- FOUND: commit 2f008ea
