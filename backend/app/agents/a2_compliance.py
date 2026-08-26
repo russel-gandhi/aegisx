@@ -75,6 +75,7 @@ the key is missing, so no violation is emitted for that specific case
 either — see that function's own docstring.
 """
 
+import asyncio
 import logging
 import time
 from typing import Any, Callable, Awaitable, Dict, Optional, Tuple
@@ -292,6 +293,23 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     `app.narration_cache`'s module docstring) — only a successful router
     response is stored, as the same `(text, model_id)` pair returned here,
     so a later hit reproduces the same `model_attribution`.
+
+    Provider routing (quick task 260826-p1q): narration is routed via the
+    dedicated `"narration"` task key to `groq_llama`, not `"compliance"`'s
+    `gemini_flash_fast` — A0/A2's judgment tasks are untouched, only this
+    decoration step moved. The call is bounded by a ~3s TOTAL wall-clock
+    ceiling via `asyncio.wait_for`, not merely `call_llm`'s own `timeout`
+    argument: `call_llm` reuses that same timeout value for its internal
+    cascade to `openrouter_fallback`, so a raw `timeout=3.0` alone would
+    permit a ~6s worst case (Design Note 2). The outer `wait_for` is the
+    real ceiling — on a Groq TIMEOUT it fires first and the cascade gets no
+    second attempt (a 3s budget is a 3s budget); on a Groq FAST failure
+    (missing key, 429, 5xx — all sub-millisecond) `call_llm`'s cascade to
+    OpenRouter still runs normally inside what budget remains. Either way,
+    once the ceiling is hit or the response is blank/whitespace-only, this
+    function returns the same deterministic-fallback pair the `degraded`
+    branch returns, and caches nothing — a blank claim must never reach a
+    card (Design Note 4).
     """
     record = check_result["record"] or {}
     record_id = record.get("id", "no matching record")
@@ -312,13 +330,23 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     if cached is not None:
         return cached
 
-    response = await call_llm(
-        task="compliance",
-        prompt=prompt,
-        system_instruction=A2_SYSTEM_PROMPT,
-        timeout=10.0,
-    )
+    try:
+        response = await asyncio.wait_for(
+            call_llm(
+                task="narration",
+                prompt=prompt,
+                system_instruction=A2_SYSTEM_PROMPT,
+                timeout=3.0,
+            ),
+            timeout=3.0,
+        )
+    except asyncio.TimeoutError:
+        return _deterministic_gap_sentence(check_result), "deterministic-fallback"
+
     if response.degraded:
+        return _deterministic_gap_sentence(check_result), "deterministic-fallback"
+
+    if not response.text or not response.text.strip():
         return _deterministic_gap_sentence(check_result), "deterministic-fallback"
 
     result = (response.text, response.model_id)

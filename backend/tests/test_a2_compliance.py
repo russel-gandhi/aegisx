@@ -51,10 +51,30 @@ GEMINI_SUCCESS_BODY = {
     ]
 }
 
+# Narration routes to Groq, not Gemini (quick task 260826-p1q) — this is
+# the OpenAI-shaped sibling of GEMINI_SUCCESS_BODY above, which now stays
+# unused by narration tests but is left in place as the documented Gemini
+# response shape for any future non-narration caller.
+GROQ_SUCCESS_BODY = {
+    "choices": [
+        {
+            "message": {
+                "content": (
+                    "Compliance gap confirmed against the deterministic "
+                    "check result; review required under EU GMP Annex 11."
+                )
+            }
+        }
+    ],
+    "model": "openai/gpt-oss-120b",
+}
+
 GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
     "gemini-3.6-flash:generateContent"
 )
+
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 def _no_provider_keys(monkeypatch):
@@ -249,12 +269,12 @@ def test_verify_no_stale_documents_ignores_approved_and_draft_status():
 
 
 def test_run_a2_emits_exactly_two_findings_for_seeded_system(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
-            respx.post(GEMINI_ENDPOINT).mock(
-                return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY)
+            respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
             )
             return await run_a2({"system_id": GXP_SYSTEM})
 
@@ -269,12 +289,12 @@ def test_run_a2_emits_exactly_two_findings_for_seeded_system(monkeypatch):
 
 
 def test_run_a2_findings_conform_to_phase3_agentfinding_conventions(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
-            respx.post(GEMINI_ENDPOINT).mock(
-                return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY)
+            respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
             )
             return await run_a2({"system_id": GXP_SYSTEM})
 
@@ -310,21 +330,21 @@ def test_build_finding_with_null_record_has_empty_evidence_and_marks_no_record()
 def test_run_a2_narration_mocked_vs_degraded_same_two_checks_fail(monkeypatch):
     # Mocked-provider run: claim equals the mocked candidate text, model
     # attribution is the real Gemini model id.
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run_mocked():
         with respx.mock:
-            respx.post(GEMINI_ENDPOINT).mock(
-                return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY)
+            respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
             )
             return await run_a2({"system_id": GXP_SYSTEM})
 
     mocked_result = asyncio.run(_run_mocked())
     mocked_findings = mocked_result["findings"]
-    expected_claim = GEMINI_SUCCESS_BODY["candidates"][0]["content"]["parts"][0]["text"]
+    expected_claim = GROQ_SUCCESS_BODY["choices"][0]["message"]["content"]
     for finding in mocked_findings:
         assert finding["claim"] == expected_claim
-        assert finding["model_attribution"] == "gemini-3.6-flash"
+        assert finding["model_attribution"] == "openai/gpt-oss-120b"
     mocked_rule_ids = {f["regulatory_citations"][0] for f in mocked_findings}
 
     # Degraded run: no provider key anywhere — claim is the deterministic

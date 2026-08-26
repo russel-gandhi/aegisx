@@ -305,12 +305,22 @@ def test_hero_fully_mocked_run_model_attribution_names_real_provider(monkeypatch
 def test_hero_discrimination_control_healthy_system_grades_insufficient_evidence(monkeypatch):
     _delete_all_provider_keys(monkeypatch)
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    # A2's two NO-RECORD checks against BUS-IT-DEMO-02 still narrate via the
+    # dedicated "narration" task (now routed to Groq, quick task
+    # 260826-p1q), independent of A0's classification provider — both mocks
+    # must be present alongside each other.
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
             # BUS-IT-DEMO-02 is healthy — the classification only needs to
             # name A2 to exercise the discrimination control.
             respx.post(GEMINI_URL).mock(side_effect=_gemini_side_effect(["A2"]))
+            respx.post(GROQ_URL).mock(
+                return_value=_openai_body(
+                    "Gap narrated by a mocked Groq response.", "openai/gpt-oss-120b"
+                )
+            )
             respx.route(host="127.0.0.1", port=8181).pass_through()
             return await compiled_graph.ainvoke(_initial_state(HEALTHY_SYSTEM_ID))
 

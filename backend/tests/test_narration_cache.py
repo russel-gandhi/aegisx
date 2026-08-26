@@ -35,6 +35,10 @@ GEMINI_ENDPOINT = (
     "gemini-3.6-flash:generateContent"
 )
 
+# Narration now routes to Groq (quick task 260826-p1q); GEMINI_ENDPOINT above
+# remains for any test exercising a different task (e.g. A0 classification).
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
 
 def _no_provider_keys(monkeypatch):
     for env_name in (
@@ -47,12 +51,8 @@ def _no_provider_keys(monkeypatch):
         monkeypatch.delenv(env_name, raising=False)
 
 
-def _gemini_body(text: str) -> dict:
-    return {
-        "candidates": [
-            {"content": {"parts": [{"text": text}]}}
-        ]
-    }
+def _openai_body(text: str, model: str = "openai/gpt-oss-120b") -> dict:
+    return {"choices": [{"message": {"content": text}}], "model": model}
 
 
 def _distinct_text_side_effect():
@@ -63,7 +63,7 @@ def _distinct_text_side_effect():
 
     def _side_effect(request):
         counter["n"] += 1
-        return httpx.Response(200, json=_gemini_body(f"distinct narration #{counter['n']}"))
+        return httpx.Response(200, json=_openai_body(f"distinct narration #{counter['n']}"))
 
     return _side_effect
 
@@ -163,12 +163,12 @@ def test_edge_narration_cache_module_has_no_app_import():
 
 def test_integration_narrate_gap_second_call_is_a_hit_with_identical_text(monkeypatch):
     narration_cache.clear()
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     check_result = _sample_check_result(record={"id": "DOC-CACHE-HIT-01", "status": "DRAFT"})
 
     async def _run():
         with respx.mock:
-            route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
             first = await narrate_gap(check_result)
             second = await narrate_gap(copy.deepcopy(check_result))
             return first, second, route.call_count
@@ -181,19 +181,19 @@ def test_integration_narrate_gap_second_call_is_a_hit_with_identical_text(monkey
 
 def test_integration_cold_cache_still_narrates(monkeypatch):
     narration_cache.clear()
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     check_result = _sample_check_result(record={"id": "DOC-CACHE-COLD-01", "status": "DRAFT"})
 
     async def _run():
         with respx.mock:
-            route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
             claim, model_id = await narrate_gap(check_result)
             return claim, model_id, route.call_count
 
     claim, model_id, call_count = asyncio.run(_run())
     assert call_count == 1
     assert claim
-    assert model_id == "gemini-3.6-flash"
+    assert model_id == "openai/gpt-oss-120b"
     narration_cache.clear()
 
 
@@ -203,12 +203,12 @@ def test_integration_two_consecutive_assurance_card_reads_issue_one_request_per_
     # byte-identical claim text per finding_id while issuing exactly one
     # outbound request per distinct finding across both reads combined.
     narration_cache.clear()
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
             respx.route(host="127.0.0.1", port=8181).pass_through()
-            route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
             first = await get_assurance_cards(GXP_SYSTEM)
             count_after_first = route.call_count
             second = await get_assurance_cards(GXP_SYSTEM)
@@ -231,7 +231,7 @@ def test_integration_field_mutation_invalidates_cache_by_producing_a_new_prompt(
     # Each single-field mutation of the check_result is asserted independently
     # so a field silently dropped from the prompt shows up here rather than
     # being masked by the others.
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     base_record = {"id": "DOC-CACHE-MUT-BASE", "status": "DRAFT"}
     mutations = [
@@ -246,7 +246,7 @@ def test_integration_field_mutation_invalidates_cache_by_producing_a_new_prompt(
 
         async def _run(base=base, mutate=mutate):
             with respx.mock:
-                route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+                route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
                 first = await narrate_gap(base)
                 mutated = mutate(copy.deepcopy(base))
                 second = await narrate_gap(mutated)
@@ -262,7 +262,7 @@ def test_integration_field_mutation_invalidates_cache_by_producing_a_new_prompt(
 def test_integration_postgres_edit_flows_through_to_fresh_narration(monkeypatch):
     # Established insert-inside-a-transaction-then-rollback pattern (see
     # test_a2_compliance.py::test_verify_urs_approved_fails_when_urs_document_not_approved).
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         pool = await get_pool()
@@ -291,7 +291,7 @@ def test_integration_postgres_edit_flows_through_to_fresh_narration(monkeypatch)
                 }
 
                 with respx.mock:
-                    route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+                    route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
                     first = await narrate_gap(check_result_1)
 
                     await conn.execute(
@@ -320,7 +320,7 @@ def test_integration_postgres_edit_flows_through_to_fresh_narration(monkeypatch)
 
 
 def test_integration_full_cache_hit_still_recomputes_deterministic_grades(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
@@ -332,7 +332,7 @@ def test_integration_full_cache_hit_still_recomputes_deterministic_grades(monkey
             respx.route(host="127.0.0.1", port=9).mock(
                 side_effect=httpx.ConnectError("connection refused (simulated)")
             )
-            respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
             warmed = await get_assurance_cards(GXP_SYSTEM)
 
             monkeypatch.setattr(
@@ -368,16 +368,16 @@ def test_integration_outage_never_latches_into_cache(monkeypatch):
     degraded_claim, degraded_model = asyncio.run(_run_degraded())
     assert degraded_model == "deterministic-fallback"
 
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run_recovered():
         with respx.mock:
-            route = respx.post(GEMINI_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
+            route = respx.post(GROQ_ENDPOINT).mock(side_effect=_distinct_text_side_effect())
             claim, model_id = await narrate_gap(copy.deepcopy(check_result))
             return claim, model_id, route.call_count
 
     recovered_claim, recovered_model, call_count = asyncio.run(_run_recovered())
     assert call_count == 1
-    assert recovered_model == "gemini-3.6-flash"
+    assert recovered_model == "openai/gpt-oss-120b"
     assert recovered_claim != degraded_claim
     narration_cache.clear()

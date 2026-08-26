@@ -103,6 +103,27 @@ GEMINI_SUCCESS_BODY = {
     ]
 }
 
+# A0's classification still goes to Gemini (mocked with prose above, which
+# deliberately fails classify_intent()'s strict JSON parse and falls back to
+# the full agent set — see module docstring's Deviation note). Narration now
+# routes to Groq (quick task 260826-p1q), so both mocks must be present
+# alongside each other, not one replacing the other.
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_SUCCESS_BODY = {
+    "choices": [
+        {
+            "message": {
+                "content": (
+                    "Periodic evaluation PE-2024-01 is overdue under "
+                    "EU GMP Annex 11 Section 11 and requires immediate "
+                    "review to restore audit readiness."
+                )
+            }
+        }
+    ],
+    "model": "openai/gpt-oss-120b",
+}
+
 
 def _initial_state():
     return {
@@ -139,6 +160,7 @@ def _finding_by_id(result, finding_id):
 
 def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
@@ -147,6 +169,9 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
                 "https://generativelanguage.googleapis.com/v1beta/models/"
                 "gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
+            respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
+            )
             return await compiled_graph.ainvoke(_initial_state())
 
     result = asyncio.run(_run())
@@ -154,8 +179,8 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     finding = _finding_by_id(result, EXPECTED_FINDING_ID)
     assert finding["regulatory_citations"] == ["ANNEX11-S11-PE-001"]
     assert finding["evidence_ids"] == ["PE-2024-01"]
-    assert finding["model_attribution"] == "gemini-3.6-flash"
-    assert finding["claim"] == GEMINI_SUCCESS_BODY["candidates"][0]["content"]["parts"][0]["text"]
+    assert finding["model_attribution"] == "openai/gpt-oss-120b"
+    assert finding["claim"] == GROQ_SUCCESS_BODY["choices"][0]["message"]["content"]
 
     trc_finding = _finding_by_id(result, EXPECTED_TRC_FINDING_ID)
     assert trc_finding["regulatory_citations"] == ["ANNEX11-S4-TRC-001"]
@@ -223,6 +248,7 @@ def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
 
 def test_evidence_provenance_reads_live_seeded_row(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
@@ -231,6 +257,9 @@ def test_evidence_provenance_reads_live_seeded_row(monkeypatch):
                 "https://generativelanguage.googleapis.com/v1beta/models/"
                 "gemini-3.6-flash:generateContent"
             ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
+            respx.post(GROQ_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
+            )
             return await compiled_graph.ainvoke(_initial_state())
 
     result = asyncio.run(_run())

@@ -98,7 +98,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": ("GROQ_API_KEY",),
         "rpm_limit": 300,
-        "use_for": ["incident", "access", "high_volume"],
+        "use_for": ["incident", "access", "high_volume", "narration"],
     },
     "openrouter_fallback": {
         "provider": "openrouter",
@@ -171,7 +171,19 @@ def _build_openai_compatible_request(entry: Dict[str, Any], api_key: str, prompt
     if system_instruction:
         messages.append({"role": "system", "content": system_instruction})
     messages.append({"role": "user", "content": prompt})
-    body = {"model": entry["model"], "messages": messages}
+    body: Dict[str, Any] = {"model": entry["model"], "messages": messages}
+    if entry["provider"] == "groq":
+        # `openai/gpt-oss-120b` is a Groq *reasoning* model: reasoning tokens
+        # are charged against `max_completion_tokens`, so a tight cap without
+        # a low reasoning effort can truncate to `finish_reason: "length"`
+        # with null content (Design Note 4, 260826-p1q-PLAN.md). 512 is a
+        # generous floor for a one-sentence narration, not a tight budget.
+        # `reasoning_effort` is a documented Groq gpt-oss field;
+        # `reasoning_format` is explicitly NOT supported for these models —
+        # do not add it. Gate strictly on provider=="groq": OpenRouter shares
+        # this same builder and may 400 on an unrecognized field.
+        body["reasoning_effort"] = "low"
+        body["max_completion_tokens"] = 512
     url = f"{entry['base_url']}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "content-type": "application/json"}
     return {"url": url, "headers": headers, "json": body}
@@ -183,7 +195,13 @@ def _parse_google_response(entry: Dict[str, Any], data: Dict[str, Any]) -> LLMRe
 
 
 def _parse_openai_compatible_response(entry: Dict[str, Any], data: Dict[str, Any]) -> LLMResponse:
-    text = data["choices"][0]["message"]["content"]
+    # A reasoning model (e.g. Groq's openai/gpt-oss-120b) can return
+    # `finish_reason: "length"` with a null `content` when reasoning tokens
+    # consume the completion budget (Design Note 4). Coerce None to "" here
+    # rather than letting a null propagate into LLMResponse's `text: str`
+    # field, which would raise a Pydantic ValidationError that call_llm does
+    # not catch and that would surface to the route as an uncaught 500.
+    text = data["choices"][0]["message"]["content"] or ""
     model_id = data.get("model") or entry["model"]
     return LLMResponse(text=text, model_id=model_id, provider=entry["provider"])
 
