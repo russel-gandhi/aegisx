@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '../App'
 import AssuranceCard from '../components/AssuranceCard'
 import type { AssuranceCardData } from '../lib/api'
+import { stubAssuranceCardsFetch } from './helpers/sseFetch'
 
 // One fixture, distinctive values per field so no assertion can pass on
 // the wrong field (04-03-PLAN.md <behavior>).
@@ -110,22 +111,9 @@ describe('AssuranceCard component', () => {
   })
 })
 
-function stubFetchOnce(response: unknown, ok = true) {
-  const fetchMock = vi.fn().mockResolvedValue({
-    ok,
-    status: ok ? 200 : 500,
-    json: async () => response,
-  })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
-}
-
 describe('/findings page', () => {
   it('renders two card regions for a two-card response', async () => {
-    stubFetchOnce({
-      system_id: 'GXP-MFG-DEMO-01',
-      cards: [FIXTURE, INSUFFICIENT_EVIDENCE_FIXTURE],
-    })
+    stubAssuranceCardsFetch({ cards: [FIXTURE, INSUFFICIENT_EVIDENCE_FIXTURE] })
 
     const { container } = render(
       <MemoryRouter initialEntries={['/findings']}>
@@ -139,7 +127,7 @@ describe('/findings page', () => {
   })
 
   it('renders an explicit all-checks-passing message for a zero-card response', async () => {
-    stubFetchOnce({ system_id: 'GXP-MFG-DEMO-01', cards: [] })
+    stubAssuranceCardsFetch({ cards: [] })
 
     render(
       <MemoryRouter initialEntries={['/findings']}>
@@ -212,28 +200,11 @@ function stubFindingsAndGraph(options?: {
   graph?: unknown
   graphReject?: boolean
 }) {
-  const fetchMock = vi.fn((url: string) => {
-    if (url.includes('/assurance-cards')) {
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => ({ system_id: 'GXP-MFG-DEMO-01', cards: options?.cards ?? [] }),
-      })
-    }
-    if (url.includes('/evidence-graph')) {
-      if (options?.graphReject) {
-        return Promise.reject(new Error('network down'))
-      }
-      return Promise.resolve({
-        ok: true,
-        status: 200,
-        json: async () => options?.graph ?? GRAPH_RESPONSE,
-      })
-    }
-    return Promise.reject(new Error(`unstubbed fetch: ${url}`))
+  return stubAssuranceCardsFetch({
+    cards: options?.cards ?? [],
+    graph: options?.graph ?? GRAPH_RESPONSE,
+    graphReject: options?.graphReject,
   })
-  vi.stubGlobal('fetch', fetchMock)
-  return fetchMock
 }
 
 describe('/findings Blast Radius links', () => {

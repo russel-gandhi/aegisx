@@ -11,6 +11,7 @@ import {
 } from '../lib/identity'
 import { apiPost, ApiError } from '../lib/api'
 import type { AssuranceCardData } from '../lib/api'
+import { jsonResponse, stubAssuranceCardsFetch } from './helpers/sseFetch'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -138,33 +139,20 @@ const FINDING_CARD: AssuranceCardData = {
 
 describe('FindingInvestigation Generate CAPA RBAC denial', () => {
   it('shows the UI contract permission sentence verbatim on a 403 from generateCapa', async () => {
-    const fetchMock = vi.fn((url: string, init?: RequestInit) => {
-      if (url.includes('/assurance-cards')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ system_id: 'GXP-MFG-DEMO-01', cards: [FINDING_CARD] }),
-        })
-      }
-      if (url.includes('/evidence-graph')) {
-        return Promise.resolve({
-          ok: true,
-          status: 200,
-          json: async () => ({ system_id: 'GXP-MFG-DEMO-01', nodes: [], edges: [] }),
-        })
-      }
-      if (url.includes('/generate-capa') && init?.method === 'POST') {
-        return Promise.resolve({
-          ok: false,
-          status: 403,
-          json: async () => ({
-            detail: 'Role Auditor may not trigger A7 Remediation',
-          }),
-        })
-      }
-      return Promise.reject(new Error(`unstubbed fetch: ${url}`))
+    stubAssuranceCardsFetch({
+      cards: [FINDING_CARD],
+      graph: { system_id: 'GXP-MFG-DEMO-01', nodes: [], edges: [] },
+      extraRoutes: [
+        {
+          match: (url, init) => url.includes('/generate-capa') && init?.method === 'POST',
+          respond: () =>
+            jsonResponse(
+              { detail: 'Role Auditor may not trigger A7 Remediation' },
+              { ok: false, status: 403 },
+            ),
+        },
+      ],
     })
-    vi.stubGlobal('fetch', fetchMock)
 
     render(
       <MemoryRouter initialEntries={['/findings']}>
