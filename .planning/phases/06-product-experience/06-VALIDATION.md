@@ -38,12 +38,12 @@ created: 2026-08-27
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 06-01-01 | 01 | 0 | UI-03 | — | Command Centre renders a readiness dial value derived from live assurance-cards data across both systems | unit (component) | `npm run test -- CommandCentre.test.tsx` | ❌ W0 | ⬜ pending |
-| 06-01-02 | 01 | 0 | UI-03 | — | Command Centre's 4th mini-card reflects overdue supplier/access data | unit (backend route) + unit (component) | `pytest tests/test_routes_system_signals.py -x`; `npm run test -- CommandCentre.test.tsx` | ❌ W0 | ⬜ pending |
-| 06-02-01 | 02 | 1 | UI-04 | — | Copilot hero query streams `AssuranceCard`s into the chat in arrival order | unit (component) | `npm run test -- Copilot.test.tsx` | ❌ W0 | ⬜ pending |
-| 06-02-02 | 02 | 1 | UI-04 | — | Topology canvas nodes transition Waiting→Running→Complete off real SSE timing | unit (component) | `npm run test -- AgentTopologyCanvas.test.tsx` | ❌ W0 | ⬜ pending |
-| 06-02-03 | 02 | 1 | UI-04 | — | Non-hero-query chat input gets an honest "not supported"/injection-blocked response, never a fabricated answer | unit (backend) | `pytest tests/test_c2_gateway.py -x` + new route test | ⚠️ partial | ⬜ pending |
-| 06-03-01 | 03 | 2 | SENT-5-08 | — | Guided Tour completes all 8 beats without re-creating a duplicate action proposal on a second run | integration | `pytest tests/test_routes_actions.py -x` + new frontend integration test | ❌ W0 | ⬜ pending |
+| 06-01-01 | 01 | 1 | UI-04 | T-06-01 | Copilot hero query streams `AssuranceCard`s into the chat in arrival order; topology canvas nodes transition Waiting→Running→Complete off real SSE timing | unit (component) | `npm run test -- Copilot.test.tsx` / `npm run test -- AgentTopologyCanvas.test.tsx` | ❌ W0 | ⬜ pending |
+| 06-01-02 | 01 | 1 | UI-04 | T-06-01 | Non-hero-query chat input gets an honest "not supported"/injection-blocked response via real `detect_injection()`, never a fabricated answer | unit (backend) | `pytest tests/test_c2_gateway.py -x` + new route test | ⚠️ partial | ⬜ pending |
+| 06-02-01 | 02 | 2 | UI-03 | T-06-07 | Command Centre renders a readiness dial value derived from live assurance-cards data across both systems | unit (component) | `npm run test -- CommandCentre.test.tsx` | ❌ W0 | ⬜ pending |
+| 06-02-02 | 02 | 2 | UI-03 | T-06-07 | Command Centre's 4th mini-card reflects overdue supplier/access data via new `/api/systems/{id}/access-supplier-signals` route | unit (backend route) + unit (component) | `pytest tests/test_routes_system_signals.py -x`; `npm run test -- CommandCentre.test.tsx` | ❌ W0 | ⬜ pending |
+| 06-03-01 | 03 | 3 | UI-03, UI-04 | — | Guided Tour completes all 8 beats without re-creating a duplicate action proposal on a second run (D-09 idempotency guard) | integration | `pytest tests/test_routes_actions.py -x` + new frontend integration test | ❌ W0 | ⬜ pending |
+| 06-03-02 | 03 | 3 | UI-03, UI-04 | — | Guided Tour target-not-found retries rather than crashing or silently skipping | integration | new frontend integration test (`GuidedTourOverlay.test.tsx`) | ❌ W0 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
