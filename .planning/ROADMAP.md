@@ -169,7 +169,14 @@ Plans:
   3. While a query is in flight, the live agent topology visualization shows each A0–A6 agent node transition Waiting → Running → Complete in real time over the WebSocket stream.
   4. The Guided Tour walks the exact 8-step sequence in Section 14.4, and a user can complete the full Monitor→Investigate→Trust→Remediate→Audit loop through it without a developer narrating gaps.
 
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
+
+Plans:
+
+- [ ] 06-01-PLAN.md — TRACER: Ask GxP Copilot hero query end-to-end (real chat + live topology sync, D-01/D-02/D-05) plus a real detect_injection()-backed non-hero-query path — SENT-5-02 (wave 1)
+- [ ] 06-02-PLAN.md — Command Centre: readiness dial + 6 health mini-cards, client-side aggregation over 4 existing routes plus one new access/supplier-signals endpoint — SENT-5-01 (wave 2)
+- [ ] 06-03-PLAN.md — Guided Tour: react-joyride-driven 8-step walkthrough with D-09 repeat-run idempotency safety — SENT-5-08 (wave 3)
+
 **UI hint**: yes
 
 ### Phase 7: Integration & Hardening
