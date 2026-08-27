@@ -1,6 +1,6 @@
 import { createElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { connectCopilotStream } from '../lib/ws'
 import Copilot from '../pages/Copilot'
@@ -106,7 +106,13 @@ describe('connectCopilotStream', () => {
 })
 
 describe('Copilot page WebSocket lifecycle', () => {
-  it('opens exactly one connection on mount and closes it on unmount, and renders received frames', async () => {
+  // Phase 6 (06-01, D-01/D-02): Copilot.tsx was rewritten as a real chat
+  // page -- the WS connection is kept ONLY for a future
+  // `action_proposal_created` push (06-CONTEXT.md code_context); the old
+  // echo-test-stub UI (`ws-status`/`ws-frames` testids, the "send
+  // 'test-event' back" behavior) was deliberately removed, not broken.
+  // This test now covers only the connection lifecycle itself.
+  it('opens exactly one connection on mount and closes it on unmount, with no raw frame echoed back', async () => {
     const { unmount } = render(
       createElement(MemoryRouter, { initialEntries: ['/copilot'] }, createElement(Copilot)),
     )
@@ -116,15 +122,12 @@ describe('Copilot page WebSocket lifecycle', () => {
 
     socket.onopen?.()
     socket.emitMessage(JSON.stringify({ event: 'connected', session_id: 'x' }))
-    // The page sends 'test-event' back in response to the connected frame.
-    expect(socket.sentMessages).toContain('test-event')
+    // The page no longer echoes anything back in response to a frame --
+    // that behavior belonged to the old echo-test stub this plan replaced.
+    expect(socket.sentMessages).toEqual([])
 
-    socket.emitMessage(JSON.stringify({ event: 'echo', payload: 'test-event' }))
-
-    await waitFor(() => {
-      expect(screen.getByTestId('ws-status')).toHaveTextContent('connected')
-    })
-    expect(screen.getByTestId('ws-frames').textContent).toContain('echo: test-event')
+    expect(screen.queryByTestId('ws-status')).toBeNull()
+    expect(screen.queryByTestId('ws-frames')).toBeNull()
 
     expect(socket.closed).toBe(false)
     unmount()

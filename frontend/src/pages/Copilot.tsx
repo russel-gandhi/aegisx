@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import AgentTopologyCanvas from '../components/AgentTopologyCanvas'
-import { connectCopilotStream, type CopilotStreamFrame } from '../lib/ws'
-
-type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useLocation } from 'react-router-dom'
+import AgentTopologyCanvas, { type NodeStatusValue } from '../components/AgentTopologyCanvas'
+import ChatMessage, { type ChatMessageData } from '../components/ChatMessage'
+import { connectCopilotStream } from '../lib/ws'
+import { streamAssuranceCards } from '../lib/api'
 
 // A value generated once per mount is sufficient for this plan's contract
 // -- nothing yet correlates a session id with a server-side record. Real
@@ -11,28 +12,168 @@ function generateSessionId(): string {
   return `copilot-${Math.random().toString(36).slice(2, 10)}`
 }
 
+// Phase 6 (D-01/D-04): the only two systems seeded for the demo. Task 1's
+// hero-query shape requires BOTH a known system id substring AND the words
+// "audit" and "ready" (tolerating a hyphen, per the behavior spec) --
+// anything else (including a bare system id with no readiness question, or
+// a readiness question about an unknown system) falls to the non-hero
+// stub/response path.
+const KNOWN_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
+const AUDIT_READY_PATTERN = /audit[-\s]+ready/i
+
+export function matchHeroQuery(text: string): string | null {
+  if (!AUDIT_READY_PATTERN.test(text)) {
+    return null
+  }
+  const upper = text.toUpperCase()
+  const systemId = KNOWN_SYSTEM_IDS.find((id) => upper.includes(id))
+  return systemId ?? null
+}
+
+// 06-UI-SPEC.md Copywriting Contract, transcribed verbatim.
+export const EMPTY_STATE_HEADING = "Ask about a system's audit readiness"
+export const EMPTY_STATE_BODY =
+  'Try: "Is GXP-MFG-DEMO-01 audit ready?" — Copilot verifies every claim against real database and policy state before showing it to you.'
+export const STREAM_FAILURE_COPY =
+  'The investigation stopped before finishing — check your connection and ask again.'
+// Task 1's stub for any non-hero-query input -- Task 2 (D-04 resolution)
+// replaces this branch with a real `detect_injection()`-backed response;
+// until then every non-matching submit renders this verbatim.
+export const UNRECOGNIZED_SHAPE_COPY =
+  'I can only answer system-readiness questions right now, e.g. "Is GXP-MFG-DEMO-01 audit ready?" — try rephrasing around a known system id.'
+
 export default function Copilot() {
-  const [status, setStatus] = useState<ConnectionStatus>('connecting')
-  const [frames, setFrames] = useState<CopilotStreamFrame[]>([])
+  const location = useLocation()
+  const [messages, setMessages] = useState<ChatMessageData[]>([])
+  // Seam for 06-03's Guided Tour: pre-fills the textarea without
+  // auto-submitting, so a later plan can navigate here with
+  // `state: { prefillQuery: '...' }` and no further Copilot.tsx change.
+  const [inputValue, setInputValue] = useState(
+    () => (location.state as { prefillQuery?: string } | null)?.prefillQuery ?? '',
+  )
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [nodeStatus, setNodeStatus] = useState<Record<string, NodeStatusValue>>({})
+  const [disconnected, setDisconnected] = useState(false)
   const sessionIdRef = useRef(generateSessionId())
+  const controllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
+    // Kept for `action_proposal_created` frames only (Phase 5, 05-05) --
+    // per 06-CONTEXT.md code_context, NOT repurposed for the hero-query
+    // response path, which stays SSE (D-01). This page renders nothing
+    // from this stream today; the live Approval Centre (pages/Actions.tsx)
+    // is where a pushed proposal is actually consumed.
     const handle = connectCopilotStream(sessionIdRef.current, {
-      onOpen: () => setStatus('connected'),
-      onFrame: (frame) => {
-        setFrames((prev) => [...prev, frame])
-        if (frame.event === 'connected') {
-          handle.send('test-event')
-        }
+      onFrame: () => {
+        // Intentional no-op -- see comment above.
       },
-      onError: () => setStatus('error'),
-      onClose: () => setStatus('disconnected'),
     })
 
     return () => {
       handle.close()
+      controllerRef.current?.abort()
     }
   }, [])
+
+  function runHeroQuery(systemId: string) {
+    // Pitfall 3: never let two concurrent readers interleave cards into
+    // the wrong bubble -- abort any in-flight stream before starting a
+    // new one, exactly as FindingInvestigation.tsx's own effect does.
+    controllerRef.current?.abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+
+    const assistantId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: 'assistant', kind: 'cards', status: 'investigating', cards: [] },
+    ])
+    setDisconnected(false)
+    setIsStreaming(true)
+    setNodeStatus({ A0: 'running', A2: 'running' })
+
+    let sawFirstCard = false
+
+    const failStream = () => {
+      setDisconnected(true)
+      setIsStreaming(false)
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? { ...message, kind: 'text', variant: 'error', text: STREAM_FAILURE_COPY }
+            : message,
+        ),
+      )
+    }
+
+    streamAssuranceCards(
+      systemId,
+      {
+        onCard: (card) => {
+          if (!sawFirstCard) {
+            sawFirstCard = true
+            setNodeStatus((prev) => ({ ...prev, C1: 'running' }))
+          }
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? { ...message, cards: [...(message.cards ?? []), card] }
+                : message,
+            ),
+          )
+        },
+        onDone: () => {
+          // Single terminal transition, not one per check (D-02).
+          setNodeStatus({ A0: 'complete', A2: 'complete', C1: 'complete' })
+          setIsStreaming(false)
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId ? { ...message, status: 'done' } : message,
+            ),
+          )
+        },
+        onError: () => {
+          failStream()
+        },
+      },
+      controller.signal,
+    ).catch((error: unknown) => {
+      // An aborted fetch (a second submit mid-stream, or this component's
+      // unmount) rejects with an AbortError -- expected cancellation, never
+      // the error state.
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+      failStream()
+    })
+  }
+
+  function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    const trimmed = inputValue.trim()
+    if (trimmed.length === 0 || isStreaming) {
+      return
+    }
+
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', kind: 'text', text: trimmed },
+    ])
+    setInputValue('')
+
+    const systemId = matchHeroQuery(trimmed)
+    if (systemId !== null) {
+      runHeroQuery(systemId)
+      return
+    }
+
+    // Task 1 stub -- Task 2 replaces this branch with a real
+    // `POST /api/copilot/query` call wired to `detect_injection()` (D-04).
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'assistant', kind: 'text', text: UNRECOGNIZED_SHAPE_COPY },
+    ])
+  }
 
   return (
     <div>
@@ -43,30 +184,42 @@ export default function Copilot() {
         through orchestration, evidence verification, and remediation.
       </p>
 
-      <div className="mt-6 rounded border border-slate-800 bg-slate-900/50 p-4">
-        <p className="text-sm text-slate-300">
-          Connection status: <span data-testid="ws-status">{status}</span>
-        </p>
-        <ul className="mt-2 space-y-1 text-sm text-slate-400" data-testid="ws-frames">
-          {frames.map((frame, i) => (
-            <li key={i}>
-              {frame.event === 'connected' && `connected (session ${frame.session_id})`}
-              {frame.event === 'echo' && `echo: ${frame.payload}`}
-              {/* Phase 5 (05-05) added `action_proposal_created` to this
-                  stream's frame union (see lib/ws.ts). This page does not
-                  yet render that frame shape -- the live Approval Centre
-                  (pages/Actions.tsx) is where it is consumed -- so it is
-                  intentionally a no-op here rather than a build error. */}
-              {frame.event === 'action_proposal_created' &&
-                `proposal created: ${frame.proposal.id}`}
-            </li>
-          ))}
-        </ul>
+      <div className="mt-6">
+        <AgentTopologyCanvas nodeStatus={nodeStatus} disconnected={disconnected} />
       </div>
 
-      <div className="mt-6">
-        <AgentTopologyCanvas />
+      <div className="mt-6 rounded border border-slate-800 bg-slate-900/50 p-4">
+        {messages.length === 0 ? (
+          <div data-testid="copilot-empty-state">
+            <p className="text-lg font-semibold text-slate-100">{EMPTY_STATE_HEADING}</p>
+            <p className="mt-1 text-sm text-slate-400">{EMPTY_STATE_BODY}</p>
+          </div>
+        ) : (
+          <div className="space-y-3" data-testid="copilot-messages">
+            {messages.map((message) => (
+              <ChatMessage key={message.id} message={message} />
+            ))}
+          </div>
+        )}
       </div>
+
+      <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
+        <textarea
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          disabled={isStreaming}
+          placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
+          rows={2}
+          className="max-h-40 min-h-[3rem] flex-1 overflow-y-auto rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          disabled={isStreaming || inputValue.trim().length === 0}
+          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isStreaming ? 'Investigating…' : 'Ask Copilot'}
+        </button>
+      </form>
     </div>
   )
 }
