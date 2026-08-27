@@ -66,6 +66,20 @@ export default function Copilot() {
   const [disconnected, setDisconnected] = useState(false)
   const sessionIdRef = useRef(generateSessionId())
   const controllerRef = useRef<AbortController | null>(null)
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // 06-UI-SPEC.md UI Considerations, "overflow" row: the message list
+  // scrolls inside a fixed-height panel and auto-scrolls to bottom on
+  // every new message (including a card arriving mid-stream) -- never a
+  // growing-forever page. Runs after every `messages` change, including
+  // in-place mutations to the last message's own `cards`/`text` field.
+  useEffect(() => {
+    const container = messagesContainerRef.current
+    if (container === null) {
+      return
+    }
+    container.scrollTop = container.scrollHeight
+  }, [messages])
 
   useEffect(() => {
     // Kept for `action_proposal_created` frames only (Phase 5, 05-05) --
@@ -239,7 +253,11 @@ export default function Copilot() {
             <p className="mt-1 text-sm text-slate-400">{EMPTY_STATE_BODY}</p>
           </div>
         ) : (
-          <div className="space-y-3" data-testid="copilot-messages">
+          <div
+            ref={messagesContainerRef}
+            className="max-h-[32rem] space-y-3 overflow-y-auto"
+            data-testid="copilot-messages"
+          >
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
             ))}

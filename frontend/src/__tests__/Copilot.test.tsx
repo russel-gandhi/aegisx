@@ -293,6 +293,25 @@ describe('Copilot non-hero-query input (Task 2, D-04: real queryCopilot() call)'
   })
 })
 
+describe('Copilot message list auto-scroll (06-UI-SPEC.md overflow row)', () => {
+  it('sets scrollTop to scrollHeight on the message container after a new message arrives', async () => {
+    stubAssuranceCardsFetch({ cards: [] })
+    const { container } = renderCopilot()
+    await submitQuery("what's the weather")
+
+    await waitFor(() => {
+      const messagesEl = container.querySelector('[data-testid="copilot-messages"]') as HTMLElement
+      expect(messagesEl).not.toBeNull()
+    })
+
+    const messagesEl = container.querySelector('[data-testid="copilot-messages"]') as HTMLElement
+    // jsdom always reports scrollHeight as 0 (no real layout engine) --
+    // this proves the effect fired and assigned scrollTop from
+    // scrollHeight, not that jsdom itself scrolled a real viewport.
+    expect(messagesEl.scrollTop).toBe(messagesEl.scrollHeight)
+  })
+})
+
 describe('Copilot prefillQuery seam', () => {
   it('seeds the textarea from location.state.prefillQuery without auto-submitting', () => {
     stubAssuranceCardsFetch({ cards: [] })
