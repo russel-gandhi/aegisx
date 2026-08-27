@@ -288,6 +288,20 @@ class GenerateCapaResponse(BaseModel):
     reason: Optional[str] = None
 
 
+# Phase 6 (06-01, D-04): Copilot non-hero-query request/response models.
+# This route's `supported` is always `False` in v1 -- see
+# `routes/copilot_query.py`'s own module docstring for why. `reason` is
+# `detect_injection()`'s own return value, verbatim, never re-worded here.
+class CopilotQueryRequest(BaseModel):
+    query: str
+
+
+class CopilotQueryResponse(BaseModel):
+    supported: bool
+    blocked: bool
+    reason: Optional[str] = None
+
+
 # Phase 5 (AUDIT-02, AUDIT-03): audit-chain HTTP response models
 # (05-03-PLAN.md <artifacts>). Both models are read straight from
 # `audit_trail.verify_chain`/`demonstrate_tamper`'s own return dict --

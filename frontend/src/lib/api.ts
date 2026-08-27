@@ -18,6 +18,9 @@
  *   - POST /api/actions/{proposal_id}/approve -> ActionProposalRecord
  *   - POST /api/actions/{proposal_id}/reject -> ActionProposalRecord
  *
+ * And `backend/app/routes/copilot_query.py` (plan 06-01, Task 2, D-04):
+ *   - POST /api/copilot/query -> CopilotQueryResponse
+ *
  * Follows `lib/ws.ts`'s conventions: a Vite env var with a default correct
  * for local development, kept out of `.env.example` (a cross-cutting file
  * BRANCHING.md §5 requires be changed in its own separate PR).
@@ -334,4 +337,18 @@ export function approveAction(proposalId: string): Promise<ActionProposalData> {
 
 export function rejectAction(proposalId: string): Promise<ActionProposalData> {
   return apiPost<ActionProposalData>(`/api/actions/${encodeURIComponent(proposalId)}/reject`)
+}
+
+// Phase 6 (06-01 Task 2, D-04): Copilot non-hero-query contract, mirroring
+// `backend/app/schemas.py`'s CopilotQueryRequest/CopilotQueryResponse field
+// for field. `supported` is always `false` in v1 -- see
+// `backend/app/routes/copilot_query.py`'s own module docstring.
+export interface CopilotQueryResponse {
+  supported: boolean
+  blocked: boolean
+  reason: string | null
+}
+
+export function queryCopilot(query: string): Promise<CopilotQueryResponse> {
+  return apiPost<CopilotQueryResponse>('/api/copilot/query', { query })
 }

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import AgentTopologyCanvas, { type NodeStatusValue } from '../components/AgentTopologyCanvas'
 import ChatMessage, { type ChatMessageData } from '../components/ChatMessage'
 import { connectCopilotStream } from '../lib/ws'
-import { streamAssuranceCards } from '../lib/api'
+import { queryCopilot, streamAssuranceCards } from '../lib/api'
 
 // A value generated once per mount is sufficient for this plan's contract
 // -- nothing yet correlates a session id with a server-side record. Real
@@ -36,11 +36,21 @@ export const EMPTY_STATE_BODY =
   'Try: "Is GXP-MFG-DEMO-01 audit ready?" — Copilot verifies every claim against real database and policy state before showing it to you.'
 export const STREAM_FAILURE_COPY =
   'The investigation stopped before finishing — check your connection and ask again.'
-// Task 1's stub for any non-hero-query input -- Task 2 (D-04 resolution)
-// replaces this branch with a real `detect_injection()`-backed response;
-// until then every non-matching submit renders this verbatim.
+// D-04: rendered for a non-hero-query submit that `queryCopilot()` (real,
+// `POST /api/copilot/query`, backed by the already-tested, zero-LLM
+// `detect_injection()`) reports as NOT blocked -- an honest "not supported
+// yet" response, never a fabricated compliance answer. Also the
+// network/API-error degrade target (Task 2 <action>): a transport failure
+// must never look like a fabricated compliance answer either.
 export const UNRECOGNIZED_SHAPE_COPY =
   'I can only answer system-readiness questions right now, e.g. "Is GXP-MFG-DEMO-01 audit ready?" — try rephrasing around a known system id.'
+
+// D-04: rendered when `queryCopilot()` reports `blocked: true` -- `reason`
+// is `detect_injection()`'s own real return value, interpolated verbatim,
+// never a generic block message (06-UI-SPEC.md Copywriting Contract).
+export function injectionDetectedCopy(reason: string): string {
+  return `This input was blocked by the C2 Policy & Safety Gateway (deterministic rule match: ${reason}) — not evaluated by any model. This is the same real, zero-LLM check every request passes through.`
+}
 
 export default function Copilot() {
   const location = useLocation()
@@ -167,12 +177,46 @@ export default function Copilot() {
       return
     }
 
-    // Task 1 stub -- Task 2 replaces this branch with a real
-    // `POST /api/copilot/query` call wired to `detect_injection()` (D-04).
-    setMessages((prev) => [
-      ...prev,
-      { id: crypto.randomUUID(), role: 'assistant', kind: 'text', text: UNRECOGNIZED_SHAPE_COPY },
-    ])
+    // D-04: fast and synchronous from the UI's perspective -- no
+    // "Investigating…" placeholder needed, unlike the hero-query stream.
+    queryCopilot(trimmed)
+      .then((response) => {
+        if (response.blocked) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              kind: 'text',
+              variant: 'blocked',
+              text: injectionDetectedCopy(response.reason ?? ''),
+            },
+          ])
+          return
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            kind: 'text',
+            text: UNRECOGNIZED_SHAPE_COPY,
+          },
+        ])
+      })
+      .catch(() => {
+        // Never let a transport failure look like a fabricated compliance
+        // answer -- degrade to the same honest unrecognized-shape copy.
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            kind: 'text',
+            text: UNRECOGNIZED_SHAPE_COPY,
+          },
+        ])
+      })
   }
 
   return (
