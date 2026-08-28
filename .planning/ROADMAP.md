@@ -179,6 +179,17 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 06.1: Advanced Retrieval & Real Copilot (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 6
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+
 ### Phase 7: Integration & Hardening
 
 **Goal**: Nothing in the demo path breaks under adversarial input, and restoring demo state is a single command — the system is hardened for judged demo conditions. (Build-Map Stage 6, Gate: "nothing in the demo path breaks under adversarial input; demo-state reset is one command.")

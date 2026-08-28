@@ -1,20 +1,22 @@
 ---
 gsd_state_version: 1.0
-current_phase: 1
-current_phase_name: Environment
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-08-26T20:35:32.393Z"
+current_phase: 06
+current_phase_name: Product Experience
+status: executing
+stopped_at: Phase 6 planned — 3 plans (06-01/02/03) verified, ready for execution
+last_updated: "2026-08-28T12:15:50.250Z"
 last_activity: 2026-08-27
-last_activity_desc: Phase 05 complete, transitioned to Phase 1
-state_head: 2afe085c2605afca0bf6e7c80d09d02df2b72271
+last_activity_desc: Phase 06 execution started
+state_head: 2bd55307e88bcf3b4b71a337a810070eb2453d75
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 3
-  total_plans: 29
-  completed_plans: 29
-  percent: 38
+  total_plans: 32
+  completed_plans: 32
+  percent: 33
 ---
+
+Total Phases: 6
 
 # Project State
 
@@ -23,14 +25,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-08-19)
 
 **Core value:** Deterministic evidence verification (C1) — AI investigates, but is never blindly trusted; every important conclusion is independently verified with deterministic evidence.
-**Current focus:** Phase 05 — Safety & Remediation
+**Current focus:** Phase 06 — Product Experience
 
 ## Current Position
 
-Phase: 1 — Environment
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-08-27 — Phase 05 complete, transitioned to Phase 1
+Phase: 06 (Product Experience) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 06
+Last activity: 2026-08-27 — Phase 06 execution started
 
 Progress: [█████░░░░░] 50%
 
@@ -76,16 +78,20 @@ Recent decisions affecting current work:
 
 None yet.
 
+### Roadmap Evolution
+
+- Phase 06.1 inserted after Phase 6: User directive: build the real hybrid-retrieval evidence loop (document ingestion, structure-aware chunking, dense+lexical hybrid retrieval, cross-encoder reranking, evidence filtering) and wire the Copilot to the real A0-C3 LangGraph orchestrator instead of the readiness-only stub. Explicit scope override of the v2-deferred AGT-01/HARD-04 requirements, approved by user 2026-08-28. Embedding via hosted API through the existing LLM router (not local model). document_chunks schema extended with section/page/parent_chunk_id/chunk_index/metadata (documented Bible deviation). Formats: PDF, DOCX, CSV, plain text/markdown. (URGENT)
+
 ## Deferred Items
 
 Items acknowledged and deferred at milestone close, most recent first:
 
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
-| *(none)* | | | | |
+| Architecture direction | ~~User raised pivoting toward a multimodal RAG system~~ — **resolved 2026-08-28: scoped into Phase 06.1 (Advanced Retrieval & Real Copilot)**, inserted after Phase 6. See Roadmap Evolution entry above for the approved scope (Bible Section 15 hybrid retrieval, AGT-01/HARD-04 scope override, hosted-embedding decision, schema deviation, format list). | scoped → Phase 06.1 | 2026-08-28 | v1 (current) |
 
 ## Session Continuity
 
-Last session: 2026-08-26T20:35:31.333Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-product-experience/06-CONTEXT.md
+Last session: 2026-08-27T12:35:13.053Z
+Stopped at: Phase 6 planned — 3 plans (06-01/02/03) verified, ready for execution
+Resume file: .planning/phases/06-product-experience/06-01-PLAN.md
