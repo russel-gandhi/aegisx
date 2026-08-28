@@ -19,16 +19,20 @@ import httpx
 import respx
 from langchain_core.messages import HumanMessage
 
-from app import db
+from app import db, schemas
+from app.agents import minimal_specialists
 from app.agents.c1_verifier import RULE_EVIDENCE_TABLES, RULE_OPA_INPUT
 from app.agents.minimal_specialists import (
     SPECIALIST_CONFIG,
+    _a1_abstain_finding,
     run_a1,
     run_a3,
     run_a4,
     run_a5,
     run_a6,
 )
+from app.retrieval import hybrid_search
+from app.schemas import ALCOAScore
 
 SYSTEM_ID = "GXP-MFG-DEMO-01"
 GEMINI_URL = (
@@ -146,6 +150,71 @@ def test_a1_absent_system_returns_err_a1_abstain_finding(monkeypatch):
     assert finding["evidence_ids"] == []
     assert finding["alcoa_score"] == {}
     assert finding["model_attribution"] == "gemini-2.5-flash"
+
+
+def test_a1_abstain_finding_round_trips_through_agent_finding_schema():
+    """`AgentFinding`'s seven-field shape (`app.schemas`) is unchanged by
+    this plan -- `_a1_abstain_finding()` still constructs a valid instance,
+    proving no field was added to accommodate retrieval provenance (Task 1
+    <action> item 3: the provenance rides the sibling
+    `retrieval_evidence` key, not `AgentFinding`)."""
+    finding = schemas.AgentFinding(**_a1_abstain_finding())
+    assert finding.finding_id == "ERR-A1"
+    assert finding.alcoa_score.model_dump() == ALCOAScore().model_dump()
+
+
+def test_run_a1_real_retrieval_success_returns_empty_findings_and_populates_evidence(monkeypatch):
+    """Phase 06.1 plan 06.1-02 (D-06): a successful retrieval contributes
+    no `findings` entry of its own -- A1 asserts no compliance gap;
+    `retrieval_evidence`/`retrieval_trace` carry the real
+    `hybrid_retrieve()` outcome instead."""
+    fake_outcome = hybrid_search.RetrievalOutcome(
+        evidence=[{"evidence_id": "EV-abcd1234", "chunk_id": "abcd1234-0000-0000-0000-000000000000"}],
+        trace=[{"stage_id": "evaluating", "label": "Evaluating evidence", "status": "complete", "detail": "1 of 1"}],
+        insufficient_evidence=False,
+        model_attribution="gemini-embedding-001",
+    )
+
+    async def _fake_hybrid_retrieve(pool, query, system_id):
+        assert system_id == SYSTEM_ID
+        assert query == "Is GXP-MFG-DEMO-01 audit ready?"
+        return fake_outcome
+
+    monkeypatch.setattr(minimal_specialists, "hybrid_retrieve", _fake_hybrid_retrieve)
+
+    result = asyncio.run(run_a1(_state()))
+    assert result["findings"] == []
+    assert result["retrieval_evidence"] == fake_outcome.evidence
+    assert result["retrieval_trace"] == fake_outcome.trace
+
+
+def test_run_a1_degrades_to_abstain_when_pool_unavailable(monkeypatch):
+    async def _no_pool():
+        return None
+
+    monkeypatch.setattr(minimal_specialists, "acquire_pool_or_none", _no_pool)
+
+    result = asyncio.run(run_a1(_state()))
+    assert result["findings"] == [_a1_abstain_finding()]
+    assert result["retrieval_evidence"] == []
+    assert result["retrieval_trace"] == []
+
+
+def test_run_a1_degrades_to_abstain_when_retrieval_raises_unexpectedly(monkeypatch):
+    """`hybrid_retrieve` itself never raises (its own module contract),
+    but `run_a1`'s own defensive guard (mirrors `_safe_call_llm`) still
+    degrades cleanly if it ever did, rather than crashing the concurrent
+    A1-A6 fan-out."""
+
+    async def _raising_hybrid_retrieve(pool, query, system_id):
+        raise RuntimeError("unexpected failure deep in the retrieval stack")
+
+    monkeypatch.setattr(minimal_specialists, "hybrid_retrieve", _raising_hybrid_retrieve)
+
+    result = asyncio.run(run_a1(_state()))
+    assert result["findings"] == [_a1_abstain_finding()]
+    assert result["retrieval_evidence"] == []
+    assert result["retrieval_trace"] == []
 
 
 def test_a3_deepseek_timeout_downgrades_to_gemini_and_narrates(monkeypatch):

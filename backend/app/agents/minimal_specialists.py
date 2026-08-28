@@ -14,17 +14,24 @@ context, not v1 requirements. They share one implementation pattern
 (D-07) and get exactly the investment 03-RESEARCH.md's "Minimal-but-Real
 A1/A3-A6 Requirements" table specifies - one deterministic Postgres check
 (or two, for A6's two Bible-named checks), one real router call, and the
-Bible's exact failure behavior wired and tested. Deliberately NOT built:
-A1's Qdrant retrieval tool, A3's YAML risk rubric, A4's graph traversal
-(Phase 4), A5/A6 classification tuning.
+Bible's exact failure behavior wired and tested. Deliberately NOT built
+this phase: A3's YAML risk rubric, A4's graph traversal (Phase 4), A5/A6
+classification tuning.
 
-Shared pattern: every agent's deterministic check runs first and alone
-decides whether a gap exists (Bible Section 1.3 - the LLM never flips
-that decision); when a gap exists, the router is asked to narrate it,
-falling back to a deterministic template sentence when the router
-degrades (mirrors `app.agents.a2_compliance.narrate_gap`). `run_specialist`
-is the one shared driver; `run_a1`/`run_a3`/`run_a4`/`run_a5`/`run_a6` are
-thin per-id wrappers the graph nodes bind to.
+Phase 06.1 update (plan 06.1-02, D-06): A1's Qdrant retrieval tool -- named
+above as deliberately deferred v2-territory -- is now built.
+`app.retrieval.hybrid_search.hybrid_retrieve` gives A1 a real dense-vector
+search body; `run_a1` no longer delegates to `run_specialist` below at all
+(see its own docstring). A3-A6 are unchanged by this plan.
+
+Shared pattern (A3-A6 only, as of plan 06.1-02): every agent's
+deterministic check runs first and alone decides whether a gap exists
+(Bible Section 1.3 - the LLM never flips that decision); when a gap
+exists, the router is asked to narrate it, falling back to a deterministic
+template sentence when the router degrades (mirrors
+`app.agents.a2_compliance.narrate_gap`). `run_specialist` is the shared
+driver for `run_a3`/`run_a4`/`run_a5`/`run_a6`; `run_a1` is its own
+implementation (see above).
 
 Defensive note: `llm_router.call_llm()` documents that it never raises to
 its caller, but this module's own test suite runs under `respx.mock`
@@ -44,8 +51,10 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+from app.agents.a0_orchestrator import extract_user_query
 from app.db import acquire_pool_or_none
 from app.llm_router import LLMResponse, call_llm
+from app.retrieval.hybrid_search import hybrid_retrieve
 from app.schemas import ALCOAScore
 
 logger = logging.getLogger(__name__)
@@ -392,7 +401,13 @@ CHECK_FUNCS: Dict[str, Callable] = {
 
 SPECIALIST_CONFIG: Dict[str, Dict[str, Any]] = {
     "A1": {
-        "mode": "existence",
+        # Phase 06.1 plan 06.1-02 (D-06): "retrieval" replaces the Phase 3
+        # "existence" placeholder -- run_a1 no longer delegates to
+        # run_specialist below at all (it has its own body), but this
+        # entry's mode value is still asserted directly by this plan's own
+        # acceptance criteria as proof the existence-only placeholder is
+        # gone.
+        "mode": "retrieval",
         "task": "knowledge",
         "system_prompt": A1_SYSTEM_PROMPT,
         "rule_id": "ANNEX11-S4-DOC-001",
@@ -447,13 +462,6 @@ async def run_specialist(agent_id: str, state: Dict[str, Any]) -> Dict[str, Any]
             return {"findings": [_a1_abstain_finding()]}
         return {"findings": [_db_unavailable_finding(agent_id, config["rule_id"])]}
 
-    if config["mode"] == "existence":
-        row = await pool.fetchrow("SELECT id FROM gxp_systems WHERE id = $1", system_id)
-        if row is None:
-            logger.warning("%s degrading: system_id %s not found.", agent_id, system_id)
-            return {"findings": [_a1_abstain_finding()]}
-        return {"findings": []}
-
     if config["mode"] == "gap_multi":
         checks = await _check_a6(pool, system_id)
         findings: List[Dict[str, Any]] = []
@@ -501,7 +509,46 @@ async def _narrate_gap(
 
 
 async def run_a1(state: Dict[str, Any]) -> Dict[str, Any]:
-    return await run_specialist("A1", state)
+    """A1 - System Knowledge, real hybrid retrieval (Phase 06.1, plan
+    06.1-02, D-06, RAG-05/RAG-06, AGT-01).
+
+    Does NOT delegate to `run_specialist` above -- A1's shape (retrieval
+    evidence riding sibling `retrieval_evidence`/`retrieval_trace` state
+    keys, not a single deterministic-check-then-narrate finding) does not
+    fit that shared driver. Guard order mirrors `run_specialist`'s own
+    pool-then-system-existence sequence, both degrading to the Bible's
+    literal `_a1_abstain_finding()` byte-identical to Phase 3 (preserved
+    verbatim -- see that function's own docstring). `hybrid_retrieve`
+    itself never raises (its own module docstring's contract), but this
+    function still wraps the call in a broad exception guard, mirroring
+    `_safe_call_llm`'s own defensive stance for the one remaining gap: an
+    unexpected exception from anywhere in that call chain degrades to the
+    same abstain shape rather than crashing the concurrent A1-A6 fan-out.
+    """
+    system_id = state["system_id"]
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        logger.warning("A1 degrading: no Postgres pool available.")
+        return {"findings": [_a1_abstain_finding()], "retrieval_evidence": [], "retrieval_trace": []}
+
+    row = await pool.fetchrow("SELECT id FROM gxp_systems WHERE id = $1", system_id)
+    if row is None:
+        logger.warning("A1 degrading: system_id %s not found.", system_id)
+        return {"findings": [_a1_abstain_finding()], "retrieval_evidence": [], "retrieval_trace": []}
+
+    query = extract_user_query(state)
+
+    try:
+        outcome = await hybrid_retrieve(pool, query, system_id)
+    except Exception:  # noqa: BLE001 - see this function's own docstring
+        logger.warning("A1 retrieval raised unexpectedly; degrading to abstain finding.", exc_info=True)
+        return {"findings": [_a1_abstain_finding()], "retrieval_evidence": [], "retrieval_trace": []}
+
+    # A1 asserts no compliance gap of its own: real retrieval succeeding
+    # (with or without evidence above threshold) contributes no `findings`
+    # entry -- the retrieval outcome itself, not a finding, is what C1's
+    # sibling consumers (the copilot route) read.
+    return {"findings": [], "retrieval_evidence": outcome.evidence, "retrieval_trace": outcome.trace}
 
 
 async def run_a3(state: Dict[str, Any]) -> Dict[str, Any]:
