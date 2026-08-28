@@ -164,6 +164,13 @@ class AgentState(TypedDict):
     proposed_actions: Annotated[List[ActionProposal], operator.add]
     verification_results: Dict[str, Any]
     final_synthesis: str
+    # Phase 06.1 (plan 06.1-02, RAG-05/RAG-06): A1's real retrieval output.
+    # Both take the same accumulating reducer `findings` already carries,
+    # for the same reason (A1 runs inside the concurrent A1-A6 `Send`
+    # fan-out) -- last-writer-wins would silently discard whichever
+    # sibling branch's write lost the race at the C1 fan-in.
+    retrieval_evidence: Annotated[List[Dict[str, Any]], operator.add]
+    retrieval_trace: Annotated[List[Dict[str, Any]], operator.add]
     # Phase 5 (plan 05-06): identity and RBAC/injection verdict fields.
     # None of these six takes a reducer — exactly one node writes each
     # (C2 writes user_role/permitted_agents/blocked/blocked_reason's
@@ -213,12 +220,14 @@ async def orchestrator_a0(state: AgentState) -> Dict[str, Any]:
 
 async def system_knowledge_a1(state: AgentState) -> Dict[str, Any]:
     """A1 - System Knowledge (Qdrant RAG). Delegates to
-    `app.agents.minimal_specialists.run_a1` (Phase 3, plan 03-03): a
-    minimal-but-real agent, not a stub — validates `system_id` exists in
-    `gxp_systems` and returns the Bible's verbatim `ERR-A1` abstain finding
-    when it does not (or when Postgres is unreachable). Qdrant retrieval
-    is deliberately not built this phase (v2-territory, 03-CONTEXT.md
-    `<deferred>`)."""
+    `app.agents.minimal_specialists.run_a1` (Phase 3, plan 03-03; Phase
+    06.1, plan 06.1-02): validates `system_id` exists in `gxp_systems` and
+    returns the Bible's verbatim `ERR-A1` abstain finding when it does not
+    (or when Postgres is unreachable), exactly as before. As of plan
+    06.1-02, A1 now performs real hybrid retrieval against Qdrant + Postgres
+    (`app.retrieval.hybrid_search.hybrid_retrieve`) rather than only the
+    existence check — the retrieval output rides the sibling
+    `retrieval_evidence`/`retrieval_trace` state keys, not `findings`."""
     return await run_a1(state)
 
 
