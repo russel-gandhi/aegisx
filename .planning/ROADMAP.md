@@ -193,11 +193,17 @@ Plans:
   4. The Copilot is routed through the real compiled `StateGraph` (`compiled_graph.ainvoke`), not the `supported: false` stub — C1's deterministic verification boundary is unchanged and still gates any compliance conclusion.
   5. The Knowledge/Investigation-trace/Evidence-view frontend surfaces from `UI_SPEC.md` exist and show real backend state (ingestion status, retrieval stages, evidence) — no decorative fake progress.
 
-**Plans:** 0 plans
+**Plans:** 7 plans
 
 Plans:
 
-- [ ] TBD (run /gsd-plan-phase 06.1 to break down)
+- [ ] 06.1-01-PLAN.md — Ingestion tracer: a Markdown/plain-text document becomes indexed evidence in Postgres + Qdrant; freezes the seven response contracts the phase consumes (wave 1)
+- [ ] 06.1-02-PLAN.md — Real Copilot: `POST /api/copilot/investigate` invokes the compiled StateGraph, A1 does real dense retrieval, answer synthesized with citations (wave 2)
+- [ ] 06.1-03-PLAN.md — Hybrid ranking: BM25 + Reciprocal Rank Fusion, one batched cross-encoder rerank, deterministic threshold gate, parent-context and graph expansion (wave 3)
+- [ ] 06.1-04-PLAN.md — Ingestion formats: PDF, DOCX, CSV, magic-byte sniffing, document list endpoint, post-upload evidence-graph rebuild (wave 2)
+- [ ] 06.1-05-PLAN.md — Knowledge page: system selector, drop zone, real ingestion stages, indexed source list, and the typed API client additions (wave 3)
+- [ ] 06.1-06-PLAN.md — Copilot free-text UI: Evidence View, Investigation Trace, hero-query gate relaxed to a fast path (wave 4)
+- [ ] 06.1-07-PLAN.md — Retrieval precision evaluation: labelled corpus, precision@k / recall@k / MRR, recorded baseline and regression gate (wave 4)
 
 ### Phase 06.1.1: Blast Radius Investigation Redesign (INSERTED)
 
