@@ -21,6 +21,13 @@
  * And `backend/app/routes/copilot_query.py` (plan 06-01, Task 2, D-04):
  *   - POST /api/copilot/query -> CopilotQueryResponse
  *
+ * And `backend/app/routes/system_signals.py` (plan 06-02, Task 1, D-07):
+ *   - GET /api/systems/{system_id}/access-supplier-signals -> SystemSignalsResponse
+ *
+ * And `backend/app/routes/audit.py` (plan 05-03, this file's first caller
+ * added plan 06-02, Task 2, D-07 mini-card #4):
+ *   - GET /api/audit/verify -> ChainVerificationResponse
+ *
  * Follows `lib/ws.ts`'s conventions: a Vite env var with a default correct
  * for local development, kept out of `.env.example` (a cross-cutting file
  * BRANCHING.md §5 requires be changed in its own separate PR).
@@ -351,4 +358,35 @@ export interface CopilotQueryResponse {
 
 export function queryCopilot(query: string): Promise<CopilotQueryResponse> {
   return apiPost<CopilotQueryResponse>('/api/copilot/query', { query })
+}
+
+// Phase 6 (06-02, Task 1, D-07 mini-cards #5/#6): access/supplier overdue
+// signals contract, mirroring `backend/app/schemas.py`'s
+// SystemSignalsResponse field for field.
+export interface SystemSignalsResponse {
+  system_id: string
+  overdue_access_reviews: number
+  overdue_suppliers: number
+  overdue_supplier_names: string[]
+}
+
+export function fetchSystemSignals(systemId: string): Promise<SystemSignalsResponse> {
+  return apiGet<SystemSignalsResponse>(
+    `/api/systems/${encodeURIComponent(systemId)}/access-supplier-signals`,
+  )
+}
+
+// Phase 6 (06-02, Task 2, D-07 mini-card #4): audit chain verification
+// contract, mirroring `backend/app/schemas.py`'s ChainVerificationResponse
+// field for field (05-03's shipped model; this is its first frontend
+// caller).
+export interface ChainVerificationResponse {
+  status: string
+  events_checked: number | null
+  broken_at_index: number | null
+  event_id: string | null
+}
+
+export function fetchChainVerification(): Promise<ChainVerificationResponse> {
+  return apiGet<ChainVerificationResponse>('/api/audit/verify')
 }
