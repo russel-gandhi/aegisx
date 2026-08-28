@@ -9,3 +9,9 @@ asyncpg==0.31.0
 respx==0.23.1
 python-dotenv==1.1.1
 networkx==3.4.2
+qdrant-client==1.19.0
+rank-bm25==0.2.2
+pypdf==6.16.2
+python-docx==1.2.0
+python-multipart==0.0.32
+numpy==2.3.5
