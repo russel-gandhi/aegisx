@@ -39,6 +39,7 @@ Contract - every agent's fallback is first-class, tested behavior, not an
 afterthought).
 """
 
+import json
 import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
@@ -232,6 +233,23 @@ async def _check_a3(pool: Any, system_id: str) -> Dict[str, Any]:
     }
 
 
+def _is_json_shaped(text: str) -> bool:
+    """True when a narration response is a JSON object/array rather than
+    the single prose sentence the prompt asks for (mirrors
+    `app.agents.a2_compliance.narrate_gap`'s guard) -- some models echo
+    the untrusted `record!r` blob back as structured JSON instead of
+    narrating it, which must never reach an AssuranceCard's claim text
+    verbatim."""
+    stripped = text.strip()
+    if not stripped.startswith(("{", "[")):
+        return False
+    try:
+        json.loads(stripped)
+        return True
+    except (json.JSONDecodeError, ValueError):
+        return False
+
+
 async def _narrate_a3(rule_id: str, record: Dict[str, Any], sentence_fn: Callable) -> (str, str):
     """A3's Bible failure behavior: "Downgrades to gemini_flash_thinking
     if DeepSeek API times out (>10s)." - one retry via the `orchestrator`
@@ -248,7 +266,7 @@ async def _narrate_a3(rule_id: str, record: Dict[str, Any], sentence_fn: Callabl
         response = await _safe_call_llm(
             task="orchestrator", prompt=prompt, system_instruction=A3_SYSTEM_PROMPT
         )
-    if response is not None and not response.degraded:
+    if response is not None and not response.degraded and not _is_json_shaped(response.text):
         return response.text, response.model_id
     return sentence_fn(record), "deterministic-fallback"
 
@@ -477,7 +495,7 @@ async def _narrate_gap(
     A3 uses `_narrate_a3` instead, for its extra downgrade-and-retry step."""
     prompt = _narration_prompt(rule_id, record)
     response = await _safe_call_llm(task=task, prompt=prompt, system_instruction=system_prompt)
-    if response is not None and not response.degraded:
+    if response is not None and not response.degraded and not _is_json_shaped(response.text):
         return response.text, response.model_id
     return sentence_fn(record), "deterministic-fallback"
 

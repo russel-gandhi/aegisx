@@ -76,6 +76,7 @@ either — see that function's own docstring.
 """
 
 import asyncio
+import json
 import logging
 import time
 from typing import Any, Callable, Awaitable, Dict, Optional, Tuple
@@ -349,7 +350,22 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     if not response.text or not response.text.strip():
         return _deterministic_gap_sentence(check_result), "deterministic-fallback"
 
-    result = (response.text, response.model_id)
+    narrated = response.text.strip()
+
+    # Ignore-the-instruction guard: the prompt explicitly asks for "one
+    # compliance finding sentence," but some models return a structured
+    # JSON object instead (mirroring the untrusted `record!r` blob back).
+    # A JSON-shaped claim is exactly the exposed-raw-data failure mode
+    # AssuranceCard.tsx's CLAIM section must never render — treat it as a
+    # degraded response (not cached) rather than using it verbatim.
+    if narrated.startswith(("{", "[")):
+        try:
+            json.loads(narrated)
+            return _deterministic_gap_sentence(check_result), "deterministic-fallback"
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    result = (narrated, response.model_id)
     narration_cache.put(key, result)
     return result
 
