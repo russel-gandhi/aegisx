@@ -1,9 +1,9 @@
 """
-Document upload route (Phase 06.1, plans 06.1-01/06.1-04, RAG-01).
+Document upload + list routes (Phase 06.1, plans 06.1-01/06.1-04, RAG-01).
 
 Ticket: n/a (roadmap phase 06.1) | Requirements: RAG-01, RAG-02
-Source: 06.1-01-PLAN.md Task 2; 06.1-04-PLAN.md Task 2; 06.1-PATTERNS.md
-`routes/documents.py` section (guard-order copied from
+Source: 06.1-01-PLAN.md Task 2; 06.1-04-PLAN.md Task 2/Task 3;
+06.1-PATTERNS.md `routes/documents.py` section (guard-order copied from
 `routes/evidence_graph.py`).
 
 `POST /api/documents/upload` is this phase's only ingestion entry point.
@@ -26,15 +26,39 @@ The client-supplied filename is used only as display text for
 never as a filesystem path component and never as the document id
 (T-06.1-02). Parsing runs on the in-memory bytes; no temp file is ever
 written.
+
+`GET /api/documents` (plan 06.1-04 Task 3) lists every uploaded document
+with a `COUNT(*)`-derived `chunk_count` -- never a stored counter that
+could drift out of sync with the real `document_chunks` rows -- and a
+read-time-derived `ingestion_status`. `identity` is required, matching
+the upload route: a document inventory is closer to a write-route's
+sensitivity than to the deliberately-ungated Phase 4 read-route
+precedent (T-06.1-24).
+
+A successful upload also triggers an evidence-graph rebuild for the
+affected `system_id` only (`_rebuild_evidence_graph_for`, closes
+06.1-RESEARCH.md Pitfall 2), so a just-uploaded document is immediately
+visible to Blast Radius / graph-expanded Copilot evidence without a
+separate manual `POST /api/systems/{system_id}/evidence-graph/rebuild`
+call. A rebuild failure is logged with `exc_info=True` and swallowed --
+it never turns a successful ingest into a reported failure -- and its
+consequence (graph expansion is stale for this document until the next
+rebuild) is documented here, not surfaced to the caller. The pre-existing
+explicit rebuild route remains the recovery path (T-06.1-25). No polling
+or push refresh is added by this plan; the standing `/blast-radius` and
+`/findings` live-refresh item (`.planning/STATE.md` Pending Todos) stays
+out of scope.
 """
 
+import logging
 import os
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from app.db import acquire_pool_or_none
+from app.graph.evidence_graph import build_graph, persist_graph
 from app.identity import RequestIdentity, require_identity
 from app.retrieval.ingest import (
     MAX_UPLOAD_BYTES,
@@ -46,9 +70,11 @@ from app.retrieval.ingest import (
 )
 from app.retrieval.qdrant_store import ensure_collection, get_qdrant_client
 from app.routes.evidence_graph import _system_exists
-from app.schemas import DocumentUploadResponse
+from app.schemas import DocumentListResponse, DocumentSummary, DocumentUploadResponse
 
 router = APIRouter()
+
+logger = logging.getLogger(__name__)
 
 
 @router.post("/api/documents/upload", response_model=DocumentUploadResponse)
@@ -160,6 +186,13 @@ async def upload_document(
 
     result = await index_document(pool, qdrant_client, document_id, system_id, chunks)
 
+    # Post-ingest evidence-graph rebuild (06.1-04-PLAN.md Task 3, closes
+    # 06.1-RESEARCH.md Pitfall 2) -- only after a successful index, never
+    # after a failed one, so a rebuild is never attempted over a document
+    # this route itself has already reported as FAILED.
+    if result.status == "READY":
+        await _rebuild_evidence_graph_for(pool, system_id)
+
     return DocumentUploadResponse(
         document_id=document_id,
         system_id=system_id,
@@ -170,3 +203,78 @@ async def upload_document(
         status=result.status,
         failed_stage=result.failed_stage,
     )
+
+
+async def _rebuild_evidence_graph_for(pool, system_id: str) -> None:
+    """Rebuilds and persists the evidence graph for `system_id` after a
+    successful document ingest, calling the exact same two functions
+    `routes/evidence_graph.py::rebuild_evidence_graph` calls (imported,
+    never reimplemented). Runs inside a broad-exception guard: a rebuild
+    failure here is logged with `exc_info=True` and swallowed -- it never
+    fails the upload response, which has already committed to
+    `status="READY"` by the time this runs. The documented consequence is
+    that graph expansion (Blast Radius, graph-based Copilot evidence)
+    stays stale for the newly uploaded document until the next rebuild;
+    the pre-existing `POST /api/systems/{system_id}/evidence-graph/rebuild`
+    route remains available as the explicit recovery path (T-06.1-25)."""
+    try:
+        graph = await build_graph(pool, system_id)
+        await persist_graph(pool, system_id, graph)
+    except Exception:
+        logger.error(
+            "Evidence graph rebuild failed after document upload for system_id=%s; "
+            "graph expansion is stale until the next explicit rebuild.",
+            system_id,
+            exc_info=True,
+        )
+
+
+@router.get("/api/documents", response_model=DocumentListResponse)
+async def list_documents(
+    system_id: Optional[str] = Query(None),
+    identity: RequestIdentity = Depends(require_identity),
+) -> DocumentListResponse:
+    """Lists every uploaded document, optionally filtered to one
+    `system_id`. `chunk_count` is a real `COUNT(*)` over `document_chunks`
+    computed in this one query -- never a stored counter that could
+    drift. `ingestion_status` is derived at read time from `chunk_count`
+    (mirroring the `category`-derived-not-persisted precedent set by the
+    `003_action_proposals_workflow.sql` migration): `"READY"` when
+    `chunk_count > 0`, `"FAILED"` when the `documents` row exists with
+    zero chunks. `failed_stage` is deliberately left `None` at read time
+    -- a stored chunk count alone cannot distinguish a parsing failure
+    from an indexing failure, and this route never guesses. An empty
+    result set (a `system_id` filter that matches zero documents) is a
+    200 with `documents: []`, never a 404 -- only an unknown `system_id`
+    itself is a 404."""
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+    if system_id is not None and not await _system_exists(pool, system_id):
+        raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
+
+    rows = await pool.fetch(
+        "SELECT d.id, d.system_id, d.title, d.doc_type, d.version, d.created_date, "
+        "COUNT(c.chunk_id) AS chunk_count "
+        "FROM documents d LEFT JOIN document_chunks c ON c.document_id = d.id "
+        "WHERE ($1::varchar IS NULL OR d.system_id = $1) "
+        "GROUP BY d.id ORDER BY d.created_date DESC NULLS LAST",
+        system_id,
+    )
+
+    documents = [
+        DocumentSummary(
+            document_id=row["id"],
+            title=row["title"],
+            doc_type=row["doc_type"],
+            version=row["version"],
+            system_id=row["system_id"],
+            created_date=row["created_date"].isoformat() if row["created_date"] else None,
+            chunk_count=row["chunk_count"],
+            ingestion_status="READY" if row["chunk_count"] > 0 else "FAILED",
+            failed_stage=None,
+        )
+        for row in rows
+    ]
+
+    return DocumentListResponse(system_id=system_id, documents=documents)

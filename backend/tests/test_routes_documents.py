@@ -2,10 +2,12 @@
 Tests for `app.routes.documents` (Phase 06.1, plans 06.1-01/06.1-04,
 RAG-01).
 
-Covers every `<behavior>` bullet in 06.1-01-PLAN.md Task 2 and every
+Covers every `<behavior>` bullet in 06.1-01-PLAN.md Task 2, every
 `<behavior>` bullet in 06.1-04-PLAN.md Task 2 (format dispatch by magic
-bytes, upload hardening). Exercises the HTTP endpoint via `TestClient`
-against live, seeded Postgres and live Qdrant -- never mocked, matching
+bytes, upload hardening), and every `<behavior>` bullet in
+06.1-04-PLAN.md Task 3 (`GET /api/documents`, post-upload evidence-graph
+rebuild). Exercises the HTTP endpoint via `TestClient` against live,
+seeded Postgres and live Qdrant -- never mocked, matching
 `test_routes_evidence_graph.py`'s own convention -- except the embedding
 provider, which is respx-mocked (`test_routes_actions.py`'s established
 pattern for the LLM/embedding transport layer specifically).
@@ -23,6 +25,7 @@ import respx
 
 from app import db
 from app.db import get_pool
+from app.graph.evidence_graph import make_node_id
 from app.retrieval.embeddings import EMBEDDING_DIMENSIONS
 from app.retrieval.qdrant_store import QDRANT_COLLECTION, QDRANT_URL, get_qdrant_client
 
@@ -400,5 +403,134 @@ def test_corrupt_pdf_with_valid_magic_bytes_returns_failed_parsing_envelope(clie
 
         rows = asyncio.run(_chunk_rows())
         assert rows == []
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+# ---------------------------------------------------------------------------
+# 06.1-04-PLAN.md Task 3 -- GET /api/documents, post-upload graph rebuild
+# ---------------------------------------------------------------------------
+
+
+def _list(client, system_id=None, headers=None):
+    params = {} if system_id is None else {"system_id": system_id}
+    return client.get(
+        "/api/documents", params=params, headers=IDENTITY_HEADERS if headers is None else headers
+    )
+
+
+def _upload_ready(client, monkeypatch, filename="fixture.md", content=None):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    with respx.mock:
+        _mocked_embedding_route(count=1)
+        resp = _upload(client, content or MARKDOWN_CONTENT, filename)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "READY"
+    return body
+
+
+def test_list_documents_returns_newest_first_with_real_chunk_count(client, monkeypatch):
+    body = _upload_ready(client, monkeypatch)
+    try:
+        resp = _list(client, system_id=DEMO_SYSTEM)
+        assert resp.status_code == 200
+        payload = resp.json()
+        assert payload["system_id"] == DEMO_SYSTEM
+        match = next(d for d in payload["documents"] if d["document_id"] == body["document_id"])
+        assert match["chunk_count"] == body["chunk_count"]
+        assert match["ingestion_status"] == "READY"
+        # newest-first: the just-uploaded document must be at index 0
+        assert payload["documents"][0]["document_id"] == body["document_id"]
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_list_documents_failed_ingest_reports_failed_status_with_zero_chunks(client, monkeypatch):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    resp = _upload(client, MARKDOWN_CONTENT, "degraded.md")
+    body = resp.json()
+    assert body["status"] == "FAILED"
+    try:
+        payload = _list(client, system_id=DEMO_SYSTEM).json()
+        match = next(d for d in payload["documents"] if d["document_id"] == body["document_id"])
+        assert match["chunk_count"] == 0
+        assert match["ingestion_status"] == "FAILED"
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_list_documents_no_system_id_filter_returns_across_systems(client, monkeypatch):
+    body = _upload_ready(client, monkeypatch)
+    try:
+        payload = _list(client).json()
+        assert payload["system_id"] is None
+        ids = {d["document_id"] for d in payload["documents"]}
+        assert body["document_id"] in ids
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_list_documents_system_with_no_documents_returns_empty_list_200(client):
+    # BUS-IT-DEMO-02 (infra/postgres/seed/001_seed.sql) is a seeded system
+    # with zero seeded `documents` rows -- a real "system exists, has
+    # nothing uploaded yet" state, not a synthetic id.
+    resp = _list(client, system_id="BUS-IT-DEMO-02")
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["documents"] == []
+
+
+def test_list_documents_unknown_system_id_returns_404(client):
+    resp = _list(client, system_id="NOPE-DOES-NOT-EXIST")
+    assert resp.status_code == 404
+    assert "Unknown system_id" in resp.json()["detail"]
+
+
+def test_list_documents_missing_identity_returns_422(client):
+    resp = _list(client, system_id=DEMO_SYSTEM, headers={})
+    assert resp.status_code == 422
+
+
+def test_upload_creates_document_graph_node_without_explicit_rebuild(client, monkeypatch):
+    body = _upload_ready(client, monkeypatch, filename="graph_visibility.md")
+    try:
+        expected_node_id = make_node_id("DOCUMENT", body["document_id"])
+
+        async def _fetch_node():
+            pool = await get_pool()
+            return await pool.fetchrow(
+                "SELECT node_id FROM graph_nodes WHERE node_id = $1", expected_node_id
+            )
+
+        row = asyncio.run(_fetch_node())
+        assert row is not None, (
+            f"expected a DOCUMENT graph node {expected_node_id!r} after upload "
+            "with no explicit rebuild call"
+        )
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_rebuild_failure_after_successful_ingest_still_returns_ready(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+
+    async def _raising_persist_graph(pool, system_id, graph):
+        raise RuntimeError("simulated graph rebuild failure")
+
+    import app.routes.documents as documents_route
+
+    monkeypatch.setattr(documents_route, "persist_graph", _raising_persist_graph)
+
+    with respx.mock:
+        _mocked_embedding_route(count=1)
+        resp = _upload(client, MARKDOWN_CONTENT, "rebuild_failure.md")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["status"] == "READY"  # rebuild failure never fails the upload response
+        assert body["chunk_count"] > 0
     finally:
         asyncio.run(_cleanup_document(body["document_id"]))
