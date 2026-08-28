@@ -23,9 +23,9 @@ Conversion between the two happens explicitly at the API boundary (e.g.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class EvidenceRef(BaseModel):
@@ -332,3 +332,149 @@ class SystemSignalsResponse(BaseModel):
     overdue_access_reviews: int
     overdue_suppliers: int
     overdue_supplier_names: List[str]
+
+
+# Phase 06.1 (06.1-01, RAG-01/RAG-02/RAG-05/RAG-06/RAG-07, D-05): hybrid
+# retrieval / real Copilot response contracts. Frozen in this plan so no
+# later plan in this phase has to guess a field name -- plans 06.1-02/03
+# populate the ranking fields (dense_score/bm25_score/reranker_score) and
+# compute NavigationTarget; this plan only shapes the models.
+#
+# `RetrievalEvidenceItem` is a deliberate NEW sibling type, not an addition
+# to `AgentFinding` above -- `AgentFinding` is consumed by C1,
+# `routes/findings.py`, and five existing test modules (06.1-RESEARCH.md
+# Anti-Pattern), and this module's own docstring already documents the
+# "two type representations, converted explicitly at the API boundary"
+# convention this class follows.
+class RetrievalEvidenceItem(BaseModel):
+    """Bible Section 15.7 names this field set. `retrieval_method` is one
+    of `"semantic"`, `"keyword"`, `"hybrid"`, `"parent_context"`, `"graph"`.
+    `evidence_type` is one of `"document"`, `"graph_relationship"`.
+    """
+
+    evidence_id: str
+    document_id: str
+    chunk_id: str
+    document_title: str
+    section: Optional[str] = None
+    page: Optional[int] = None
+    content: str
+    retrieval_method: str
+    dense_score: Optional[float] = None
+    bm25_score: Optional[float] = None
+    reranker_score: Optional[float] = None
+    parent_section: Optional[str] = None
+    graph_path: List[str] = []
+    regulatory_citations: List[str] = []
+    evidence_type: str
+    why_selected: str
+
+
+class InvestigationStage(BaseModel):
+    """The six ordered stage ids and their exact UI labels
+    (06.1-UI-SPEC.md Interaction Notes table): `understanding`/
+    "Understanding question", `searching`/"Searching knowledge",
+    `combining`/"Combining semantic and keyword evidence",
+    `reranking`/"Reranking candidates", `evaluating`/"Evaluating evidence",
+    `preparing`/"Preparing assessment". `status` is one of `"complete"`,
+    `"skipped"`.
+    """
+
+    stage_id: str
+    label: str
+    status: str
+    detail: Optional[str] = None
+
+
+# D-13: the closed set of destinations Copilot-driven navigation may
+# target. Declared beside `NavigationTarget` so both the route (plan
+# 06.1-02) and every test import this constant rather than restating the
+# strings.
+NAVIGATION_KINDS: Tuple[str, ...] = ("document", "graph_node")
+
+
+class NavigationTarget(BaseModel):
+    """D-13: (1) `kind` is restricted to `NAVIGATION_KINDS`; (2) this model
+    deliberately carries NO `url`, `href`, `path`, or `link` field -- the
+    destination address is assembled in the browser from a fixed
+    client-side route map keyed by `kind`, so neither this server nor an
+    uploaded document's text can ever supply a navigable string (the
+    open-redirect class of bug is removed structurally, not by
+    validation); (3) it is computed by deterministic Python over the
+    already-retrieved evidence list, never by a model, per D-08's
+    boundary; (4) `reason` is a Python-composed sentence naming why the
+    target was unambiguous, for display and for audit.
+    """
+
+    kind: str
+    target_id: str
+    label: str
+    system_id: str
+    reason: str
+
+    @field_validator("kind")
+    @classmethod
+    def _kind_must_be_known(cls, value: str) -> str:
+        if value not in NAVIGATION_KINDS:
+            raise ValueError(f"kind must be one of {NAVIGATION_KINDS}, got {value!r}")
+        return value
+
+
+class CopilotInvestigateRequest(BaseModel):
+    query: str
+    system_id: Optional[str] = None
+
+
+class CopilotInvestigateResponse(BaseModel):
+    """`evidence_support` is one of `"HIGH"`, `"MODERATE"`, `"LIMITED"`,
+    `"INSUFFICIENT_EVIDENCE"` -- computed server-side from the top
+    surviving retrieval score, so the Evidence View stays pure
+    presentation and never grades evidence in the browser. This band
+    describes *retrieval support*, not C1's compliance confidence; the two
+    are separate and this response carries both (`evidence_support` here,
+    `findings[].confidence_score` for C1's own verdict).
+    """
+
+    answer: str
+    insufficient_evidence: bool
+    blocked: bool
+    blocked_reason: Optional[str] = None
+    evidence: List[RetrievalEvidenceItem] = []
+    stages: List[InvestigationStage] = []
+    findings: List[AgentFinding] = []
+    verification_results: Dict[str, Any] = {}
+    evidence_support: str
+    model_attribution: str
+    # None is the normal case (D-13: absent whenever the citations are
+    # ambiguous or empty). Its presence is what licenses the client's
+    # auto-navigation -- computed in plan 06.1-02, consumed in plan
+    # 06.1-08.
+    navigation_target: Optional[NavigationTarget] = None
+
+
+class DocumentUploadResponse(BaseModel):
+    document_id: str
+    system_id: str
+    title: str
+    doc_type: str
+    chunk_count: int
+    indexed_vector_count: int
+    status: str
+    failed_stage: Optional[str] = None
+
+
+class DocumentSummary(BaseModel):
+    document_id: str
+    title: str
+    doc_type: str
+    version: Optional[str] = None
+    system_id: str
+    created_date: Optional[str] = None
+    chunk_count: int
+    ingestion_status: str
+    failed_stage: Optional[str] = None
+
+
+class DocumentListResponse(BaseModel):
+    system_id: Optional[str]
+    documents: List[DocumentSummary]
