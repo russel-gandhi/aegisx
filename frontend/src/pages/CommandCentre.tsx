@@ -276,7 +276,7 @@ export default function CommandCentre() {
             </p>
           )}
 
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-center" data-tour="readiness-dial">
             {assuranceLoading && totalChecks === 0 ? (
               <p className="text-slate-400">Loading readiness…</p>
             ) : totalChecks > 0 ? (
@@ -315,19 +315,21 @@ export default function CommandCentre() {
               <p className="mt-1 text-slate-400">{rejectedCount} rejected</p>
             </HealthMiniCard>
 
-            <HealthMiniCard
-              title="Audit Trail Integrity"
-              status={card4Status}
-              style={{ transitionDelay: `${cardDelays[3]}ms` }}
-            >
-              <p
-                className={
-                  chainData?.status === 'TAMPERED' ? 'text-red-400' : 'text-emerald-400'
-                }
+            <div data-tour="mini-card-audit-integrity">
+              <HealthMiniCard
+                title="Audit Trail Integrity"
+                status={card4Status}
+                style={{ transitionDelay: `${cardDelays[3]}ms` }}
               >
-                {chainData?.status ?? 'UNKNOWN'}
-              </p>
-            </HealthMiniCard>
+                <p
+                  className={
+                    chainData?.status === 'TAMPERED' ? 'text-red-400' : 'text-emerald-400'
+                  }
+                >
+                  {chainData?.status ?? 'UNKNOWN'}
+                </p>
+              </HealthMiniCard>
+            </div>
 
             <HealthMiniCard
               title="Access Reviews"
