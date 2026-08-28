@@ -27,8 +27,24 @@ carries only `{"chunker": "word-bounded", "chunk_words": CHUNK_WORDS}` at
 this layer. `routes/documents.py` (plan 06.1-01 Task 2), which does have
 the client filename, sets `metadata["source_filename"]` on each chunk
 before calling `index_document()`.
+
+Format-provenance note (plan 06.1-04, D-04): each of the four supported
+formats yields a different, format-honest subset of `ParsedBlock`'s
+`section`/`page` fields -- a `None` here is not a bug, it is what that
+format actually supports:
+- `pdf` -> real 1-indexed page numbers (`parse_pdf`) plus a heuristic
+  heading-derived `section` (no reliable page-independent heading model
+  exists for PDF, so this is a best-effort heuristic, not exact).
+- `docx` -> real `Heading N`-style `section` text (`parse_docx`), never a
+  `page` (DOCX carries no reliable page model at the byte level).
+- `csv` -> `section` is the source filename stem and `page` is the
+  1-indexed block number (`parse_csv`) -- a CSV has no prose headings or
+  pages of its own, so these are the closest honest analogues.
+- `text`/`markdown` -> real ATX (`#`..`######`) heading `section`
+  (`parse_text`, plan 06.1-01), never a `page`.
 """
 
+import io
 import json
 import logging
 import uuid
@@ -37,6 +53,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from app.retrieval.embeddings import call_embeddings_batch
 from app.retrieval.qdrant_store import upsert_chunks
+
+try:
+    import docx  # python-docx
+except ImportError:  # pragma: no cover -- pinned in requirements.txt
+    docx = None  # type: ignore[assignment]
+
+try:
+    from pypdf import PdfReader
+except ImportError:  # pragma: no cover -- pinned in requirements.txt
+    PdfReader = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +80,7 @@ CHUNK_OVERLAP_WORDS: int = 50
 MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
 MAX_CHUNKS_PER_DOCUMENT: int = 500
 SUPPORTED_TEXT_EXTENSIONS = frozenset({".txt", ".md", ".markdown"})
+MAX_PDF_PAGES: int = 500
 
 _HEADING_RE_PREFIX = "#"
 
@@ -126,6 +153,158 @@ def parse_text(raw: bytes, filename: str) -> List[ParsedBlock]:
         else:
             current_lines.append(line)
     _flush()
+
+    return blocks
+
+
+def _is_pdf_heading_line(stripped: str) -> bool:
+    """Heading heuristic for `parse_pdf` (plan 06.1-04 Task 1 <action>):
+    a candidate heading line is short (<=80 chars), non-empty, carries no
+    terminal period, and does not begin with a lowercase letter -- the
+    same test applied to every extracted line, never a guessed value."""
+    return (
+        bool(stripped)
+        and len(stripped) <= 80
+        and not stripped.endswith(".")
+        and not stripped[0].islower()
+    )
+
+
+def _append_pdf_block(
+    blocks: List[ParsedBlock], lines: List[str], section: Optional[str], page: int
+) -> None:
+    content = "\n".join(lines).strip()
+    if content:
+        blocks.append(ParsedBlock(text=content, section=section, page=page))
+
+
+def parse_pdf(raw: bytes, filename: str) -> List[ParsedBlock]:
+    """Extracts text from an in-memory PDF (`io.BytesIO(raw)` -- no temp
+    file is ever written) using `pypdf`, one `ParsedBlock` per
+    contiguous run of body lines. `page` is always the real 1-indexed
+    page number the text came from. `section` is set by
+    `_is_pdf_heading_line`'s heuristic; a page with no heading-shaped
+    line yields blocks with `section=None` rather than a guessed value.
+
+    Stops at `MAX_PDF_PAGES` (500) and logs the truncation (T-06.1-20).
+    Never raises to its caller: an encrypted, corrupt, or otherwise
+    unparseable PDF is logged and returns `[]`, which the calling route
+    maps to `status="FAILED"`, `failed_stage="parsing"` (T-06.1-22).
+    """
+    if PdfReader is None:  # pragma: no cover -- pinned in requirements.txt
+        logger.error("parse_pdf: pypdf is not installed")
+        return []
+
+    try:
+        reader = PdfReader(io.BytesIO(raw))
+        total_pages = len(reader.pages)
+    except Exception:
+        logger.warning("parse_pdf: failed to open %s as a PDF", filename, exc_info=True)
+        return []
+
+    if total_pages > MAX_PDF_PAGES:
+        logger.warning(
+            "parse_pdf: %s has %d pages, truncating to MAX_PDF_PAGES=%d",
+            filename,
+            total_pages,
+            MAX_PDF_PAGES,
+        )
+
+    blocks: List[ParsedBlock] = []
+    current_section: Optional[str] = None
+
+    try:
+        for page_num, page in enumerate(reader.pages[:MAX_PDF_PAGES], start=1):
+            try:
+                page_text = page.extract_text() or ""
+            except Exception:
+                logger.warning(
+                    "parse_pdf: failed to extract text from page %d of %s",
+                    page_num,
+                    filename,
+                    exc_info=True,
+                )
+                page_text = ""
+
+            current_lines: List[str] = []
+            for line in page_text.splitlines():
+                stripped = line.strip()
+                if _is_pdf_heading_line(stripped):
+                    _append_pdf_block(blocks, current_lines, current_section, page_num)
+                    current_lines = []
+                    current_section = stripped
+                else:
+                    current_lines.append(line)
+            _append_pdf_block(blocks, current_lines, current_section, page_num)
+    except Exception:
+        logger.warning("parse_pdf: unexpected error parsing %s", filename, exc_info=True)
+        return []
+
+    return blocks
+
+
+def parse_docx(raw: bytes, filename: str) -> List[ParsedBlock]:
+    """Extracts text from an in-memory DOCX (`io.BytesIO(raw)` -- no temp
+    file is ever written) using `python-docx`. `section` is set from
+    `paragraph.style.name.startswith("Heading")` paragraphs, using the
+    heading's own text as the section title; `page` is always `None`
+    (DOCX carries no reliable page model at the byte level). Table cell
+    text is emitted as its own body block, joining each row's cells with
+    `" | "` and rows with `"\\n"`, under the last heading seen in the
+    document -- so a validation protocol's tables are never silently
+    dropped.
+
+    Never raises to its caller: a corrupt or non-OOXML payload is logged
+    and returns `[]` (T-06.1-22), mirroring `parse_pdf`'s contract.
+    """
+    if docx is None:  # pragma: no cover -- pinned in requirements.txt
+        logger.error("parse_docx: python-docx is not installed")
+        return []
+
+    try:
+        document = docx.Document(io.BytesIO(raw))
+    except Exception:
+        logger.warning("parse_docx: failed to open %s as a DOCX", filename, exc_info=True)
+        return []
+
+    blocks: List[ParsedBlock] = []
+    current_section: Optional[str] = None
+    current_lines: List[str] = []
+
+    def _flush() -> None:
+        content = "\n".join(current_lines).strip()
+        if content:
+            blocks.append(ParsedBlock(text=content, section=current_section, page=None))
+
+    try:
+        for paragraph in document.paragraphs:
+            style_name = paragraph.style.name if paragraph.style is not None else ""
+            if style_name.startswith("Heading"):
+                _flush()
+                current_lines = []
+                current_section = paragraph.text.strip()
+            else:
+                text = paragraph.text.strip()
+                if text:
+                    current_lines.append(text)
+        _flush()
+        current_lines = []
+
+        # Tables are not interleaved with `document.paragraphs` by this
+        # simple traversal -- every table is attached to the last section
+        # seen across the whole document (06.1-04-PLAN.md Task 1 <action>
+        # item 3), not necessarily the heading immediately preceding that
+        # specific table in the source document.
+        for table in document.tables:
+            row_lines = [
+                " | ".join(cell.text.strip() for cell in row.cells) for row in table.rows
+            ]
+            table_text = "\n".join(row_lines).strip()
+            if table_text:
+                blocks.append(ParsedBlock(text=table_text, section=current_section, page=None))
+    except Exception:
+        logger.warning("parse_docx: unexpected error parsing %s", filename, exc_info=True)
+        return []
 
     return blocks
 
