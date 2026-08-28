@@ -134,6 +134,7 @@ export default function ActionProposalCard({
                 type="button"
                 disabled={isBusy}
                 onClick={() => onApprove(proposal.id)}
+                data-tour="approve-action"
                 className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {busy === 'approving' ? 'Approving...' : 'Approve Action'}

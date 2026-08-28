@@ -228,6 +228,7 @@ export default function FindingInvestigation() {
                       <Link
                         key={evidenceId}
                         to={`/blast-radius?node=${encodeURIComponent(evidenceNodeIndex[evidenceId])}`}
+                        data-tour="blast-radius-link"
                         className="text-sm text-sky-400 underline hover:text-sky-300"
                       >
                         {`Blast Radius: ${evidenceId}`}
@@ -237,6 +238,7 @@ export default function FindingInvestigation() {
                   type="button"
                   disabled={isLoading}
                   onClick={() => handleGenerateCapa(card.finding_id)}
+                  data-tour="generate-capa-button"
                   className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isLoading ? 'Generating...' : 'Generate CAPA'}

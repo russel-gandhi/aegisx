@@ -257,6 +257,7 @@ export default function Copilot() {
             ref={messagesContainerRef}
             className="max-h-[32rem] space-y-3 overflow-y-auto"
             data-testid="copilot-messages"
+            data-tour="copilot-messages"
           >
             {messages.map((message) => (
               <ChatMessage key={message.id} message={message} />
@@ -272,6 +273,7 @@ export default function Copilot() {
           disabled={isStreaming}
           placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
           rows={2}
+          data-tour="copilot-input"
           className="max-h-40 min-h-[3rem] flex-1 overflow-y-auto rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
         <button
