@@ -1,12 +1,14 @@
 """
-Tests for `app.routes.documents` (Phase 06.1, plan 06.1-01, RAG-01).
+Tests for `app.routes.documents` (Phase 06.1, plans 06.1-01/06.1-04,
+RAG-01).
 
-Covers every `<behavior>` bullet in 06.1-01-PLAN.md Task 2. Exercises the
-HTTP endpoint via `TestClient` against live, seeded Postgres and live
-Qdrant -- never mocked, matching `test_routes_evidence_graph.py`'s own
-convention -- except the embedding provider, which is respx-mocked
-(`test_routes_actions.py`'s established pattern for the LLM/embedding
-transport layer specifically).
+Covers every `<behavior>` bullet in 06.1-01-PLAN.md Task 2 and every
+`<behavior>` bullet in 06.1-04-PLAN.md Task 2 (format dispatch by magic
+bytes, upload hardening). Exercises the HTTP endpoint via `TestClient`
+against live, seeded Postgres and live Qdrant -- never mocked, matching
+`test_routes_evidence_graph.py`'s own convention -- except the embedding
+provider, which is respx-mocked (`test_routes_actions.py`'s established
+pattern for the LLM/embedding transport layer specifically).
 
 Every negative case asserts row counts are unchanged (`documents`,
 `document_chunks`) before and after the request, per the plan's own
@@ -14,6 +16,7 @@ Every negative case asserts row counts are unchanged (`documents`,
 """
 
 import asyncio
+import os
 
 import httpx
 import respx
@@ -25,6 +28,11 @@ from app.retrieval.qdrant_store import QDRANT_COLLECTION, QDRANT_URL, get_qdrant
 
 DEMO_SYSTEM = "GXP-MFG-DEMO-01"
 IDENTITY_HEADERS = {"X-User-Id": "test-uploader", "X-User-Role": "IT System Manager"}
+
+FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "documents")
+SOP_PDF_PATH = os.path.join(FIXTURES_DIR, "sop_extract.pdf")
+VALIDATION_DOCX_PATH = os.path.join(FIXTURES_DIR, "validation_protocol.docx")
+TRACEABILITY_CSV_PATH = os.path.join(FIXTURES_DIR, "traceability_matrix.csv")
 
 EMBED_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
@@ -228,5 +236,169 @@ def test_degraded_embedding_provider_returns_honest_failed_envelope(client, monk
 
         rows = asyncio.run(_chunk_rows())
         assert rows == []  # no document_chunks rows despite the documents row existing
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+# ---------------------------------------------------------------------------
+# 06.1-04-PLAN.md Task 2 -- format dispatch by magic bytes, upload hardening
+# ---------------------------------------------------------------------------
+
+
+def _upload_file(client, path: str, filename: str, headers=None, **form_overrides):
+    with open(path, "rb") as f:
+        content = f.read()
+    return _upload(client, content, filename, headers=headers, **form_overrides)
+
+
+def test_pdf_bytes_behind_text_extension_returns_415_and_writes_nothing(client):
+    # Plain text bytes, but the extension claims .pdf -- magic-byte sniff
+    # must reject this even though "pdf" is a supported extension.
+    before = asyncio.run(_counts())
+    resp = _upload(client, b"this is not really a PDF file at all", "fake.pdf")
+    assert resp.status_code == 415
+    assert asyncio.run(_counts()) == before
+
+
+def test_pdf_bytes_behind_docx_extension_returns_415_and_writes_nothing(client):
+    # A genuine PDF's bytes, but the extension claims .docx -- magic-byte
+    # sniff must reject this (T-06.1-21 file-type confusion).
+    before = asyncio.run(_counts())
+    with open(SOP_PDF_PATH, "rb") as f:
+        pdf_bytes = f.read()
+    resp = _upload(client, pdf_bytes, "fake.docx")
+    assert resp.status_code == 415
+    assert asyncio.run(_counts()) == before
+
+
+def test_valid_pdf_upload_returns_ready_with_page_and_section(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    with respx.mock:
+        _mocked_embedding_route(count=3)
+        resp = _upload_file(client, SOP_PDF_PATH, "sop_extract.pdf")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["status"] == "READY"
+        assert body["chunk_count"] > 0
+        assert body["chunk_count"] == body["indexed_vector_count"]
+        assert body["failed_stage"] is None
+
+        async def _chunk_rows():
+            pool = await get_pool()
+            return await pool.fetch(
+                "SELECT section, page FROM document_chunks WHERE document_id = $1",
+                body["document_id"],
+            )
+
+        rows = asyncio.run(_chunk_rows())
+        assert all(row["page"] is not None for row in rows)
+        assert any(row["section"] is not None for row in rows)
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_valid_docx_upload_returns_ready_with_section_no_page(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    with respx.mock:
+        _mocked_embedding_route(count=3)
+        resp = _upload_file(client, VALIDATION_DOCX_PATH, "validation_protocol.docx")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["status"] == "READY"
+        assert body["chunk_count"] > 0
+        assert body["chunk_count"] == body["indexed_vector_count"]
+
+        async def _chunk_rows():
+            pool = await get_pool()
+            return await pool.fetch(
+                "SELECT section, page FROM document_chunks WHERE document_id = $1",
+                body["document_id"],
+            )
+
+        rows = asyncio.run(_chunk_rows())
+        assert all(row["page"] is None for row in rows)
+        assert any(row["section"] is not None for row in rows)
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_valid_csv_upload_returns_ready_with_row_block_structure(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    with respx.mock:
+        _mocked_embedding_route(count=5)
+        resp = _upload_file(client, TRACEABILITY_CSV_PATH, "traceability_matrix.csv")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["status"] == "READY"
+        assert body["chunk_count"] > 0
+        assert body["chunk_count"] == body["indexed_vector_count"]
+
+        async def _chunk_rows():
+            pool = await get_pool()
+            return await pool.fetch(
+                "SELECT section, page, content FROM document_chunks WHERE document_id = $1 "
+                "ORDER BY chunk_index",
+                body["document_id"],
+            )
+
+        rows = asyncio.run(_chunk_rows())
+        assert all(row["section"] == "traceability_matrix" for row in rows)
+        assert all(row["page"] is not None for row in rows)
+        assert "urs_id" in rows[0]["content"]
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_upload_with_no_doc_type_form_field_defaults_to_uppercased_format(client, monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    data = {"system_id": DEMO_SYSTEM}  # doc_type deliberately omitted
+    files = {"file": ("fixture.md", MARKDOWN_CONTENT, "text/markdown")}
+    with respx.mock:
+        _mocked_embedding_route(count=1)
+        resp = client.post(
+            "/api/documents/upload", files=files, data=data, headers=IDENTITY_HEADERS
+        )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["doc_type"] == "TEXT"
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_corrupt_pdf_with_valid_magic_bytes_returns_failed_parsing_envelope(client, monkeypatch):
+    # Magic bytes agree (starts with %PDF-), so detect_format passes it
+    # through -- but the body is not a real, parseable PDF, so pypdf
+    # yields zero blocks. This must surface as an honest FAILED envelope,
+    # not an unhandled exception, and must write zero document_chunks
+    # rows despite the `documents` row existing.
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    corrupt_pdf = b"%PDF-1.4\nthis is not a real, well-formed PDF body at all"
+    resp = _upload(client, corrupt_pdf, "corrupt.pdf")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    try:
+        assert body["status"] == "FAILED"
+        assert body["failed_stage"] == "parsing"
+        assert body["chunk_count"] == 0
+        assert body["indexed_vector_count"] == 0
+
+        async def _chunk_rows():
+            pool = await get_pool()
+            return await pool.fetch(
+                "SELECT chunk_id FROM document_chunks WHERE document_id = $1",
+                body["document_id"],
+            )
+
+        rows = asyncio.run(_chunk_rows())
+        assert rows == []
     finally:
         asyncio.run(_cleanup_document(body["document_id"]))

@@ -29,13 +29,18 @@ from app.retrieval.embeddings import EMBEDDING_DIMENSIONS
 from app.retrieval.ingest import (
     CHUNK_OVERLAP_WORDS,
     CHUNK_WORDS,
+    CSV_ROWS_PER_BLOCK,
     MAX_CHUNKS_PER_DOCUMENT,
+    MAX_CSV_ROWS,
     MAX_PDF_PAGES,
+    SUPPORTED_FORMATS,
     Chunk,
     IngestResult,
     ParsedBlock,
     chunk_blocks,
+    detect_format,
     index_document,
+    parse_csv,
     parse_docx,
     parse_pdf,
     parse_text,
@@ -50,6 +55,7 @@ DEMO_DOCUMENT_ID = "DOC-2026-OM-99"  # seeded row, infra/postgres/seed/001_seed.
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures", "documents")
 SOP_PDF_PATH = os.path.join(FIXTURES_DIR, "sop_extract.pdf")
 VALIDATION_DOCX_PATH = os.path.join(FIXTURES_DIR, "validation_protocol.docx")
+TRACEABILITY_CSV_PATH = os.path.join(FIXTURES_DIR, "traceability_matrix.csv")
 
 MARKDOWN_TWO_SECTIONS = (
     "Lead-in text before any heading.\n\n"
@@ -263,6 +269,80 @@ def test_unit_parsers_never_write_a_temp_file():
     source = inspect.getsource(ingest_module)
     assert "tempfile" not in source
     assert "NamedTemporaryFile" not in source
+
+
+# ---------------------------------------------------------------------------
+# UNIT -- parse_csv / detect_format (06.1-04-PLAN.md Task 2, no DB/network I/O)
+# ---------------------------------------------------------------------------
+
+
+def test_unit_parse_csv_60_rows_yields_25_row_blocks_with_header_repeated():
+    raw = open(TRACEABILITY_CSV_PATH, "rb").read()
+    blocks = parse_csv(raw, "traceability_matrix.csv")
+
+    assert len(blocks) == 3  # 60 rows / 25-per-block -> 25, 25, 10
+    header_line = "urs_id | requirement | test_case_id | execution_status"
+    for block in blocks:
+        assert block.text.startswith(header_line)
+
+
+def test_unit_parse_csv_section_is_filename_stem_page_is_block_number():
+    raw = open(TRACEABILITY_CSV_PATH, "rb").read()
+    blocks = parse_csv(raw, "traceability_matrix.csv")
+
+    assert all(b.section == "traceability_matrix" for b in blocks)
+    assert [b.page for b in blocks] == [1, 2, 3]
+
+
+def test_unit_parse_csv_rows_rendered_as_col_value_pairs_not_raw_csv():
+    raw = b"urs_id,requirement\nURS-001,First requirement text\n"
+    blocks = parse_csv(raw, "small.csv")
+
+    assert len(blocks) == 1
+    # "col: value" pairs joined by "; " -- never a raw comma-separated line.
+    assert "urs_id: URS-001; requirement: First requirement text" in blocks[0].text
+    assert "URS-001,First requirement text" not in blocks[0].text
+
+
+def test_unit_parse_csv_stops_at_max_csv_rows_and_logs(monkeypatch, caplog):
+    import app.retrieval.ingest as ingest_module
+
+    monkeypatch.setattr(ingest_module, "MAX_CSV_ROWS", 10)
+    header = "urs_id,requirement\n"
+    body = "".join(f"URS-{i:03d},req {i}\n" for i in range(20))
+    raw = (header + body).encode("utf-8")
+
+    with caplog.at_level("WARNING"):
+        blocks = parse_csv(raw, "big.csv")
+
+    total_rows = sum(len(b.text.split("\n")) - 1 for b in blocks)  # minus header line
+    assert total_rows == 10
+    assert any("truncating" in record.message for record in caplog.records)
+
+
+def test_unit_parse_csv_no_rows_returns_empty_list():
+    raw = b"urs_id,requirement\n"  # header only, zero data rows
+    assert parse_csv(raw, "empty.csv") == []
+
+
+def test_unit_detect_format_pdf_docx_csv_text_and_magic_byte_mismatches():
+    assert detect_format(b"%PDF-1.7 rest-of-file", "a.pdf") == "pdf"
+    assert detect_format(b"hello, not a pdf", "a.pdf") is None
+    assert detect_format(b"PK\x03\x04rest", "a.docx") == "docx"
+    assert detect_format(b"%PDF-1.7 rest-of-file", "a.docx") is None  # PDF bytes, .docx claim
+    assert detect_format(b"a,b\n1,2\n", "a.csv") == "csv"
+    assert detect_format(b"# Heading\n\nbody text", "a.md") == "text"
+    assert detect_format(b"x", "a.exe") is None
+
+
+def test_unit_detect_format_unknown_extension_returns_none_even_for_valid_text():
+    assert detect_format(b"perfectly valid utf-8 text", "a.docx.bak") is None
+
+
+def test_unit_supported_formats_frozen_allowlist():
+    assert sorted(SUPPORTED_FORMATS) == ["csv", "docx", "pdf", "text"]
+    assert MAX_CSV_ROWS == 5000
+    assert CSV_ROWS_PER_BLOCK == 25
 
 
 # ---------------------------------------------------------------------------

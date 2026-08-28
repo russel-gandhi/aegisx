@@ -44,12 +44,14 @@ format actually supports:
   (`parse_text`, plan 06.1-01), never a `page`.
 """
 
+import csv
 import io
 import json
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Optional, Tuple
 
 from app.retrieval.embeddings import call_embeddings_batch
 from app.retrieval.qdrant_store import upsert_chunks
@@ -81,6 +83,27 @@ MAX_UPLOAD_BYTES: int = 10 * 1024 * 1024
 MAX_CHUNKS_PER_DOCUMENT: int = 500
 SUPPORTED_TEXT_EXTENSIONS = frozenset({".txt", ".md", ".markdown"})
 MAX_PDF_PAGES: int = 500
+MAX_CSV_ROWS: int = 5000
+CSV_ROWS_PER_BLOCK: int = 25
+
+# Frozen allowlist: format key -> the file extensions that claim it.
+# `detect_format` resolves the extension through this map first, then
+# confirms the payload's own bytes agree (T-06.1-21) -- the extension
+# alone is never sufficient.
+SUPPORTED_FORMATS: Dict[str, FrozenSet[str]] = {
+    "text": frozenset({".txt", ".md", ".markdown"}),
+    "pdf": frozenset({".pdf"}),
+    "docx": frozenset({".docx"}),
+    "csv": frozenset({".csv"}),
+}
+
+# Magic-byte signatures for the two binary formats. `text`/`csv` are
+# confirmed by a strict UTF-8 decode instead (no fixed binary signature
+# exists for either).
+MAGIC_BYTES: Dict[str, bytes] = {
+    "pdf": b"%PDF-",
+    "docx": b"PK\x03\x04",
+}
 
 _HEADING_RE_PREFIX = "#"
 
@@ -307,6 +330,117 @@ def parse_docx(raw: bytes, filename: str) -> List[ParsedBlock]:
         return []
 
     return blocks
+
+
+def parse_csv(raw: bytes, filename: str) -> List[ParsedBlock]:
+    """Structured row/column parsing (06.1-CONTEXT.md D-04) -- CSV takes
+    its own dedicated path here, entirely independent of the ATX-heading
+    prose chunker used for Markdown/plain-text input. Decodes UTF-8 with
+    `errors="replace"`, reads via the stdlib `csv.DictReader`, and groups
+    at most `MAX_CSV_ROWS` (5000) rows into blocks of `CSV_ROWS_PER_BLOCK`
+    (25) data rows each. Each block's text repeats the header line at the
+    top so a retrieved chunk is self-describing, and every data row is
+    rendered as `"col: value"` pairs joined by `"; "` (not raw
+    comma-separated text) so lexical search can match on a column name.
+    `section` is the source filename stem; `page` is the 1-indexed block
+    number -- CSV has no prose headings or pages of its own, so these are
+    the closest honest analogues (see module docstring).
+
+    A file with no data rows returns `[]` -- the caller (`routes/documents.py`)
+    treats this as an honest `chunk_count=0`/`status="READY"` zero, never
+    an error and never a fabricated row. Never raises to its caller: a
+    malformed CSV payload is logged and returns `[]`, mirroring
+    `parse_pdf`/`parse_docx`'s contract.
+    """
+    text = raw.decode("utf-8", errors="replace")
+
+    try:
+        reader = csv.DictReader(io.StringIO(text))
+        fieldnames = reader.fieldnames or []
+        rows: List[Dict[str, Any]] = []
+        for row in reader:
+            if len(rows) >= MAX_CSV_ROWS:
+                logger.warning(
+                    "parse_csv: %s exceeds MAX_CSV_ROWS=%d, truncating",
+                    filename,
+                    MAX_CSV_ROWS,
+                )
+                break
+            rows.append(row)
+    except Exception:
+        logger.warning("parse_csv: failed to parse %s as CSV", filename, exc_info=True)
+        return []
+
+    if not rows or not fieldnames:
+        return []
+
+    section = os.path.splitext(os.path.basename(filename))[0]
+    header_line = " | ".join(fieldnames)
+
+    blocks: List[ParsedBlock] = []
+    block_index = 0
+    for start in range(0, len(rows), CSV_ROWS_PER_BLOCK):
+        block_index += 1
+        block_rows = rows[start : start + CSV_ROWS_PER_BLOCK]
+        row_lines = [
+            "; ".join(f"{col}: {value}" for col, value in row.items() if value)
+            for row in block_rows
+        ]
+        block_text = "\n".join([header_line] + row_lines)
+        blocks.append(ParsedBlock(text=block_text, section=section, page=block_index))
+
+    return blocks
+
+
+def _extension_format(filename: str) -> Optional[str]:
+    extension = os.path.splitext(filename.lower())[1]
+    for fmt, extensions in SUPPORTED_FORMATS.items():
+        if extension in extensions:
+            return fmt
+    return None
+
+
+def detect_format(raw: bytes, filename: str) -> Optional[str]:
+    """Resolves `filename`'s extension to a format key via
+    `SUPPORTED_FORMATS`, then confirms `raw`'s own bytes agree
+    (T-06.1-21, file-type confusion): for `pdf`/`docx` the payload must
+    start with the matching `MAGIC_BYTES` signature; for `csv`/`text` the
+    first 4096 bytes must decode as strict UTF-8. Returns `None` on any
+    mismatch or on an extension outside `SUPPORTED_FORMATS` -- the
+    extension alone is never sufficient, and an unknown extension is
+    rejected even when the underlying bytes happen to be valid text.
+    """
+    fmt = _extension_format(filename)
+    if fmt is None:
+        return None
+
+    if fmt in MAGIC_BYTES:
+        if not raw.startswith(MAGIC_BYTES[fmt]):
+            return None
+        return fmt
+
+    try:
+        raw[:4096].decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+    return fmt
+
+
+def parse_document(raw: bytes, filename: str, fmt: str) -> List[ParsedBlock]:
+    """Dispatches to the parser matching `fmt`. `fmt` is expected to
+    already be a `detect_format`-validated key -- the route gates on
+    `detect_format` before ever reaching this dispatcher, so an unknown
+    key here indicates a caller bug, not untrusted input, hence the
+    `ValueError` rather than a degrade-to-empty-list."""
+    if fmt == "text":
+        return parse_text(raw, filename)
+    if fmt == "pdf":
+        return parse_pdf(raw, filename)
+    if fmt == "docx":
+        return parse_docx(raw, filename)
+    if fmt == "csv":
+        return parse_csv(raw, filename)
+    raise ValueError(f"parse_document: unknown format {fmt!r}")
 
 
 def chunk_blocks(blocks: List[ParsedBlock]) -> List[Chunk]:

@@ -1,16 +1,18 @@
 """
-Document upload route (Phase 06.1, plan 06.1-01, RAG-01).
+Document upload route (Phase 06.1, plans 06.1-01/06.1-04, RAG-01).
 
 Ticket: n/a (roadmap phase 06.1) | Requirements: RAG-01, RAG-02
-Source: 06.1-01-PLAN.md Task 2; 06.1-PATTERNS.md `routes/documents.py`
-section (guard-order copied from `routes/evidence_graph.py`).
+Source: 06.1-01-PLAN.md Task 2; 06.1-04-PLAN.md Task 2; 06.1-PATTERNS.md
+`routes/documents.py` section (guard-order copied from
+`routes/evidence_graph.py`).
 
 `POST /api/documents/upload` is this phase's only ingestion entry point.
 Guard order mirrors `routes/evidence_graph.py`'s pool-acquire-or-503 /
-system-exists-or-404 convention, with three upload-specific guards ahead
-of it: size (413), extension allowlist (415), and a UTF-8 content sniff
-(415) -- all three run before any parse, before the pool is even
-acquired, so an oversized or wrong-type upload never reaches Postgres.
+system-exists-or-404 convention, with two upload-specific guards ahead
+of it: size (413) and `detect_format`'s extension-AND-magic-bytes sniff
+(415) -- both run before any parse, before the pool is even acquired, so
+an oversized or content-mismatched upload never reaches Postgres
+(T-06.1-21).
 
 Never-fabricate discipline (matching `routes/copilot_query.py`'s own
 module docstring): every field in the returned `DocumentUploadResponse`
@@ -27,6 +29,7 @@ written.
 """
 
 import os
+from typing import Optional
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -35,10 +38,11 @@ from app.db import acquire_pool_or_none
 from app.identity import RequestIdentity, require_identity
 from app.retrieval.ingest import (
     MAX_UPLOAD_BYTES,
-    SUPPORTED_TEXT_EXTENSIONS,
+    SUPPORTED_FORMATS,
     chunk_blocks,
+    detect_format,
     index_document,
-    parse_text,
+    parse_document,
 )
 from app.retrieval.qdrant_store import ensure_collection, get_qdrant_client
 from app.routes.evidence_graph import _system_exists
@@ -51,7 +55,7 @@ router = APIRouter()
 async def upload_document(
     file: UploadFile = File(...),
     system_id: str = Form(...),
-    doc_type: str = Form("UPLOADED"),
+    doc_type: Optional[str] = Form(None),
     identity: RequestIdentity = Depends(require_identity),
 ) -> DocumentUploadResponse:
     # (a) size guard -- read at most MAX_UPLOAD_BYTES + 1 bytes, before any
@@ -65,24 +69,19 @@ async def upload_document(
 
     original_filename = file.filename or ""
 
-    # (b) extension allowlist.
-    extension = os.path.splitext(original_filename)[1].lower()
-    if extension not in SUPPORTED_TEXT_EXTENSIONS:
+    # (b) extension AND content-magic-bytes agreement (T-06.1-21) -- the
+    # extension alone is never sufficient. `detect_format` returns None
+    # for an unsupported extension, a binary payload behind a text
+    # extension, a text payload behind a binary extension, or a payload
+    # whose magic bytes disagree with its claimed binary format.
+    fmt = detect_format(raw, original_filename)
+    if fmt is None:
         raise HTTPException(
             status_code=415,
             detail=(
-                f"Unsupported file extension {extension!r}; supported: "
-                f"{sorted(SUPPORTED_TEXT_EXTENSIONS)}"
+                "Unsupported or content-mismatched file; supported formats "
+                f"(by extension AND content): {sorted(SUPPORTED_FORMATS)}"
             ),
-        )
-
-    # (c) content sniff -- reject a payload that does not decode as UTF-8
-    # text, even if its extension claims otherwise (T-06.1-06).
-    try:
-        raw.decode("utf-8")
-    except UnicodeDecodeError:
-        raise HTTPException(
-            status_code=415, detail="File content does not decode as UTF-8 text"
         )
 
     # (d) pool-acquire-or-503 / (e) system-exists-or-404 -- the same guard
@@ -111,13 +110,18 @@ async def upload_document(
     # filename (T-06.1-02).
     document_id = f"DOC-{uuid4().hex[:12].upper()}"
     title = os.path.basename(original_filename)[:255] or document_id
+    # doc_type defaults to the sniffed format's uppercased key when the
+    # form field is absent (06.1-04-PLAN.md Task 2 <action> item 4) --
+    # never a bare "UPLOADED" literal that discards the one thing this
+    # route already determined for certain about the file.
+    resolved_doc_type = doc_type or fmt.upper()
 
     await pool.execute(
         "INSERT INTO documents (id, system_id, doc_type, title, version, author, "
         "created_date, status) VALUES ($1, $2, $3, $4, $5, $6, now(), $7)",
         document_id,
         system_id,
-        doc_type,
+        resolved_doc_type,
         title,
         None,
         identity.user_id,
@@ -126,7 +130,26 @@ async def upload_document(
 
     # (g) parse -> chunk -> index. Parsing runs on the in-memory bytes
     # already read above; no temp file is ever written.
-    blocks = parse_text(raw, original_filename)
+    blocks = parse_document(raw, original_filename, fmt)
+
+    # A parse that yields no blocks for a non-empty, non-CSV payload is a
+    # parsing failure (T-06.1-22), not an honest zero: an empty CSV (no
+    # data rows) is the one legitimate "zero blocks" case, per
+    # parse_csv's own docstring. The `documents` row above is left in
+    # place so the Knowledge list can show the failure honestly instead
+    # of silently discarding the upload attempt.
+    if not blocks and fmt != "csv" and len(raw) > 0:
+        return DocumentUploadResponse(
+            document_id=document_id,
+            system_id=system_id,
+            title=title,
+            doc_type=resolved_doc_type,
+            chunk_count=0,
+            indexed_vector_count=0,
+            status="FAILED",
+            failed_stage="parsing",
+        )
+
     chunks = chunk_blocks(blocks)
     for chunk in chunks:
         # chunk_blocks() has no access to the client filename (its own
@@ -141,7 +164,7 @@ async def upload_document(
         document_id=document_id,
         system_id=system_id,
         title=title,
-        doc_type=doc_type,
+        doc_type=resolved_doc_type,
         chunk_count=result.chunk_count,
         indexed_vector_count=result.indexed_vector_count,
         status=result.status,
