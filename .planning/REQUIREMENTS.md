@@ -60,7 +60,7 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 - [x] **UI-01**: React + TypeScript + Vite + Tailwind app boots with routing scaffolded and a React Flow canvas mounted
 - [x] **UI-02**: `/api/copilot/stream/{session_id}` WebSocket accepts a connection and streams live agent state end-to-end
-- [ ] **UI-03**: Command Centre dashboard shows a readiness dial and health mini-cards
+- [x] **UI-03**: Command Centre dashboard shows a readiness dial and health mini-cards
 - [x] **UI-04**: Ask GxP Copilot page provides chat + live agent topology visualization
 
 ## v2 Requirements
@@ -144,7 +144,7 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | REM-03 | Phase 5 | Complete |
 | REM-04 | Phase 5 | Complete |
 | UI-02 | Phase 5 | Complete |
-| UI-03 | Phase 6 | Pending |
+| UI-03 | Phase 6 | Complete |
 | UI-04 | Phase 6 | Complete |
 
 **Coverage:**
