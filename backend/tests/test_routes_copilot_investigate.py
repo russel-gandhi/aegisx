@@ -1,11 +1,13 @@
 """
-Tests for `POST /api/copilot/investigate` (Phase 06.1, plan 06.1-02, Task 2).
+Tests for `POST /api/copilot/investigate` (Phase 06.1, plan 06.1-02, Tasks
+2 and 3).
 
-Covers every Task 2 `<behavior>` bullet. The UNIT section exercises the
-pure Python helpers (`evidence_support_band`, `_synthesis_prompt`,
-`_deterministic_fallback_answer`) directly, no I/O. The INTEGRATION
-section exercises the real HTTP route via `TestClient` against live,
-seeded Postgres + live OPA + live Qdrant -- the same "never mock
+Covers every Task 2 and Task 3 `<behavior>` bullet. The UNIT section
+exercises the pure Python helpers (`evidence_support_band`,
+`_synthesis_prompt`, `_deterministic_fallback_answer`,
+`compute_navigation_target`) directly, no I/O. The INTEGRATION section
+exercises the real HTTP route via `TestClient` against live, seeded
+Postgres + live OPA + live Qdrant -- the same "never mock
 Postgres/Qdrant/OPA" convention `test_hero_loop.py`/`test_graph_gateways.py`
 already establish for this graph.
 
@@ -23,6 +25,7 @@ chunk this test itself indexes.
 """
 
 import asyncio
+import inspect
 
 import respx
 
@@ -42,6 +45,7 @@ from app.routes.copilot_query import (
     INSUFFICIENT_EVIDENCE_ANSWER,
     _deterministic_fallback_answer,
     _synthesis_prompt,
+    compute_navigation_target,
     evidence_support_band,
 )
 
@@ -122,6 +126,109 @@ def test_deterministic_fallback_answer_names_document_titles_and_sections():
     answer = _deterministic_fallback_answer([_evidence_item(title="URS Extract", section="4.2 Traceability")])
     assert "URS Extract" in answer
     assert "4.2 Traceability" in answer
+
+
+# --- Task 3: compute_navigation_target (D-13) -------------------------------
+
+
+def _doc_item(document_id, document_title):
+    return {"evidence_type": "document", "document_id": document_id, "document_title": document_title}
+
+
+def _graph_item(graph_path):
+    return {"evidence_type": "graph_relationship", "graph_path": graph_path}
+
+
+def test_navigation_target_is_not_a_coroutine():
+    assert not inspect.iscoroutinefunction(compute_navigation_target)
+
+
+def test_navigation_target_none_for_empty_evidence():
+    assert compute_navigation_target([], "GXP-MFG-DEMO-01", False) is None
+
+
+def test_navigation_target_none_when_insufficient_regardless_of_evidence():
+    evidence = [_doc_item("DOC-A", "A"), _doc_item("DOC-A", "A")]
+    assert compute_navigation_target(evidence, "GXP-MFG-DEMO-01", True) is None
+
+
+def test_navigation_target_single_document_across_four_items():
+    evidence = [_doc_item("DOC-A", "URS Extract")] * 4
+    target = compute_navigation_target(evidence, "GXP-MFG-DEMO-01", False)
+    assert target is not None
+    assert target.kind == "document"
+    assert target.target_id == "DOC-A"
+    assert target.label == "URS Extract"
+    assert target.system_id == "GXP-MFG-DEMO-01"
+    assert "4" in target.reason
+    assert "URS Extract" in target.reason
+
+
+def test_navigation_target_none_for_two_competing_documents():
+    evidence = [_doc_item("DOC-A", "A"), _doc_item("DOC-B", "B")]
+    assert compute_navigation_target(evidence, "S", False) is None
+
+
+def test_navigation_target_graph_edge_onto_cited_document_collapses_to_document():
+    evidence = [_doc_item("DOC-A", "A"), _graph_item(["DOCUMENT:DOC-A", "DOCUMENT:DOC-A"])]
+    target = compute_navigation_target(evidence, "S", False)
+    assert target is not None
+    assert target.kind == "document"
+    assert target.target_id == "DOC-A"
+
+
+def test_navigation_target_none_for_document_plus_different_graph_entity():
+    evidence = [_doc_item("DOC-A", "A"), _graph_item(["DOCUMENT:DOC-A", "CHANGE:CHANGE-2026-09"])]
+    assert compute_navigation_target(evidence, "S", False) is None
+
+
+def test_navigation_target_graph_node_when_only_graph_evidence_agrees():
+    evidence = [
+        _graph_item(["DOCUMENT:DOC-A", "CHANGE:CHANGE-2026-09"]),
+        _graph_item(["DOCUMENT:DOC-B", "CHANGE:CHANGE-2026-09"]),
+    ]
+    target = compute_navigation_target(evidence, "S", False)
+    assert target is not None
+    assert target.kind == "graph_node"
+    assert target.target_id == "CHANGE:CHANGE-2026-09"
+    assert target.label == "CHANGE-2026-09"
+
+
+def test_navigation_target_none_when_document_id_empty_fails_closed():
+    evidence = [{"evidence_type": "document", "document_id": "", "document_title": "A"}]
+    assert compute_navigation_target(evidence, "S", False) is None
+
+
+def test_navigation_target_none_when_graph_path_empty_fails_closed():
+    evidence = [_graph_item([])]
+    assert compute_navigation_target(evidence, "S", False) is None
+
+
+def test_navigation_target_none_for_unrecognised_evidence_type_fails_closed():
+    evidence = [{"evidence_type": "some_future_type"}]
+    assert compute_navigation_target(evidence, "S", False) is None
+
+
+def test_navigation_target_colon_in_entity_id_round_trips_via_split_node_id():
+    # `DOCUMENT:DOC:A` splits on the FIRST colon only -> node_type
+    # "DOCUMENT", entity_id "DOC:A" -- the DOCUMENT collapse then yields
+    # ("document", "DOC:A"), never truncated at the second colon.
+    evidence = [_graph_item(["irrelevant-source-node", "DOCUMENT:DOC:A"])]
+    target = compute_navigation_target(evidence, "S", False)
+    assert target is not None
+    assert target.kind == "document"
+    assert target.target_id == "DOC:A"
+
+
+def test_navigation_target_performs_no_io():
+    # No pool argument accepted at all, and no await/call_llm/httpx inside
+    # the function body (also asserted via the plan's own sed/grep
+    # acceptance criteria) -- exercised here inside an empty respx.mock
+    # context so ANY escaped HTTP call fails this test loudly.
+    with respx.mock(assert_all_called=False):
+        evidence = [_doc_item("DOC-A", "A")]
+        target = compute_navigation_target(evidence, "S", False)
+    assert target is not None
 
 
 # ---------------------------------------------------------------------------
@@ -237,6 +344,7 @@ def test_integration_insufficient_evidence_path_makes_zero_synthesis_calls(clien
     assert body["answer"] == INSUFFICIENT_EVIDENCE_ANSWER
     assert body["evidence"] == []
     assert body["evidence_support"] == "INSUFFICIENT_EVIDENCE"
+    assert body["navigation_target"] is None
     stage_ids = [s["stage_id"] for s in body["stages"]]
     assert stage_ids == ["understanding", "searching", "combining", "reranking", "evaluating", "preparing"]
     preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
@@ -314,6 +422,15 @@ def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monke
         assert body["model_attribution"] == "deterministic-fallback"
         assert DEMO_DOCUMENT_TITLE in body["answer"]
         assert body["evidence_support"] in ("HIGH", "MODERATE", "LIMITED")
+        # Every retrieved item in this test cites the same one seeded
+        # document (DEMO_DOCUMENT_ID) -- a single unambiguous destination
+        # (D-13), computed server-side.
+        assert all(e["document_id"] == DEMO_DOCUMENT_ID for e in body["evidence"])
+        nav = body["navigation_target"]
+        assert nav is not None
+        assert nav["kind"] == "document"
+        assert nav["target_id"] == DEMO_DOCUMENT_ID
+        assert nav["system_id"] == DEMO_SYSTEM
         preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
         assert preparing["status"] == "complete"
     finally:

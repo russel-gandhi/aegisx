@@ -34,6 +34,7 @@ from langchain_core.messages import HumanMessage
 from app.agents.c2_gateway import detect_injection
 from app.agents.minimal_specialists import _is_json_shaped
 from app.db import acquire_pool_or_none
+from app.graph.evidence_graph import split_node_id
 from app.graph.state import compiled_graph
 from app.identity import RequestIdentity, require_identity
 from app.llm_router import LLMResponse, call_llm
@@ -45,6 +46,7 @@ from app.schemas import (
     CopilotQueryRequest,
     CopilotQueryResponse,
     InvestigationStage,
+    NavigationTarget,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,6 +195,107 @@ async def _safe_synthesis_call(prompt: str) -> Optional[LLMResponse]:
         return None
 
 
+# ---------------------------------------------------------------------------
+# navigation_target (Phase 06.1, plan 06.1-02, Task 3, D-13)
+# ---------------------------------------------------------------------------
+#
+# Navigation is a view transition (READ), not a compliance action -- it
+# carries no new C3 action type and changes nothing in C3's routing table.
+# The "is this unambiguous" judgement below is arithmetic on a set, not an
+# opinion: every string on `NavigationTarget` is composed in Python from
+# fields already assembled elsewhere in this route (a Postgres-sourced
+# `document_id`/`document_title`, or a `graph_nodes`/`graph_edges`-sourced
+# node id) -- nothing here consults a model, opens a connection, or awaits
+# anything (D-08).
+
+
+def _terminal_graph_node(graph_path: Any) -> Optional[str]:
+    """The last entry of `graph_path` when it is a non-empty list of
+    strings, else `None`. Plan 06.1-03 builds `graph_path` as
+    `[document_node_id, neighbour_node_id]`, so the last entry is the
+    entity the relationship points at -- the entity a user asking about it
+    would want to open."""
+    if isinstance(graph_path, list) and graph_path:
+        return graph_path[-1]
+    return None
+
+
+def _navigation_candidate(item: Dict[str, Any]) -> Optional[Tuple[str, str]]:
+    """Maps one evidence dict to a `(kind, id)` candidate pair, or `None`
+    when the item cannot be placed at all -- the fail-closed rule: an item
+    AegisX cannot place is an item that might disagree (Task 3
+    <behavior>)."""
+    evidence_type = item.get("evidence_type")
+    if evidence_type == "document":
+        document_id = item.get("document_id")
+        if document_id:
+            return "document", document_id
+        return None
+    if evidence_type == "graph_relationship":
+        node = _terminal_graph_node(item.get("graph_path"))
+        if node is None:
+            return None
+        node_type, entity_id = split_node_id(node)
+        if node_type == "DOCUMENT":
+            # A graph edge onto an already-cited document collapses onto
+            # the same candidate rather than reading as a second
+            # destination.
+            return "document", entity_id
+        # The FULL node id, because that is what the Blast Radius page's
+        # existing `?node=` deep-link contract expects.
+        return "graph_node", node
+    return None
+
+
+def compute_navigation_target(
+    evidence: List[Dict[str, Any]], system_id: str, insufficient: bool
+) -> Optional[NavigationTarget]:
+    """D-13's deterministic single-unambiguous-destination rule.
+
+    Returns `None` immediately when `insufficient` is true or `evidence`
+    is empty. Otherwise walks the list once, collecting each item's
+    `_navigation_candidate` -- the moment any item yields `None`, the
+    whole call returns `None`. If exactly one distinct candidate survives,
+    builds the `NavigationTarget`; two or more (or zero) returns `None`.
+    """
+    if insufficient or not evidence:
+        return None
+
+    ordered_candidates: List[Tuple[str, str]] = []
+    label_by_candidate: Dict[Tuple[str, str], str] = {}
+
+    for item in evidence:
+        candidate = _navigation_candidate(item)
+        if candidate is None:
+            return None
+        ordered_candidates.append(candidate)
+        if candidate not in label_by_candidate:
+            kind, target_id = candidate
+            if kind == "document":
+                # A fallback to another server field, never invented text.
+                label_by_candidate[candidate] = item.get("document_title") or target_id
+            else:
+                label_by_candidate[candidate] = split_node_id(target_id)[1]
+
+    unique_candidates = set(ordered_candidates)
+    if len(unique_candidates) != 1:
+        return None
+
+    kind, target_id = next(iter(unique_candidates))
+    label = label_by_candidate[(kind, target_id)]
+
+    if kind == "document":
+        reason = f'All {len(evidence)} evidence items cite one document: "{label}" ({target_id}).'
+    else:
+        reason = f"All {len(evidence)} evidence items resolve to one graph entity: {label}."
+
+    # `system_id` is the request's own system id -- the system the whole
+    # retrieval was scoped to -- never re-derived from the evidence, since
+    # evidence items carry no system field and inferring one would be the
+    # client-invented-fallback failure D-11 forbids, moved server-side.
+    return NavigationTarget(kind=kind, target_id=target_id, label=label, system_id=system_id, reason=reason)
+
+
 def _stage_from_trace(stage_id: str, trace_by_id: Dict[str, Dict[str, Any]]) -> InvestigationStage:
     row = trace_by_id.get(stage_id)
     if row is not None:
@@ -264,6 +367,10 @@ async def investigate(
             verification_results={},
             evidence_support="INSUFFICIENT_EVIDENCE",
             model_attribution="deterministic-c2",
+            # Present-and-null rather than defaulted by omission -- a
+            # reader of this return statement can see a blocked request
+            # offers no destination.
+            navigation_target=None,
         )
 
     retrieval_evidence: List[Dict[str, Any]] = result.get("retrieval_evidence") or []
@@ -301,6 +408,7 @@ async def investigate(
             verification_results=result.get("verification_results", {}),
             evidence_support="INSUFFICIENT_EVIDENCE",
             model_attribution="deterministic-fallback",
+            navigation_target=compute_navigation_target(retrieval_evidence, request.system_id, insufficient_evidence),
         )
 
     prompt = _synthesis_prompt(request.query, retrieval_evidence)
@@ -332,4 +440,5 @@ async def investigate(
         verification_results=result.get("verification_results", {}),
         evidence_support=evidence_support_band(retrieval_evidence, insufficient_evidence),
         model_attribution=model_attribution,
+        navigation_target=compute_navigation_target(retrieval_evidence, request.system_id, insufficient_evidence),
     )
