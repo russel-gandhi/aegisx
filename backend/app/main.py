@@ -43,6 +43,9 @@ first real HTTP caller.
 Plan 06-02 registers a seventh router: the access/supplier overdue-signals
 endpoint from `app.routes.system_signals` (D-07 mini-cards #5/#6).
 
+Plan 06.1-01 registers an eighth router: the document ingestion endpoint
+from `app.routes.documents` (RAG-01) -- `POST /api/documents/upload`.
+
 Quick task 260826-p1q (Task 3) adds a `lifespan` context manager: on
 startup it schedules `app.prewarm.prewarm_narration_cache()` as a
 background `asyncio.create_task` WITHOUT awaiting it, so the ASGI
@@ -71,6 +74,7 @@ from app.prewarm import prewarm_narration_cache
 from app.routes.actions import router as actions_router
 from app.routes.audit import router as audit_router
 from app.routes.copilot_query import router as copilot_query_router
+from app.routes.documents import router as documents_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
 from app.routes.system_signals import router as system_signals_router
@@ -120,6 +124,7 @@ app.include_router(findings_router)
 app.include_router(actions_router)
 app.include_router(audit_router)
 app.include_router(copilot_query_router)
+app.include_router(documents_router)
 app.include_router(system_signals_router)
 
 

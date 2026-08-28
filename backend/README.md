@@ -178,6 +178,18 @@ This section records every point where `backend/app/opa_client.py` departs from 
 
 **Pre-existing documentation gap, noted but not fixed here (Rule 7):** `llm_router.py`'s own module docstring already references "Deviation 10", "Deviation 11", and "Deviation 12" for three separate, already-shipped corrections (the retired Gemini 2.5 flash model id, the `gemini_flash_fast` thinking-budget fix, and the retired Llama 3.3 70B model id) that have no corresponding heading anywhere in this file — those numbers were assigned in the code comment before this section was ever backfilled for them. Quick task 260826-p1q's `"narration"` key addition to `groq_llama["use_for"]` was similarly never given its own README heading. This section's own new heading is numbered by the highest EXISTING heading in this file (9) plus one, per this task's own scoping — it deliberately does not attempt to renumber or backfill the code docstring's numbers, which belongs to the SENT-7-05 Bible-reconciliation pass, not to this quick task.
 
+### Deviation 11 — document_chunks extended with structure-aware columns
+
+**Bible says:** `AegisX-AI-Project-Bible-v6.md` Section 4.1's literal `document_chunks` DDL is `chunk_id`, `document_id`, `content`, `embedding_id` only — no chunk hierarchy.
+
+**Implemented:** `infra/postgres/initdb/004_document_chunks_structure.sql` additively extends `document_chunks` with `section VARCHAR`, `page INT`, `parent_chunk_id UUID REFERENCES document_chunks(chunk_id)`, `chunk_index INT`, and `metadata JSONB`, plus an `idx_document_chunks_document_id` index.
+
+**Why:** Bible Section 4.1's literal DDL predates Section 15's hybrid-retrieval spec and never defined a chunk hierarchy — real ingestion (06.1-01-PLAN.md, RAG-01/RAG-02) needs section/page provenance for citation, `chunk_index`/`parent_chunk_id` for parent-context expansion (Bible Section 15.4), and `metadata` for the chunker's own bookkeeping.
+
+**Numbering note:** the migration file's own header locks the literal text `Deviation 13` (06.1-01-PLAN.md's exact required wording, matching this phase's parallel `embeddings.py` Deviation 14) — this README heading is numbered `11` instead, following this file's own established convention immediately above ("the highest EXISTING heading in this file... plus one") rather than the migration/code docstring's independently-incrementing number. Both numbers name the same single change; there is no second, undocumented deviation.
+
+**Scope:** `infra/postgres/initdb/004_document_chunks_structure.sql` only — an additive migration, no existing column changed or removed. Routed to **SENT-7-05**.
+
 ## AgentFinding conventions (Phase 3)
 
 Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
