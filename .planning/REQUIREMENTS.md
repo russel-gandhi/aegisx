@@ -67,13 +67,13 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 - [ ] **AGT-01**: A1 System Knowledge agent (Qdrant RAG) with hybrid dense+sparse retrieval, fusion, and cross-encoder reranking — *moved from v2; see below, no longer deferred*
 - [ ] **HARD-04**: RAG retrieval precision evaluation — *moved from v2; see below, no longer deferred*
-- [ ] **RAG-01**: Real document ingestion (upload → parse → structure-aware chunk → index) for PDF/DOCX/CSV/plain-text
-- [ ] **RAG-02**: `document_chunks` schema extended with section/page/parent_chunk_id/chunk_index/metadata (documented Bible deviation)
+- [x] **RAG-01**: Real document ingestion (upload → parse → structure-aware chunk → index) for PDF/DOCX/CSV/plain-text
+- [x] **RAG-02**: `document_chunks` schema extended with section/page/parent_chunk_id/chunk_index/metadata (documented Bible deviation)
 - [ ] **RAG-03**: Hybrid retrieval (Qdrant dense + BM25 lexical) with explicit fusion, per Bible Section 15
 - [ ] **RAG-04**: Cross-encoder reranking stage between candidate fusion and evidence filtering
-- [ ] **RAG-05**: Evidence filtering + context assembly with full provenance (Bible Section 15.7 fields), never dumping the raw candidate pool to the LLM
-- [ ] **RAG-06**: Copilot wired to the real compiled `StateGraph` (`compiled_graph.ainvoke`) instead of the readiness-only stub; honest "insufficient evidence" when retrieval finds nothing above threshold
-- [ ] **RAG-07**: Evidence inspection UI (source/section/page/retrieval method) per `UI_SPEC.md` Section 11, reusing the `AssuranceCard` provenance pattern
+- [x] **RAG-05**: Evidence filtering + context assembly with full provenance (Bible Section 15.7 fields), never dumping the raw candidate pool to the LLM
+- [x] **RAG-06**: Copilot wired to the real compiled `StateGraph` (`compiled_graph.ainvoke`) instead of the readiness-only stub; honest "insufficient evidence" when retrieval finds nothing above threshold
+- [x] **RAG-07**: Evidence inspection UI (source/section/page/retrieval method) per `UI_SPEC.md` Section 11, reusing the `AssuranceCard` provenance pattern
 
 ## v2 Requirements
 
