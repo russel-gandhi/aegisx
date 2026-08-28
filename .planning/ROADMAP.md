@@ -181,9 +181,18 @@ Plans:
 
 ### Phase 06.1: Advanced Retrieval & Real Copilot (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 6
+**Goal**: A user can upload a real GxP document, ask the Copilot a genuine investigation question (not just the seeded hero query), and get a grounded answer with inspectable evidence — citations, source document/section/page, and retrieval method — produced by real hybrid (dense+lexical) retrieval and cross-encoder reranking over that document, routed through the actual A0-C3 orchestrator instead of the readiness-only stub. (User directive, 2026-08-28 — explicit scope override pulling v2-deferred AGT-01/HARD-04 into v1.)
+**Mode:** mvp
+**Depends on**: Phase 6 (Copilot chat UI, AssuranceCard provenance pattern, existing frontend shell)
+**Requirements**: RAG-01, RAG-02, RAG-03, RAG-04, RAG-05, RAG-06, RAG-07, AGT-01, HARD-04
+**Success Criteria** (what must be TRUE):
+
+  1. A user can upload a PDF, DOCX, CSV, or plain-text/Markdown document through the UI; it is parsed, chunked with preserved section/page structure, and indexed (Postgres `document_chunks` + Qdrant) — not just a filename stored.
+  2. A free-text Copilot question (not just the literal seeded hero query) triggers real hybrid retrieval: dense (Qdrant) + lexical (BM25) candidates are fused, reranked by a cross-encoder, and filtered before reaching the LLM.
+  3. The Copilot's answer cites real source evidence (document, section/page, retrieval method) that the user can inspect — never a fabricated citation, and an honest "insufficient evidence" response when retrieval finds nothing above threshold.
+  4. The Copilot is routed through the real compiled `StateGraph` (`compiled_graph.ainvoke`), not the `supported: false` stub — C1's deterministic verification boundary is unchanged and still gates any compliance conclusion.
+  5. The Knowledge/Investigation-trace/Evidence-view frontend surfaces from `UI_SPEC.md` exist and show real backend state (ingestion status, retrieval stages, evidence) — no decorative fake progress.
+
 **Plans:** 0 plans
 
 Plans:
