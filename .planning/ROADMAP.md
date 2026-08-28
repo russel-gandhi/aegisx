@@ -199,6 +199,26 @@ Plans:
 
 - [ ] TBD (run /gsd-plan-phase 06.1 to break down)
 
+### Phase 06.1.1: Blast Radius Investigation Redesign (INSERTED)
+
+**Goal**: Blast Radius stops looking like a generic React Flow prototype and becomes a real investigation workspace — an initiating change is immediately understandable, the graph is readable without extreme zoom, node selection produces useful "why is this affected" context with real evidence, and the Copilot can navigate a user directly into a focused investigation state. All data stays real (NetworkX graph from live Postgres, Bible Section 1.3 — zero invented relationships, zero fabricated evidence/confidence). (User directive, 2026-08-28.)
+**Mode:** mvp
+**Depends on**: Phase 4 (Evidence & Impact — the real `evidence-graph`/`blast-radius` backend this phase redesigns the UI for, already built and unchanged by this phase) for the bulk of the work; Phase 06.1 (Advanced Retrieval & Real Copilot) *only* for the Copilot-navigates-to-Blast-Radius sub-feature, which needs 06.1's real Copilot routing to exist first — see phase CONTEXT.md wave split.
+**Requirements**: (none pre-existing — this is UX/quality work on already-shipped Phase 4 functionality, not new backend capability; see CONTEXT.md for the specific acceptance criteria)
+**Success Criteria** (what must be TRUE):
+
+  1. The page communicates an investigation narrative (change → impact → relationships → evidence → decision), not a bare graph + sidebar — real backend data throughout, no invented relationships or fabricated counts/confidence.
+  2. Nodes are readable without extreme zoom; entity types are visually distinguishable via a restrained, semantic (not decorative) color language; the React Flow attribution watermark is hidden.
+  3. Selecting a node shows why it's connected (relationship chain back to the origin), any real supporting evidence, and downstream impact — never a "click a node to see detail" placeholder.
+  4. The investigation path from an initiating change to an affected node can be visually followed, with unrelated nodes de-emphasized.
+  5. The Copilot can resolve a plain-language Blast Radius request ("show me the blast radius of CHANGE-2026-09") and navigate the user to the correct pre-focused investigation state via the existing `?node=` deep-link pattern — gated on Phase 06.1's real Copilot routing landing first.
+
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 06.1.1 to break down)
+
 ### Phase 7: Integration & Hardening
 
 **Goal**: Nothing in the demo path breaks under adversarial input, and restoring demo state is a single command — the system is hardened for judged demo conditions. (Build-Map Stage 6, Gate: "nothing in the demo path breaks under adversarial input; demo-state reset is one command.")

@@ -4,16 +4,16 @@ current_phase: 06
 current_phase_name: Product Experience
 status: executing
 stopped_at: Phase 6 planned — 3 plans (06-01/02/03) verified, ready for execution
-last_updated: "2026-08-28T12:15:50.250Z"
+last_updated: "2026-08-28T12:24:08.924Z"
 last_activity: 2026-08-27
 last_activity_desc: Phase 06 execution started
-state_head: 2bd55307e88bcf3b4b71a337a810070eb2453d75
+state_head: 71e2aff37f7761d333484f752015d592aecbd45c
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 3
   total_plans: 32
   completed_plans: 32
-  percent: 33
+  percent: 30
 ---
 
 Total Phases: 6
@@ -81,6 +81,7 @@ None yet.
 ### Roadmap Evolution
 
 - Phase 06.1 inserted after Phase 6: User directive: build the real hybrid-retrieval evidence loop (document ingestion, structure-aware chunking, dense+lexical hybrid retrieval, cross-encoder reranking, evidence filtering) and wire the Copilot to the real A0-C3 LangGraph orchestrator instead of the readiness-only stub. Explicit scope override of the v2-deferred AGT-01/HARD-04 requirements, approved by user 2026-08-28. Embedding via hosted API through the existing LLM router (not local model). document_chunks schema extended with section/page/parent_chunk_id/chunk_index/metadata (documented Bible deviation). Formats: PDF, DOCX, CSV, plain text/markdown. (URGENT)
+- Phase 06.1.1 inserted after Phase 06.1: User directive: redesign the Blast Radius page from a bare React Flow prototype into a real investigation workspace (investigation header, impact summary, readable nodes with semantic color, non-passive investigation panel, path highlighting, evidence explanation using real graph relationship data) and add Copilot-driven navigation into a focused Blast Radius state. Backend graph logic (evidence_graph.py) is correct and unchanged -- this is a frontend redesign over real data. Copilot-navigation sub-feature explicitly gated on Phase 06.1's real Copilot routing landing first, never stubbed. (URGENT)
 
 ## Deferred Items
 
