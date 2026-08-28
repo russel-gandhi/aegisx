@@ -23,7 +23,13 @@ vi.mock('react-joyride', async (importOriginal) => {
     Joyride: (props: {
       run: boolean
       stepIndex: number
-      steps: Array<{ target: string; title?: string; content?: string }>
+      steps: Array<{
+        target: string
+        title?: string
+        content?: string
+        targetWaitTimeout?: number
+      }>
+      options?: Record<string, unknown>
       onEvent: (data: unknown) => void
     }) => {
       if (!props.run) return null
@@ -33,6 +39,25 @@ vi.mock('react-joyride', async (importOriginal) => {
           <p data-testid="mock-joyride-target">{currentStep?.target}</p>
           <p data-testid="mock-joyride-title">{currentStep?.title}</p>
           <p data-testid="mock-joyride-content">{currentStep?.content}</p>
+          <p data-testid="mock-joyride-wait">{String(currentStep?.targetWaitTimeout)}</p>
+          <p data-testid="mock-joyride-overlay-click-action">
+            {String(props.options?.overlayClickAction)}
+          </p>
+          {/* A step torn down without a navigation decision -- what a stray
+              overlay click used to produce before `overlayClickAction: false`. */}
+          <button
+            type="button"
+            data-testid="mock-joyride-step-close"
+            onClick={() =>
+              props.onEvent({
+                type: actual.EVENTS.STEP_AFTER,
+                action: actual.ACTIONS.CLOSE,
+                status: actual.STATUS.RUNNING,
+              })
+            }
+          >
+            Close current step
+          </button>
           <button
             type="button"
             data-testid="mock-joyride-next"
@@ -223,6 +248,54 @@ describe('GuidedTourOverlay', () => {
 
     expect(screen.getByTestId('start-guided-tour')).toBeInTheDocument()
     expect(screen.queryByTestId('mock-joyride')).not.toBeInTheDocument()
+  })
+
+  // Regression guards for debug session `guided-tour-copilot-next-stuck`.
+  describe('unrecoverable-tour guards', () => {
+    it('disables the overlay click action so a stray click cannot silently kill the tour', () => {
+      renderOverlay()
+      fireEvent.click(screen.getByTestId('start-guided-tour'))
+
+      // react-joyride's default is `overlayClickAction: 'close'`, which turns
+      // any click landing outside the spotlight into an ACTIONS.CLOSE that
+      // tears the step down with no way back.
+      expect(screen.getByTestId('mock-joyride-overlay-click-action')).toHaveTextContent('false')
+    })
+
+    it('ends the tour cleanly on a CLOSE action instead of stranding it with no tooltip', () => {
+      renderOverlay()
+      fireEvent.click(screen.getByTestId('start-guided-tour'))
+      expect(screen.getByTestId('mock-joyride')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('mock-joyride-step-close'))
+
+      // Joyride's own lifecycle has already completed for this step, so
+      // leaving stepIndex untouched would leave the user staring at an
+      // overlay with no tooltip and no way forward.
+      expect(screen.getByTestId('start-guided-tour')).toBeInTheDocument()
+      expect(screen.queryByTestId('mock-joyride')).not.toBeInTheDocument()
+    })
+
+    it('gives steps whose target appears only after backend work a longer targetWaitTimeout', () => {
+      renderOverlay()
+      fireEvent.click(screen.getByTestId('start-guided-tour'))
+
+      // Step 1's target is static -- no override needed.
+      expect(screen.getByTestId('mock-joyride-wait')).toHaveTextContent('undefined')
+
+      // Step 3 ("Evidence, Verified") targets [data-tour="copilot-messages"],
+      // which exists only once the hero query has been submitted AND streamed.
+      // react-joyride's 1000ms default would declare TARGET_NOT_FOUND first --
+      // and in controlled mode the library never auto-recovers from that.
+      fireEvent.click(screen.getByTestId('mock-joyride-next')) // -> index 1
+      fireEvent.click(screen.getByTestId('mock-joyride-next')) // -> index 2
+
+      expect(screen.getByTestId('mock-joyride-target')).toHaveTextContent(
+        '[data-tour="copilot-messages"]',
+      )
+      const wait = Number(screen.getByTestId('mock-joyride-wait').textContent)
+      expect(wait).toBeGreaterThan(1000)
+    })
   })
 
   it('shows a persistent note rather than crashing or silently skipping when a target is not found', () => {

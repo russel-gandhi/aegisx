@@ -266,14 +266,28 @@ export default function Copilot() {
         )}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-4 flex items-end gap-2">
+      {/*
+        The Guided Tour's `copilot-input` anchor sits on the FORM, not the
+        textarea. react-joyride's overlay intercepts pointer events everywhere
+        outside the spotlight cut-out, and only the spotlighted element stays
+        interactive (v3 default `blockTargetInteraction: false`). Anchoring on
+        the textarea alone left the "Ask Copilot" submit button underneath the
+        overlay, so the tour step's own instruction ("submit it yourself") was
+        physically impossible -- the click was swallowed, or worse, read as an
+        overlay click that closed the step. The form wraps both controls, so
+        spotlighting it keeps the whole submit affordance reachable.
+      */}
+      <form
+        onSubmit={handleSubmit}
+        data-tour="copilot-input"
+        className="mt-4 flex items-end gap-2"
+      >
         <textarea
           value={inputValue}
           onChange={(event) => setInputValue(event.target.value)}
           disabled={isStreaming}
           placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
           rows={2}
-          data-tour="copilot-input"
           className="max-h-40 min-h-[3rem] flex-1 overflow-y-auto rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
         />
         <button

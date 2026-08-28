@@ -31,7 +31,28 @@ const JOYRIDE_OPTIONS = {
   primaryColor: '#059669', // emerald-600
   textColor: '#f1f5f9', // slate-100
   width: 400,
+  // This tour requires REAL user clicks on real product controls (submit the
+  // hero query, Generate CAPA, Approve). react-joyride's default
+  // `overlayClickAction: 'close'` turns any click that lands on the overlay
+  // -- including a mis-aimed click at a control just outside the spotlight --
+  // into an ACTIONS.CLOSE that tears the step down with no way back. For a
+  // guided demo that is never the desired behaviour: a stray click should be
+  // inert, not fatal.
+  overlayClickAction: false as const,
 }
+
+// Steps whose target only exists AFTER real backend work completes get a
+// generous wait instead of react-joyride's 1000ms default. The library polls
+// for the target every 100ms and self-heals to LIFECYCLE.READY the moment it
+// appears, so a slow stream degrades into a short wait rather than a
+// TARGET_NOT_FOUND dead-end (which, in controlled mode, the library will NOT
+// auto-recover from -- it only self-advances when `controlled === false`).
+const ASYNC_TARGET_WAIT_MS = 15000
+const ASYNC_TARGET_STEP_INDEXES = new Set([
+  2, // "Evidence, Verified" -- [data-tour="copilot-messages"] renders only after the hero query is submitted and streams
+  3, // "Blast Radius" -- FindingInvestigation must load its finding first
+  6, // "Audit Integrity" -- CommandCentre mini-cards await /api/audit/verify
+])
 
 const JOYRIDE_STYLES = {
   spotlight: {
@@ -317,27 +338,40 @@ export default function GuidedTourOverlay() {
         setStepIndex((i) => Math.min(i + 1, LAST_STEP_INDEX))
       } else if (action === ACTIONS.PREV) {
         setStepIndex((i) => Math.max(i - 1, 0))
+      } else if (action === ACTIONS.CLOSE) {
+        // A CLOSE here means the step was torn down without a navigation
+        // decision (dismiss key, close button, or -- before
+        // `overlayClickAction: false` -- a stray overlay click). Joyride's own
+        // lifecycle has already completed, so leaving `stepIndex` untouched
+        // would strand the tour with no tooltip and no way forward. Ending
+        // cleanly returns the user to the "Start Guided Tour" entry point
+        // instead of a frozen overlay.
+        reset()
       }
     }
   }
 
   const steps: Step[] = TOUR_STEPS.map((s, idx) => {
+    const waitOverride = ASYNC_TARGET_STEP_INDEXES.has(idx)
+      ? { targetWaitTimeout: ASYNC_TARGET_WAIT_MS }
+      : {}
     if (idx === REMEDIATION_STEP_INDEX) {
       if (remediationPhase === 'approve') {
         return {
           target: '[data-tour="approve-action"]',
           title: s.title,
           content: skipNote ?? APPROVE_PHASE_CONTENT,
+          targetWaitTimeout: ASYNC_TARGET_WAIT_MS,
         }
       }
-      return { target: s.target, title: s.title, content: s.content }
+      return { target: s.target, title: s.title, content: s.content, ...waitOverride }
     }
     if (s.target === '') {
       // Closing step (id:8): a centered, target-less modal per react-joyride's
       // documented pattern for a final "you're done" message.
       return { target: 'body', placement: 'center', title: s.title, content: s.content }
     }
-    return { target: s.target, title: s.title, content: s.content }
+    return { target: s.target, title: s.title, content: s.content, ...waitOverride }
   })
 
   return (
