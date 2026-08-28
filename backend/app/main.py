@@ -40,6 +40,9 @@ Plan 06-01 registers a sixth router: the Copilot non-hero-query endpoint
 from `app.routes.copilot_query` (D-04) -- gives `detect_injection()` its
 first real HTTP caller.
 
+Plan 06-02 registers a seventh router: the access/supplier overdue-signals
+endpoint from `app.routes.system_signals` (D-07 mini-cards #5/#6).
+
 Quick task 260826-p1q (Task 3) adds a `lifespan` context manager: on
 startup it schedules `app.prewarm.prewarm_narration_cache()` as a
 background `asyncio.create_task` WITHOUT awaiting it, so the ASGI
@@ -70,6 +73,7 @@ from app.routes.audit import router as audit_router
 from app.routes.copilot_query import router as copilot_query_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
+from app.routes.system_signals import router as system_signals_router
 from app.ws.copilot import router as copilot_ws_router
 
 
@@ -116,6 +120,7 @@ app.include_router(findings_router)
 app.include_router(actions_router)
 app.include_router(audit_router)
 app.include_router(copilot_query_router)
+app.include_router(system_signals_router)
 
 
 @app.get("/api/health")

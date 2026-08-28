@@ -320,3 +320,15 @@ class TamperDemoResponse(BaseModel):
     rows_modified: int
     events_checked: Optional[int] = None
     broken_at_index: Optional[int] = None
+
+
+# Phase 6 (06-02, D-07 mini-cards #5/#6): access/supplier overdue-signals
+# response model. Mirrors `minimal_specialists._check_a6`'s query shape
+# (overdue `access_reviews`) plus a new overdue `suppliers` query -- see
+# `routes/system_signals.py`'s own module docstring. Every field here is a
+# plain count/name read straight off Postgres; no model is consulted.
+class SystemSignalsResponse(BaseModel):
+    system_id: str
+    overdue_access_reviews: int
+    overdue_suppliers: int
+    overdue_supplier_names: List[str]
