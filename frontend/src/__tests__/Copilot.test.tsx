@@ -434,6 +434,74 @@ describe('Copilot free-text investigation (plan 06.1-06, D-07: real investigateC
   })
 })
 
+describe('Copilot auto-navigate wiring (plan 06.1-08, D-13)', () => {
+  it('arms auto-navigate only for the newest assistant message, not an earlier one', async () => {
+    stubAssuranceCardsFetch({ cards: [] })
+    const target = {
+      kind: 'document' as const,
+      target_id: 'DOC-A',
+      label: 'Fixture Validation Protocol',
+      system_id: 'GXP-MFG-DEMO-01',
+      reason: 'single unambiguous document citation',
+    }
+    mockInvestigateCopilot.mockResolvedValue(fixtureInvestigateResult({ navigation_target: target }))
+    renderCopilot()
+
+    await submitQuery("what's traced to URS-042?")
+    await waitFor(() => {
+      expect(screen.getAllByTestId('auto-navigate-notice')).toHaveLength(1)
+    })
+
+    mockInvestigateCopilot.mockResolvedValue(
+      fixtureInvestigateResult({ navigation_target: target, answer: 'Second grounded answer.' }),
+    )
+    await submitQuery('a second question')
+
+    await waitFor(() => {
+      // Only the newest assistant message's notice is armed -- the earlier
+      // investigation message's notice does not re-render as armed.
+      expect(screen.getAllByTestId('auto-navigate-notice')).toHaveLength(1)
+    })
+  })
+
+  it('renders no auto-navigate notice when navigation_target is null', async () => {
+    stubAssuranceCardsFetch({ cards: [] })
+    mockInvestigateCopilot.mockResolvedValue(fixtureInvestigateResult({ navigation_target: null }))
+    renderCopilot()
+    await submitQuery("what's traced to URS-042?")
+
+    await waitFor(() => {
+      expect(screen.getByText(fixtureInvestigateResult().answer)).toBeInTheDocument()
+    })
+    expect(screen.queryByTestId('auto-navigate-notice')).toBeNull()
+  })
+
+  it('cancels the pending navigation for the newest message when the user types in the composer', async () => {
+    stubAssuranceCardsFetch({ cards: [] })
+    const target = {
+      kind: 'document' as const,
+      target_id: 'DOC-A',
+      label: 'Fixture Validation Protocol',
+      system_id: 'GXP-MFG-DEMO-01',
+      reason: 'single unambiguous document citation',
+    }
+    mockInvestigateCopilot.mockResolvedValue(fixtureInvestigateResult({ navigation_target: target }))
+    renderCopilot()
+    await submitQuery("what's traced to URS-042?")
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auto-navigate-notice')).toBeInTheDocument()
+    })
+
+    const textarea = screen.getByPlaceholderText(/Ask e.g/i)
+    fireEvent.change(textarea, { target: { value: 'typing my next question' } })
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('auto-navigate-notice')).toBeNull()
+    })
+  })
+})
+
 describe('Copilot message list auto-scroll (06-UI-SPEC.md overflow row)', () => {
   it('sets scrollTop to scrollHeight on the message container after a new message arrives', async () => {
     stubAssuranceCardsFetch({ cards: [] })

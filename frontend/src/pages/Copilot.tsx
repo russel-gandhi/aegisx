@@ -76,6 +76,13 @@ export default function Copilot() {
   )
   const [isStreaming, setIsStreaming] = useState(false)
   const [selectedSystemId, setSelectedSystemId] = useState(COPILOT_SYSTEM_IDS[0])
+  // Phase 06.1 plan 06.1-08 (D-13): tracks which assistant messages have had
+  // their pending auto-navigate cancelled -- keyed by message id so
+  // cancellation is permanent for that message and never re-arms. Exists
+  // because WCAG 2.2.1 (Timing Adjustable) requires a non-essential timing
+  // limit to be cancellable; "Stay here" and typing in the composer are the
+  // two cancel triggers.
+  const [navigationCancelled, setNavigationCancelled] = useState<Record<string, boolean>>({})
   const [nodeStatus, setNodeStatus] = useState<Record<string, NodeStatusValue>>({})
   const [disconnected, setDisconnected] = useState(false)
   const sessionIdRef = useRef(generateSessionId())
@@ -262,6 +269,12 @@ export default function Copilot() {
       })
   }
 
+  // Phase 06.1 plan 06.1-08 (D-13): auto-navigation applies only to the
+  // newest assistant message -- an older investigation message re-rendered
+  // or scrolled back into view arms nothing.
+  const latestAssistantId =
+    [...messages].reverse().find((message) => message.role === 'assistant')?.id ?? null
+
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-100">Ask GxP Copilot</h1>
@@ -308,7 +321,15 @@ export default function Copilot() {
             data-tour="copilot-messages"
           >
             {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} />
+              <ChatMessage
+                key={message.id}
+                message={message}
+                systemId={selectedSystemId}
+                autoNavigateArmed={message.id === latestAssistantId && !navigationCancelled[message.id]}
+                onNavigationCancelled={() =>
+                  setNavigationCancelled((prev) => ({ ...prev, [message.id]: true }))
+                }
+              />
             ))}
           </div>
         )}
@@ -332,7 +353,16 @@ export default function Copilot() {
       >
         <textarea
           value={inputValue}
-          onChange={(event) => setInputValue(event.target.value)}
+          onChange={(event) => {
+            // WCAG 2.2.1 Timing Adjustable: a user who has started typing
+            // their next question has told us they are staying -- mark
+            // navigationCancelled for the newest message the same way
+            // "Stay here" does, before updating the input value.
+            if (latestAssistantId !== null) {
+              setNavigationCancelled((prev) => ({ ...prev, [latestAssistantId]: true }))
+            }
+            setInputValue(event.target.value)
+          }}
           disabled={isStreaming}
           placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
           rows={2}
