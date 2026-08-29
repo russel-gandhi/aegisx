@@ -1,11 +1,22 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, render, type RenderResult } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import EvidenceView, {
   WHY_SELECTED_PREFIX,
   INSUFFICIENT_EVIDENCE_COPY,
   VISIBLE_EVIDENCE_LIMIT,
 } from '../components/EvidenceView'
 import type { RetrievalEvidenceItem } from '../lib/api'
+
+const FIXTURE_SYSTEM_ID = 'GXP-MFG-DEMO-01'
+
+// EvidenceView now renders react-router <Link>s (D-13) -- every render in
+// this file goes through this helper so a MemoryRouter ancestor is always
+// present. A single change to the helper, not to each test.
+function renderWithRouter(ui: ReactElement): RenderResult {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 function fixtureItem(overrides: Partial<RetrievalEvidenceItem> = {}): RetrievalEvidenceItem {
   return {
@@ -31,11 +42,12 @@ function fixtureItem(overrides: Partial<RetrievalEvidenceItem> = {}): RetrievalE
 
 describe('EvidenceView -- insufficient evidence', () => {
   it('renders the insufficient-evidence copy and no evidence list', () => {
-    render(
+    renderWithRouter(
       <EvidenceView
         evidence={[]}
         evidenceSupport="INSUFFICIENT_EVIDENCE"
         insufficientEvidence
+        systemId={FIXTURE_SYSTEM_ID}
       />,
     )
     expect(screen.getByText(INSUFFICIENT_EVIDENCE_COPY)).toBeInTheDocument()
@@ -47,7 +59,14 @@ describe('EvidenceView -- insufficient evidence', () => {
 describe('EvidenceView -- fixed section order', () => {
   it('renders SOURCE, SECTION/PAGE, RETRIEVAL METHOD, SCORES, and the why-selected line in order', () => {
     const item = fixtureItem()
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
     const text = card.textContent ?? ''
@@ -69,7 +88,14 @@ describe('EvidenceView -- fixed section order', () => {
 describe('EvidenceView -- missing fields shown as missing', () => {
   it('renders "no section" for a null section and "n/a" for a null page', () => {
     const item = fixtureItem({ section: null, page: null })
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
     expect(card.textContent).toContain('no section')
@@ -80,7 +106,14 @@ describe('EvidenceView -- missing fields shown as missing', () => {
 describe('EvidenceView -- only server-sent scores render', () => {
   it('omits the keyword score row when bm25_score is null', () => {
     const item = fixtureItem({ bm25_score: null })
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
     expect(card.textContent).not.toContain('Keyword')
@@ -91,14 +124,26 @@ describe('EvidenceView -- only server-sent scores render', () => {
 
 describe('EvidenceView -- evidence-support badge', () => {
   it('renders the correct label and style for a recognised band', () => {
-    render(<EvidenceView evidence={[fixtureItem()]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[fixtureItem()]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
     const badge = screen.getByTestId('evidence-support-badge')
     expect(badge.textContent).toBe('High evidence support')
   })
 
   it('renders the raw string with neutral styling for an unrecognised band, never crashing or defaulting favorably', () => {
-    render(
-      <EvidenceView evidence={[fixtureItem()]} evidenceSupport="WEIRD_BAND" insufficientEvidence={false} />,
+    renderWithRouter(
+      <EvidenceView
+        evidence={[fixtureItem()]}
+        evidenceSupport="WEIRD_BAND"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
     )
     const badge = screen.getByTestId('evidence-support-badge')
     expect(badge.textContent).toBe('WEIRD_BAND')
@@ -110,7 +155,14 @@ describe('EvidenceView -- evidence-support badge', () => {
 describe('EvidenceView -- retrieval-method and evidence-type badges are neutral', () => {
   it('uses only slate-800/slate-300 classes for both badge kinds', () => {
     const item = fixtureItem()
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     const methodBadge = screen.getByTestId(`evidence-method-badge-${item.evidence_id}`)
     const typeBadge = screen.getByTestId(`evidence-type-badge-${item.evidence_id}`)
@@ -130,7 +182,14 @@ describe('EvidenceView -- graph relationship items', () => {
       section: null,
       page: null,
     })
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
     expect(card.textContent).toContain('Graph relationship')
@@ -144,7 +203,14 @@ describe('EvidenceView -- overflow backstop', () => {
     const items = Array.from({ length: 10 }, (_, i) =>
       fixtureItem({ evidence_id: `EVID-${i}`, document_title: `Fixture Doc ${i}` }),
     )
-    render(<EvidenceView evidence={items} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={items}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
 
     // All 10 present in the DOM throughout.
     items.forEach((item) => {
@@ -179,21 +245,101 @@ describe('EvidenceView -- overflow backstop', () => {
 describe('EvidenceView -- pure presentation, no fetch/arithmetic/grading', () => {
   it('renders scores formatted to exactly 2 decimal places with no other arithmetic applied', () => {
     const item = fixtureItem({ dense_score: 0.7, bm25_score: 4, reranker_score: 0.885 })
-    render(<EvidenceView evidence={[item]} evidenceSupport="HIGH" insufficientEvidence={false} />)
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
     expect(card.textContent).toContain('Semantic 0.70')
     expect(card.textContent).toContain('Keyword 4.00')
   })
 
   it('renders the model attribution subtext verbatim when provided', () => {
-    render(
+    renderWithRouter(
       <EvidenceView
         evidence={[fixtureItem()]}
         evidenceSupport="HIGH"
         insufficientEvidence={false}
         modelAttribution="gemini-2.5-flash"
+        systemId={FIXTURE_SYSTEM_ID}
       />,
     )
     expect(screen.getByText('Model: gemini-2.5-flash')).toBeInTheDocument()
+  })
+})
+
+describe('EvidenceView -- deep links (D-13, plan 06.1-08)', () => {
+  it('renders a link with evidenceLinkLabel text for a document item that resolves to a href', () => {
+    const item = fixtureItem({ evidence_type: 'document', document_id: 'DOC-A' })
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
+    const link = screen.getByTestId('evidence-item-link')
+    expect(link.textContent).toBe('Open in Knowledge')
+    expect(link.getAttribute('href')).toBe(
+      `/knowledge?system=${FIXTURE_SYSTEM_ID}&document=DOC-A`,
+    )
+  })
+
+  it('renders a link with evidenceLinkLabel text for a graph relationship item that resolves to a href', () => {
+    const item = fixtureItem({
+      evidence_type: 'graph_relationship',
+      graph_path: ['DOCUMENT:DOC-A', 'RISK:RISK-7'],
+      section: null,
+      page: null,
+    })
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
+    const link = screen.getByTestId('evidence-item-link')
+    expect(link.textContent).toBe('Open in Blast Radius')
+    expect(link.getAttribute('href')).toBe(
+      `/blast-radius?system=${FIXTURE_SYSTEM_ID}&node=RISK%3ARISK-7`,
+    )
+  })
+
+  it('renders no link and no disabled/placeholder affordance for an item whose evidenceHref is null', () => {
+    const item = fixtureItem({ evidence_type: 'document', document_id: null as unknown as string })
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
+    expect(screen.queryByTestId('evidence-item-link')).toBeNull()
+    const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
+    expect(card.querySelector('button[disabled]')).toBeNull()
+    expect(card.querySelector('[title]')).toBeNull()
+  })
+
+  it('carries no accent hue on the link -- only slate classes', () => {
+    const item = fixtureItem({ evidence_type: 'document', document_id: 'DOC-A' })
+    renderWithRouter(
+      <EvidenceView
+        evidence={[item]}
+        evidenceSupport="HIGH"
+        insufficientEvidence={false}
+        systemId={FIXTURE_SYSTEM_ID}
+      />,
+    )
+    const link = screen.getByTestId('evidence-item-link')
+    expect(link.className).toContain('text-slate-300')
+    expect(link.className).not.toMatch(/(emerald|amber|orange|red)-[0-9]+/)
   })
 })
