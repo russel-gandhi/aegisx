@@ -19,7 +19,17 @@ type LoadState = 'loading' | 'error' | 'ready'
 
 export default function BlastRadius() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [systemId, setSystemId] = useState(SYSTEM_OPTIONS[0].id)
+  // Plan 06.1-08 (D-13): `?system=` is read only as an initial value and
+  // validated against SYSTEM_OPTIONS, because a node id from one system's
+  // graph 404s against another's -- which is what this file's own
+  // `isFirstSystemChange` comment below already documents from the other
+  // direction (system change clears the node selection).
+  const [systemId, setSystemId] = useState(() => {
+    const requested = searchParams.get('system')
+    return SYSTEM_OPTIONS.some((option) => option.id === requested)
+      ? (requested as string)
+      : SYSTEM_OPTIONS[0].id
+  })
   const [state, setState] = useState<LoadState>('loading')
   const [data, setData] = useState<EvidenceGraphResponse | null>(null)
 

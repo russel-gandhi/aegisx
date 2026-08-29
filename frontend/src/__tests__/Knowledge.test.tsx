@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, type RenderResult } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import Knowledge, {
   DROP_ZONE_COPY,
   EMPTY_HEADING,
@@ -65,6 +66,18 @@ function chooseFile(file: File) {
   fireEvent.change(screen.getByTestId('knowledge-file-input'), { target: { files: [file] } })
 }
 
+// D-13 (plan 06.1-08): Knowledge now reads `?system=`/`?document=` via
+// react-router's `useSearchParams`, so every render needs a Router
+// ancestor. A single change to this helper, not to each test -- the
+// deep-link-specific behavior itself is covered by deepLinkLanding.test.tsx.
+function renderKnowledge(initialEntries: string[] = ['/knowledge']): RenderResult {
+  return render(
+    <MemoryRouter initialEntries={initialEntries}>
+      <Knowledge />
+    </MemoryRouter>,
+  )
+}
+
 beforeEach(() => {
   mockListDocuments.mockReset()
   mockUploadDocument.mockReset()
@@ -73,7 +86,7 @@ beforeEach(() => {
 
 describe('Knowledge empty state', () => {
   it('renders the empty-state heading, body, and CTA before any document is uploaded', async () => {
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => {
       expect(screen.getByTestId('knowledge-empty-state')).toBeInTheDocument()
     })
@@ -85,14 +98,14 @@ describe('Knowledge empty state', () => {
 
 describe('Knowledge drop zone', () => {
   it('renders the drop-zone instruction copy on first paint, never a blank bordered box', () => {
-    render(<Knowledge />)
+    renderKnowledge()
     expect(screen.getByText(DROP_ZONE_COPY)).toBeInTheDocument()
   })
 })
 
 describe('Knowledge system-not-selected backstop', () => {
   it('disables Browse files and shows the select-a-system hint until a system is chosen, then enables it', async () => {
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
 
     expect(screen.getByTestId('browse-files-button')).toBeDisabled()
@@ -107,7 +120,7 @@ describe('Knowledge system-not-selected backstop', () => {
 
 describe('Knowledge upload -- unsupported extension (client-side)', () => {
   it('renders the unsupported-type copy and issues no upload request or new row for a .exe file', async () => {
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
     await selectSystem()
 
@@ -124,7 +137,7 @@ describe('Knowledge upload -- unsupported extension (client-side)', () => {
 describe('Knowledge upload -- backend rejection copy', () => {
   it('renders TOO_LARGE_COPY for a 413 response', async () => {
     mockUploadDocument.mockRejectedValue(new ApiError(413, 'Upload exceeds the byte limit', 'POST failed'))
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
     await selectSystem()
 
@@ -139,7 +152,7 @@ describe('Knowledge upload -- backend rejection copy', () => {
     mockUploadDocument.mockRejectedValue(
       new ApiError(415, 'Unsupported or content-mismatched file', 'POST failed'),
     )
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
     await selectSystem()
 
@@ -158,7 +171,7 @@ describe('Knowledge upload -- stage honesty while in flight', () => {
     const pending = deferred<DocumentUploadResult>()
     mockUploadDocument.mockReturnValue(pending.promise)
 
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId(`knowledge-source-row-${existing.document_id}`))
     await selectSystem()
 
@@ -222,7 +235,7 @@ describe('Knowledge upload -- READY response', () => {
         documents: [fixtureDocument({ document_id: 'DOC-READY', title: 'sop.pdf', doc_type: 'PDF', chunk_count: 7 })],
       })
 
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
     await selectSystem()
     chooseFile(new File(['%PDF-1.4'], 'sop.pdf'))
@@ -268,7 +281,7 @@ describe('Knowledge upload -- FAILED response', () => {
         ],
       })
 
-    render(<Knowledge />)
+    renderKnowledge()
     await waitFor(() => screen.getByTestId('knowledge-empty-state'))
     await selectSystem()
     chooseFile(new File(['a,b\n1,2'], 'broken.csv'))
@@ -289,7 +302,7 @@ describe('Knowledge -- zero indexed units renders honestly', () => {
       documents: [fixtureDocument({ document_id: 'DOC-ZERO', chunk_count: 0 })],
     })
 
-    render(<Knowledge />)
+    renderKnowledge()
 
     await waitFor(() => {
       expect(screen.getByTestId('knowledge-source-row-DOC-ZERO')).toHaveTextContent('0 indexed units')
@@ -314,7 +327,7 @@ describe('Knowledge -- populated row fields', () => {
       ],
     })
 
-    render(<Knowledge />)
+    renderKnowledge()
 
     await waitFor(() => {
       const row = screen.getByTestId('knowledge-source-row-DOC-POPULATED')
@@ -336,7 +349,7 @@ describe('Knowledge long-filename backstop', () => {
       documents: [fixtureDocument({ document_id: 'DOC-LONGNAME', title: longName })],
     })
 
-    render(<Knowledge />)
+    renderKnowledge()
 
     await waitFor(() => {
       expect(screen.getByTestId('knowledge-source-row-DOC-LONGNAME')).toBeInTheDocument()
