@@ -1,0 +1,41 @@
+urs_id,requirement,test_case_id,execution_status
+URS-EVAL-001,System shall capture an electronic signature meeting audit-trail requirements for record type 1,TC-EVAL-001,PASSED
+URS-EVAL-002,System shall restrict configuration changes to users holding the System Administrator role for module 2,TC-EVAL-002,PASSED
+URS-EVAL-003,System shall log every failed login attempt with timestamp and user id for subsystem 3,TC-EVAL-003,FAILED
+URS-EVAL-004,System shall retain audit trail entries for a minimum of the site retention period for data set 4,TC-EVAL-004,PASSED
+URS-EVAL-005,System shall prevent deletion of a finalized record without a documented reason code for entity 5,TC-EVAL-005,BLOCKED
+URS-EVAL-006,System shall enforce unique identifiers across all records of type 6,TC-EVAL-006,NOT_STARTED
+URS-EVAL-007,System shall display the current approved revision of a controlled document referenced by workflow 7,TC-EVAL-007,PASSED
+URS-EVAL-008,System shall generate an alert when a scheduled periodic review becomes overdue for asset 8,TC-EVAL-008,PASSED
+URS-EVAL-009,System shall require dual approval before a high-risk configuration change is applied to component 9,TC-EVAL-009,FAILED
+URS-EVAL-010,System shall time-stamp every record modification using the server clock for interface 10,TC-EVAL-010,PASSED
+URS-EVAL-011,System shall capture an electronic signature meeting audit-trail requirements for record type 11,TC-EVAL-011,BLOCKED
+URS-EVAL-012,System shall restrict configuration changes to users holding the System Administrator role for module 12,TC-EVAL-012,NOT_STARTED
+URS-EVAL-013,System shall log every failed login attempt with timestamp and user id for subsystem 13,TC-EVAL-013,PASSED
+URS-EVAL-014,System shall retain audit trail entries for a minimum of the site retention period for data set 14,TC-EVAL-014,PASSED
+URS-EVAL-015,System shall prevent deletion of a finalized record without a documented reason code for entity 15,TC-EVAL-015,FAILED
+URS-EVAL-016,System shall enforce unique identifiers across all records of type 16,TC-EVAL-016,PASSED
+URS-EVAL-017,System shall display the current approved revision of a controlled document referenced by workflow 17,TC-EVAL-017,BLOCKED
+URS-EVAL-018,System shall generate an alert when a scheduled periodic review becomes overdue for asset 18,TC-EVAL-018,NOT_STARTED
+URS-EVAL-019,System shall require dual approval before a high-risk configuration change is applied to component 19,TC-EVAL-019,PASSED
+URS-EVAL-020,System shall time-stamp every record modification using the server clock for interface 20,TC-EVAL-020,PASSED
+URS-EVAL-021,System shall capture an electronic signature meeting audit-trail requirements for record type 21,TC-EVAL-021,FAILED
+URS-EVAL-022,System shall restrict configuration changes to users holding the System Administrator role for module 22,TC-EVAL-022,PASSED
+URS-EVAL-023,System shall log every failed login attempt with timestamp and user id for subsystem 23,TC-EVAL-023,BLOCKED
+URS-EVAL-024,System shall retain audit trail entries for a minimum of the site retention period for data set 24,TC-EVAL-024,NOT_STARTED
+URS-EVAL-025,System shall prevent deletion of a finalized record without a documented reason code for entity 25,TC-EVAL-025,PASSED
+URS-EVAL-026,System shall enforce unique identifiers across all records of type 26,TC-EVAL-026,PASSED
+URS-EVAL-027,System shall display the current approved revision of a controlled document referenced by workflow 27,TC-EVAL-027,FAILED
+URS-EVAL-028,System shall generate an alert when a scheduled periodic review becomes overdue for asset 28,TC-EVAL-028,PASSED
+URS-EVAL-029,System shall require dual approval before a high-risk configuration change is applied to component 29,TC-EVAL-029,BLOCKED
+URS-EVAL-030,System shall time-stamp every record modification using the server clock for interface 30,TC-EVAL-030,NOT_STARTED
+URS-EVAL-031,System shall capture an electronic signature meeting audit-trail requirements for record type 31,TC-EVAL-031,PASSED
+URS-EVAL-032,System shall restrict configuration changes to users holding the System Administrator role for module 32,TC-EVAL-032,PASSED
+URS-EVAL-033,System shall log every failed login attempt with timestamp and user id for subsystem 33,TC-EVAL-033,FAILED
+URS-EVAL-034,System shall retain audit trail entries for a minimum of the site retention period for data set 34,TC-EVAL-034,PASSED
+URS-EVAL-035,System shall prevent deletion of a finalized record without a documented reason code for entity 35,TC-EVAL-035,BLOCKED
+URS-EVAL-036,System shall enforce unique identifiers across all records of type 36,TC-EVAL-036,NOT_STARTED
+URS-EVAL-037,System shall display the current approved revision of a controlled document referenced by workflow 37,TC-EVAL-037,PASSED
+URS-EVAL-038,System shall generate an alert when a scheduled periodic review becomes overdue for asset 38,TC-EVAL-038,PASSED
+URS-EVAL-039,System shall require dual approval before a high-risk configuration change is applied to component 39,TC-EVAL-039,FAILED
+URS-EVAL-040,System shall time-stamp every record modification using the server clock for interface 40,TC-EVAL-040,PASSED

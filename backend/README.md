@@ -547,3 +547,85 @@ correct, just less effective, since a request that lands on a different
 worker than the one that warmed the cache is a cold miss there. Not a
 problem for this single-process demo deployment; recorded here for
 whoever adds a second worker later.
+
+## Retrieval Precision Baseline (HARD-04)
+
+**Measured:** 2026-08-29. **Corpus:** 3 synthetic GxP-flavoured fixture
+documents (`backend/tests/fixtures/retrieval_eval/corpus/`) --
+`quality_manual_extract.md` (4 sections), `deviation_sop.md` (3
+sections), `urs_traceability.csv` (40 rows) -- ingested through the real
+`POST /api/documents/upload` route against `GXP-MFG-DEMO-01`, the same
+chunker/parser path a real upload gets. **Query set:** 9 labelled cases
+(`backend/tests/fixtures/retrieval_eval/labelled_queries.json`), 3 each
+of three shapes: exact identifier lookup, paraphrased conceptual
+question, and a mixed question combining both. **k:** 5. **Tuning
+constants in force when measured:** `RRF_K=60`,
+`RERANK_RELEVANCE_THRESHOLD=0.35`, `DENSE_CANDIDATE_LIMIT=20`,
+`BM25_CANDIDATE_LIMIT=20` (all unchanged by this plan -- see Scope
+boundary below).
+
+| config           | precision@5 | recall@5 | MRR    | cases |
+| ---------------- | ----------- | -------- | ------ | ----- |
+| dense_only        | 0.1778      | 0.8889   | 0.8426 | 9     |
+| lexical_only      | 0.2000      | 1.0000   | 0.8519 | 9     |
+| hybrid_reranked    | 1.0000      | 1.0000   | 1.0000 | 9     |
+
+**How this was measured -- and its real limitation.** This repository has
+no live `GEMINI_API_KEY`/`GOOGLE_API_KEY` configured (06.1-01-SUMMARY.md
+through 06.1-05-SUMMARY.md all document the same limitation), so the
+numbers above come from real Postgres + real Qdrant + the real
+`hybrid_retrieve`/`bm25_search`/`dense_search` pipeline, but with the
+embedding and reranking HTTP transport mocked by a deterministic
+"concept-tag" oracle built alongside the fixture corpus and query set
+(`backend/tests/test_retrieval_eval.py`'s own "Mock embedding oracle"
+docstring has the full design rationale). This proves the retrieval
+PIPELINE's mechanics -- RRF fusion, the reranking gate, `hybrid_retrieve`'s
+end-to-end wiring, and (via the discriminating-power test) that dense and
+lexical search genuinely retrieve on different signals rather than
+duplicating each other -- are wired correctly. **It does not validate the
+real hosted Gemini embedding/reranker model's own semantic quality.**
+Setting a real key and re-running `pytest tests/test_retrieval_eval.py`
+remains the outstanding operator follow-up to get a baseline that also
+reflects live model quality, not just correct wiring.
+
+**Interpretation of the two previously-unvalidated constants
+(06.1-RESEARCH.md Assumption A4 and the reranker-calibration Pitfall).**
+Both constants look reasonable against this corpus, with the caveat above
+about what this run does and does not prove:
+
+- **`RRF_K=60`** is a rank-position smoothing constant, not a
+  content-dependent one -- its job is only to prevent a single top-rank
+  candidate from dominating the fused score, which it does regardless of
+  corpus size. The discriminating-power test (identifier-lookup cases
+  favour `lexical_only`, paraphrase cases favour `dense_only`, both by a
+  wide margin) shows RRF is fusing two genuinely different rankings
+  rather than one leg silently drowning out the other, which is the
+  failure mode a badly-chosen `k` would produce. Nothing in this run
+  suggests `k=60` needs retuning; the literature-standard default holds
+  up here.
+- **`RERANK_RELEVANCE_THRESHOLD=0.35`** sits between this run's oracle
+  scores of `0.9` (truly relevant) and `0.05` (truly irrelevant) with
+  wide margin on both sides, so the gate's *position* is not the limiting
+  factor in this measurement -- a real reranker's score distribution is
+  the open question this run cannot answer, since the oracle's job was to
+  prove the gate itself (a plain `>=` comparison in Python, D-08) applies
+  correctly to whatever score arrives, not to predict a live model's
+  calibration. The gate correctly kept every truly-relevant candidate and
+  correctly dropped every truly-irrelevant one in all 9 cases here; the
+  open question 06.1-RESEARCH.md flagged (whether a live reranker's own
+  score distribution clusters tightly enough around 0.35 to matter) is
+  unresolved by this measurement and remains for the live-key follow-up.
+
+**Scope boundary.** This plan measures and records; it does not retune.
+`git diff -- backend/app/retrieval/hybrid_search.py
+backend/app/retrieval/lexical.py backend/app/llm_router.py` is empty for
+this plan's commits -- if a future measurement (ideally against a real
+key) shows either constant is badly chosen, that is a finding for a
+follow-up plan to act on, not a change bundled into the same commit as
+the baseline that would be used to justify it.
+
+**Regression gate.** `backend/tests/test_retrieval_eval.py`'s
+`test_regression_hybrid_reranked_precision_and_mrr_at_or_above_baseline`
+asserts `hybrid_reranked` precision@5 and MRR stay within 0.05 of the
+`1.0`/`1.0` recorded above, so a future change that drops fusion or
+reranking quality fails a test rather than passing silently.
