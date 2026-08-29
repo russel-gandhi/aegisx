@@ -100,7 +100,18 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta",
         "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
         "rpm_limit": 60,
-        "use_for": ["compliance", "knowledge", "change"],
+        # Deviation 17 (backend/README.md Deviation 12): "rerank" added
+        # here rather than routed through a local cross-encoder. This
+        # entry already serves A1's own "knowledge" task, and its
+        # thinking_budget=1 is the fastest Google configuration in this
+        # table -- reranking sits on the interactive Copilot path.
+        # Bible Section 15.3 itself allows this: "if the selected
+        # reranking model/provider depends on configuration, follow the
+        # existing LLM routing architecture." Not a Section 1.3
+        # violation (D-08): reranking scores retrieval relevance, it does
+        # not evaluate a compliance threshold, an RBAC decision, or an
+        # injection judgment.
+        "use_for": ["compliance", "knowledge", "change", "rerank"],
     },
     "deepseek_r1": {
         "provider": "deepseek",

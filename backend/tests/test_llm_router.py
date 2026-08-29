@@ -65,6 +65,37 @@ def test_select_provider_raises_keyerror_on_unknown_task():
         select_provider("no_such_task")
 
 
+def test_select_provider_resolves_rerank_to_gemini_flash_fast_without_disturbing_other_tasks():
+    """Plan 06.1-03 Task 2: `"rerank"` is appended to
+    `gemini_flash_fast["use_for"]` (Deviation 12/17). Every pre-existing
+    task name must still resolve to the SAME provider key it did before
+    this change -- an append-only edit changes no existing routing
+    decision."""
+    assert select_provider("rerank") == "gemini_flash_fast"
+    assert PROVIDER_CONFIG["gemini_flash_fast"]["use_for"] == [
+        "compliance",
+        "knowledge",
+        "change",
+        "rerank",
+    ]
+    unchanged = {
+        "orchestrator": "gemini_flash_thinking",
+        "synthesis": "gemini_flash_thinking",
+        "compliance": "gemini_flash_fast",
+        "knowledge": "gemini_flash_fast",
+        "change": "gemini_flash_fast",
+        "risk_assessment": "deepseek_r1",
+        "incident": "groq_llama",
+        "access": "groq_llama",
+        "high_volume": "groq_llama",
+        "narration": "groq_llama",
+        "remediation": "groq_llama",
+        "fallback": "openrouter_fallback",
+    }
+    for task, expected_provider in unchanged.items():
+        assert select_provider(task) == expected_provider
+
+
 def test_call_llm_parses_mocked_gemini_response(monkeypatch):
     monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
 
