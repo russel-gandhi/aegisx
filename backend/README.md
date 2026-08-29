@@ -190,6 +190,18 @@ This section records every point where `backend/app/opa_client.py` departs from 
 
 **Scope:** `infra/postgres/initdb/004_document_chunks_structure.sql` only — an additive migration, no existing column changed or removed. Routed to **SENT-7-05**.
 
+### Deviation 12 — reranking routed through the existing provider table rather than a local cross-encoder
+
+**Bible says:** `AegisX-AI-Project-Bible-v6.md` Section 15.3 names a cross-encoder model for the reranking stage of the hybrid-retrieval pipeline.
+
+**Implemented:** `"rerank"` appended to `backend/app/llm_router.py`'s `PROVIDER_CONFIG["gemini_flash_fast"]["use_for"]`, making `rerank_batch()` (`backend/app/retrieval/hybrid_search.py`) route through the same hosted-provider router every other task already uses, rather than loading a local `sentence-transformers` cross-encoder model.
+
+**Why:** Bible Section 15.3's own text allows this — "if the selected reranking model/provider depends on configuration, follow the existing LLM routing architecture." `gemini_flash_fast` already serves A1's `"knowledge"` task and carries `thinking_budget: 1`, the fastest Google configuration in this table, which matters because reranking sits on the interactive Copilot investigation path. The tradeoff: a local `sentence-transformers` cross-encoder would pull a multi-GB `torch` install, contradicting D-03's hosted-over-local preference already established for the closely related embedding-provider decision (Deviation 14, `backend/app/retrieval/embeddings.py`). Not a Bible Section 1.3 deterministic-first violation (D-08): reranking scores retrieval relevance for ranking/filtering purposes; the sufficiency DECISION itself remains a Python comparison (`RERANK_RELEVANCE_THRESHOLD`) the model never makes.
+
+**Numbering note:** the code comment locks the literal text `Deviation 17` (06.1-03-PLAN.md's exact required wording) — this README heading is numbered `12` instead, following this file's own established convention ("the highest EXISTING heading in this file... plus one", see Deviation 11's own numbering note above). Both numbers name the same single change; there is no second, undocumented deviation.
+
+**Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG["gemini_flash_fast"]["use_for"]` list only (one entry appended, nothing else in the file changed) and the new `rerank_batch()` function in `backend/app/retrieval/hybrid_search.py`. Routed to **SENT-7-05**.
+
 ## AgentFinding conventions (Phase 3)
 
 Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
