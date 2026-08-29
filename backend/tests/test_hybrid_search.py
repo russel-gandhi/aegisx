@@ -37,6 +37,9 @@ from app.retrieval.hybrid_search import (
 )
 from app.retrieval.lexical import BM25_CANDIDATE_LIMIT, BM25_CORPUS_MAX_CHUNKS, bm25_search, build_corpus, tokenize
 from app.retrieval.qdrant_store import DenseHit, QDRANT_URL, ensure_collection, get_qdrant_client, upsert_chunks
+from app.retrieval.hybrid_search import GRAPH_EVIDENCE_LIMIT, PARENT_CONTEXT_MAX_CHARS, expand_graph_evidence, expand_parent_context
+from app.graph.evidence_graph import build_graph, load_graph, make_node_id, persist_graph
+from app.schemas import RetrievalEvidenceItem
 
 DEMO_SYSTEM = "GXP-MFG-DEMO-01"
 DEMO_DOCUMENT_ID = "DOC-2026-OM-99"  # seeded row, infra/postgres/seed/001_seed.sql
@@ -799,6 +802,260 @@ def test_hybrid_retrieve_all_candidates_below_rerank_threshold_yields_insufficie
 def test_rerank_relevance_threshold_and_max_candidates_values():
     assert RERANK_RELEVANCE_THRESHOLD == 0.35
     assert RERANK_MAX_CANDIDATES == 40
+
+
+# ---------------------------------------------------------------------------
+# UNIT -- expand_parent_context (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def test_expand_parent_context_populates_parent_section_and_context_without_mutating_content():
+    chunk_id = "aaaa0000-0000-0000-0000-000000000001"
+    parent_id = "aaaa0000-0000-0000-0000-000000000002"
+    pool = FakePool(
+        [
+            _row(chunk_id, section="4.2.1 Sub-section", content="Child excerpt text."),
+            {"chunk_id": parent_id, "content": "Parent excerpt text. " * 200, "section": "4.2 Traceability"},
+        ]
+    )
+    evidence = [
+        {
+            "chunk_id": chunk_id,
+            "content": "Child excerpt text.",
+            "section": "4.2.1 Sub-section",
+            "parent_chunk_id": parent_id,
+        }
+    ]
+
+    async def _go():
+        return await expand_parent_context(pool, evidence)
+
+    result = _run(_go())
+    item = result[0]
+    assert item["parent_section"] == "4.2 Traceability"
+    assert item["content"] == "Child excerpt text."  # untouched -- Evidence View quotes the retrieved chunk only
+    assert item["parent_context"] is not None
+    assert len(item["parent_context"]) <= PARENT_CONTEXT_MAX_CHARS
+
+
+def test_expand_parent_context_section_leading_chunk_uses_its_own_section():
+    evidence = [{"chunk_id": "x", "content": "c", "section": "Intro", "parent_chunk_id": None}]
+
+    async def _go():
+        return await expand_parent_context(FakePool([]), evidence)
+
+    result = _run(_go())
+    assert result[0]["parent_section"] == "Intro"
+    assert result[0]["parent_context"] is None
+
+
+def test_expand_parent_context_issues_one_query_for_all_items_not_one_per_item():
+    calls = {"count": 0}
+
+    class CountingPool(FakePool):
+        async def fetch(self, query, *args):
+            if "ANY($1::uuid[])" in query:
+                calls["count"] += 1
+            return await super().fetch(query, *args)
+
+    parent_id_1 = "b0000000-0000-0000-0000-000000000001"
+    parent_id_2 = "b0000000-0000-0000-0000-000000000002"
+    pool = CountingPool(
+        [
+            {"chunk_id": parent_id_1, "content": "p1", "section": "S1"},
+            {"chunk_id": parent_id_2, "content": "p2", "section": "S2"},
+        ]
+    )
+    evidence = [
+        {"chunk_id": "c1", "content": "c1text", "section": "A", "parent_chunk_id": parent_id_1},
+        {"chunk_id": "c2", "content": "c2text", "section": "B", "parent_chunk_id": parent_id_2},
+    ]
+
+    async def _go():
+        return await expand_parent_context(pool, evidence)
+
+    _run(_go())
+    assert calls["count"] == 1
+
+
+def test_expand_parent_context_no_parent_ids_issues_no_query():
+    calls = {"count": 0}
+
+    class CountingPool(FakePool):
+        async def fetch(self, query, *args):
+            calls["count"] += 1
+            return await super().fetch(query, *args)
+
+    evidence = [{"chunk_id": "c1", "content": "c1text", "section": "A", "parent_chunk_id": None}]
+
+    async def _go():
+        return await expand_parent_context(CountingPool([]), evidence)
+
+    _run(_go())
+    assert calls["count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# UNIT -- expand_graph_evidence source-reuse guards (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def test_expand_graph_evidence_makes_zero_model_calls():
+    import inspect
+
+    source = inspect.getsource(expand_graph_evidence)
+    assert "call_llm" not in source
+    assert "call_embedding" not in source
+
+
+def test_expand_graph_evidence_reuses_evidence_graph_module_no_new_graph_query_layer():
+    import inspect
+
+    source = inspect.getsource(hybrid_search)
+    assert "make_node_id" in source
+    assert "NodeSpec" not in source
+    assert "EdgeSpec" not in source
+    assert "CREATE TABLE graph_" not in source
+
+
+# ---------------------------------------------------------------------------
+# INTEGRATION -- expand_graph_evidence against the live evidence graph (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def test_integration_expand_graph_evidence_returns_real_document_governs_system_edge():
+    async def _go():
+        pool = await get_pool()
+        G = await build_graph(pool, DEMO_SYSTEM)
+        await persist_graph(pool, DEMO_SYSTEM, G)
+        items = await expand_graph_evidence(pool, DEMO_SYSTEM, [DEMO_DOCUMENT_ID])
+        loaded = await load_graph(pool, DEMO_SYSTEM)
+        return items, loaded
+
+    items, loaded_graph = _run(_go())
+    assert items
+    assert len(items) <= GRAPH_EVIDENCE_LIMIT
+    governs_items = [item for item in items if "GOVERNS" in item["content"]]
+    assert governs_items
+    item = governs_items[0]
+    assert item["evidence_type"] == "graph_relationship"
+    assert item["retrieval_method"] == "graph"
+    assert item["dense_score"] is None
+    assert item["bm25_score"] is None
+    assert item["reranker_score"] is None
+    assert item["graph_path"][0] == make_node_id("DOCUMENT", DEMO_DOCUMENT_ID)
+    # Every graph_path entry, for every returned item, is a real node id
+    # present in the loaded graph -- no relationship is ever invented.
+    for returned_item in items:
+        for node_id in returned_item["graph_path"]:
+            assert node_id in loaded_graph
+
+
+def test_integration_expand_graph_evidence_missing_document_node_returns_empty_no_raise():
+    async def _go():
+        pool = await get_pool()
+        return await expand_graph_evidence(pool, DEMO_SYSTEM, ["DOC-DOES-NOT-EXIST-IN-GRAPH"])
+
+    items = _run(_go())
+    assert items == []
+
+
+def test_integration_retrieval_evidence_items_validate_against_schema_for_real_query(monkeypatch):
+    """Every dict `hybrid_retrieve` returns -- document-sourced AND
+    graph-sourced alike -- constructs a valid `RetrievalEvidenceItem` with
+    no missing required field, against a real query over the seeded
+    corpus plus a freshly persisted real evidence graph."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    chunk_id = "77777777-aaaa-bbbb-cccc-777777777777"
+    parent_id = "77777777-aaaa-bbbb-cccc-777777777778"
+    vector = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+
+    async def _go():
+        pool = await get_pool()
+        client = await get_qdrant_client()
+        assert client is not None, "Qdrant must be reachable for this integration test"
+        await ensure_collection(client)
+
+        G = await build_graph(pool, DEMO_SYSTEM)
+        await persist_graph(pool, DEMO_SYSTEM, G)
+
+        await pool.execute(
+            "INSERT INTO document_chunks (chunk_id, document_id, content, embedding_id, "
+            "section, page, chunk_index, metadata) "
+            "VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::jsonb)",
+            parent_id,
+            DEMO_DOCUMENT_ID,
+            "Parent section leading chunk content for schema-validation test.",
+            parent_id,
+            "Schema Validation Section",
+            9,
+            0,
+            "{}",
+        )
+        await pool.execute(
+            "INSERT INTO document_chunks (chunk_id, document_id, content, embedding_id, "
+            "section, page, chunk_index, parent_chunk_id, metadata) "
+            "VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid, $9::jsonb)",
+            chunk_id,
+            DEMO_DOCUMENT_ID,
+            "Child chunk content for RetrievalEvidenceItem schema-validation test.",
+            chunk_id,
+            "Schema Validation Section",
+            9,
+            1,
+            parent_id,
+            "{}",
+        )
+        await upsert_chunks(
+            client,
+            [
+                {
+                    "chunk_id": chunk_id,
+                    "document_id": DEMO_DOCUMENT_ID,
+                    "system_id": DEMO_SYSTEM,
+                    "vector": vector,
+                    "section": "Schema Validation Section",
+                    "page": 9,
+                    "chunk_index": 1,
+                }
+            ],
+        )
+
+        with respx.mock:
+            respx.route(url__startswith=QDRANT_URL).pass_through()
+            respx.post(GEMINI_EMBED_URL).mock(
+                return_value=httpx.Response(200, json={"embedding": {"values": vector}})
+            )
+            # No rerank route registered -- degrades to the Task 1 fallback
+            # gate, exercising real Postgres + real Qdrant + real (degraded)
+            # reranking + real parent-context + real graph expansion.
+            outcome = await hybrid_retrieve(pool, "schema validation query", DEMO_SYSTEM)
+        return outcome
+
+    try:
+        outcome = _run(_go())
+        assert outcome.insufficient_evidence is False
+        assert outcome.evidence
+        document_items = [item for item in outcome.evidence if item["evidence_type"] == "document"]
+        graph_items = [item for item in outcome.evidence if item["evidence_type"] == "graph_relationship"]
+        assert document_items
+        matches = [item for item in document_items if item["chunk_id"] == chunk_id]
+        assert len(matches) == 1
+        assert matches[0]["parent_section"] == "Schema Validation Section"
+        for item in outcome.evidence:
+            RetrievalEvidenceItem(**item)
+        assert graph_items  # DEMO_DOCUMENT_ID's DOCUMENT node governs SYSTEM -- real edge, real evidence
+    finally:
+
+        async def _cleanup():
+            pool = await get_pool()
+            await pool.execute("DELETE FROM document_chunks WHERE chunk_id = $1::uuid", chunk_id)
+            await pool.execute("DELETE FROM document_chunks WHERE chunk_id = $1::uuid", parent_id)
+            client = await get_qdrant_client()
+            if client is not None:
+                await client.delete(collection_name="gxp_document_chunks", points_selector=[chunk_id])
+
+        _run(_cleanup())
 
 
 # ---------------------------------------------------------------------------

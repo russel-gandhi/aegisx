@@ -30,6 +30,7 @@ import inspect
 import respx
 
 from app.db import get_pool
+from app.graph.evidence_graph import build_graph, persist_graph
 from app.retrieval import hybrid_search
 from app.retrieval.embeddings import EMBEDDING_DIMENSIONS, EmbeddingResponse
 from app.retrieval.qdrant_store import (
@@ -393,6 +394,12 @@ def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monke
                 }
             ],
         )
+        # Plan 06.1-03 Task 3: hybrid_retrieve now also expands real graph
+        # evidence for every cited document. Persisting the graph cache
+        # here (rather than relying on another test module's incidental
+        # ordering) makes that expansion deterministic for this test.
+        G = await build_graph(pool, DEMO_SYSTEM)
+        await persist_graph(pool, DEMO_SYSTEM, G)
 
     asyncio.run(_setup())
 
@@ -422,15 +429,23 @@ def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monke
         assert body["model_attribution"] == "deterministic-fallback"
         assert DEMO_DOCUMENT_TITLE in body["answer"]
         assert body["evidence_support"] in ("HIGH", "MODERATE", "LIMITED")
-        # Every retrieved item in this test cites the same one seeded
-        # document (DEMO_DOCUMENT_ID) -- a single unambiguous destination
-        # (D-13), computed server-side.
-        assert all(e["document_id"] == DEMO_DOCUMENT_ID for e in body["evidence"])
-        nav = body["navigation_target"]
-        assert nav is not None
-        assert nav["kind"] == "document"
-        assert nav["target_id"] == DEMO_DOCUMENT_ID
-        assert nav["system_id"] == DEMO_SYSTEM
+        # Every DOCUMENT-sourced item in this test cites the same one
+        # seeded document (DEMO_DOCUMENT_ID).
+        document_items = [e for e in body["evidence"] if e["evidence_type"] == "document"]
+        assert all(e["document_id"] == DEMO_DOCUMENT_ID for e in document_items)
+        # Plan 06.1-03 Task 3: hybrid_retrieve now also appends real graph
+        # evidence for DEMO_DOCUMENT_ID -- its seeded DOCUMENT node has a
+        # real GOVERNS edge to its SYSTEM (and a real AFFECTS edge from
+        # change CR-2026-089, infra/postgres/seed/003_change_affects_
+        # fixture.sql). Both graph relationships resolve to a DIFFERENT
+        # navigation candidate than the cited document, so D-13's
+        # single-unambiguous-destination rule now correctly fails closed
+        # (a competing candidate is a genuinely ambiguous destination, not
+        # a bug) -- navigation_target is None, not a guess at which of the
+        # two-plus real destinations the user meant.
+        graph_items = [e for e in body["evidence"] if e["evidence_type"] == "graph_relationship"]
+        assert graph_items
+        assert body["navigation_target"] is None
         preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
         assert preparing["status"] == "complete"
     finally:

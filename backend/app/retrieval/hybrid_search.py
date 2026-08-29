@@ -52,6 +52,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.graph.evidence_graph import load_graph, make_node_id, split_node_id
 from app.llm_router import call_llm
 from app.retrieval.embeddings import call_embedding
 from app.retrieval.lexical import bm25_search
@@ -261,6 +262,12 @@ def _build_evidence_item(
         "reranker_score": round(reranker_score, 4) if reranker_score is not None else None,
         "evidence_type": "document",
         "why_selected": _why_selected(dense_score, bm25_score, reranker_score, section, document_title),
+        # Internal-only key (Task 3): not a `RetrievalEvidenceItem` field --
+        # `expand_parent_context` reads it to resolve the parent chunk's
+        # own `section`, then the key is left in place (Pydantic ignores
+        # unknown keys on `RetrievalEvidenceItem(**item)` construction by
+        # default, so this never needs stripping before the API boundary).
+        "parent_chunk_id": str(row["parent_chunk_id"]) if row["parent_chunk_id"] else None,
     }
 
 
@@ -365,6 +372,155 @@ async def _dense_leg(embedding: Any, client: Any, system_id: str) -> List[Any]:
     if embedding.degraded or client is None:
         return []
     return await dense_search(client, embedding.vector, system_id, limit=DENSE_CANDIDATE_LIMIT)
+
+
+async def expand_parent_context(pool: Any, evidence: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Populate each item's `parent_section` and attach its parent
+    chunk's excerpt (up to `PARENT_CONTEXT_MAX_CHARS`) for the synthesis
+    prompt, WITHOUT ever mutating the item's own `content` -- the
+    Evidence View must keep quoting exactly the chunk that was retrieved
+    (Task 3 <behavior>).
+
+    Issues at most ONE Postgres query for the whole `evidence` list (not
+    one per item): every non-null `parent_chunk_id` across `evidence` is
+    collected first, then fetched in a single `chunk_id = ANY($1)` query.
+    An item with no `parent_chunk_id` (it IS the section-leading chunk)
+    gets `parent_section` set to its own `section` instead. Never raises:
+    a Postgres failure here degrades the enrichment, not the evidence
+    itself (mirrors the module's own never-raises contract) -- `evidence`
+    is still returned, just without parent enrichment.
+    """
+    parent_ids = sorted({item["parent_chunk_id"] for item in evidence if item.get("parent_chunk_id")})
+
+    parent_rows: Dict[str, Any] = {}
+    if parent_ids:
+        try:
+            rows = await pool.fetch(
+                "SELECT chunk_id, content, section FROM document_chunks WHERE chunk_id = ANY($1::uuid[])",
+                parent_ids,
+            )
+            parent_rows = {str(row["chunk_id"]): row for row in rows}
+        except Exception:  # noqa: BLE001 - see function docstring's never-raises contract
+            logger.warning("expand_parent_context: parent-chunk fetch failed.", exc_info=True)
+            parent_rows = {}
+
+    for item in evidence:
+        parent_chunk_id = item.get("parent_chunk_id")
+        parent_row = parent_rows.get(parent_chunk_id) if parent_chunk_id else None
+        if parent_row is not None:
+            item["parent_section"] = parent_row["section"]
+            item["parent_context"] = (parent_row["content"] or "")[:PARENT_CONTEXT_MAX_CHARS]
+        else:
+            item["parent_section"] = item.get("section")
+            item["parent_context"] = None
+
+    return evidence
+
+
+def _humanize_node_type(node_type: str, capitalize: bool) -> str:
+    """`"DOCUMENT"` -> `"document"`/`"Document"`, `"TEST_CASE"` ->
+    `"test case"`/`"Test case"` -- used only to compose a readable
+    `expand_graph_evidence` sentence, never to derive or validate a node
+    id (that stays `make_node_id`/`split_node_id`'s job alone)."""
+    words = node_type.replace("_", " ").lower()
+    return words.capitalize() if capitalize else words
+
+
+async def expand_graph_evidence(pool: Any, system_id: str, document_ids: List[str]) -> List[Dict[str, Any]]:
+    """One-hop graph-relationship evidence for each document in
+    `document_ids`, reusing `app.graph.evidence_graph` verbatim -- zero
+    new graph logic (06.1-RESEARCH.md Pattern 4, Don't Hand-Roll table).
+
+    For each `document_id`, resolves `make_node_id("DOCUMENT",
+    document_id)` and traverses `G.successors`/`G.predecessors` one hop
+    over the graph loaded by `load_graph` (the `graph_nodes`/`graph_edges`
+    CACHE tables only -- never a domain table, never a model call).
+    Every `graph_path` entry is therefore a real node id already present
+    in that cache; no relationship is ever invented (T-06.1-18).
+
+    A `document_id` whose DOCUMENT node is absent from the loaded graph
+    (a just-uploaded document invisible until the next graph rebuild,
+    06.1-RESEARCH.md Pitfall 2) contributes no items for that document --
+    logged at debug, never raised. Returns at most `GRAPH_EVIDENCE_LIMIT`
+    items total across every `document_id`, and `[]` (never raises) on
+    any `load_graph` failure.
+    """
+    try:
+        G = await load_graph(pool, system_id)
+    except Exception:  # noqa: BLE001 - see function docstring's never-raises contract
+        logger.warning("expand_graph_evidence: load_graph failed (system_id=%s).", system_id, exc_info=True)
+        return []
+
+    items: List[Dict[str, Any]] = []
+    counter = 0
+
+    for document_id in document_ids:
+        if counter >= GRAPH_EVIDENCE_LIMIT:
+            break
+
+        document_node_id = make_node_id("DOCUMENT", document_id)
+        if document_node_id not in G:
+            logger.debug(
+                "expand_graph_evidence: %s absent from loaded graph (stale cache, Pitfall 2).",
+                document_node_id,
+            )
+            continue
+
+        document_title = (G.nodes[document_node_id].get("properties") or {}).get("title") or document_id
+        doc_type, doc_entity_id = split_node_id(document_node_id)
+
+        neighbours: List[Tuple[str, str, bool]] = []  # (neighbour_node_id, relation_type, is_outgoing)
+        for successor in G.successors(document_node_id):
+            neighbours.append((successor, G.edges[document_node_id, successor]["relation_type"], True))
+        for predecessor in G.predecessors(document_node_id):
+            neighbours.append((predecessor, G.edges[predecessor, document_node_id]["relation_type"], False))
+
+        for neighbour_node_id, relation_type, is_outgoing in neighbours:
+            if counter >= GRAPH_EVIDENCE_LIMIT:
+                break
+            neighbour_type, neighbour_entity_id = split_node_id(neighbour_node_id)
+            if is_outgoing:
+                sentence = (
+                    f"{_humanize_node_type(doc_type, True)} {doc_entity_id} {relation_type} "
+                    f"{_humanize_node_type(neighbour_type, False)} {neighbour_entity_id}."
+                )
+            else:
+                sentence = (
+                    f"{_humanize_node_type(neighbour_type, True)} {neighbour_entity_id} {relation_type} "
+                    f"{_humanize_node_type(doc_type, False)} {doc_entity_id}."
+                )
+            counter += 1
+            items.append(
+                {
+                    "evidence_id": f"EV-GRAPH-{counter:02d}",
+                    "document_id": document_id,
+                    # No real chunk underlies a derived relationship;
+                    # the neighbour's own node id is the closest honest
+                    # analogue and doubles as `graph_path`'s own second
+                    # entry -- `RetrievalEvidenceItem.chunk_id` is a
+                    # required `str` field with no chunk-shaped meaning
+                    # here.
+                    "chunk_id": neighbour_node_id,
+                    "document_title": document_title,
+                    "section": None,
+                    "page": None,
+                    "content": sentence,
+                    "retrieval_method": "graph",
+                    "dense_score": None,
+                    "bm25_score": None,
+                    "reranker_score": None,
+                    "parent_section": None,
+                    "graph_path": [document_node_id, neighbour_node_id],
+                    "regulatory_citations": [],
+                    "evidence_type": "graph_relationship",
+                    "why_selected": (
+                        "Derived from the evidence graph's real Postgres-built edges, "
+                        "not from model inference."
+                    ),
+                }
+            )
+
+    return items
 
 
 async def hybrid_retrieve(pool: Any, query: str, system_id: str) -> RetrievalOutcome:
@@ -524,9 +680,10 @@ async def hybrid_retrieve(pool: Any, query: str, system_id: str) -> RetrievalOut
             if (dense_score is not None and dense_score >= DENSE_RELEVANCE_THRESHOLD) or bm25_score is not None
         ][:MAX_EVIDENCE_ITEMS]
 
-    stages.append(
-        _stage("evaluating", "complete", f"{len(kept)} of {total} candidates cleared the relevance threshold")
+    evaluating_stage = _stage(
+        "evaluating", "complete", f"{len(kept)} of {total} candidates cleared the relevance threshold"
     )
+    stages.append(evaluating_stage)
 
     if not kept:
         return RetrievalOutcome(
@@ -537,6 +694,35 @@ async def hybrid_retrieve(pool: Any, query: str, system_id: str) -> RetrievalOut
         _build_evidence_item(chunk_id, dense_score, bm25_score, reranker_score, row)
         for chunk_id, _fused_score, dense_score, bm25_score, reranker_score, row in kept
     ]
+
+    # Task 3: parent-context and graph expansion. Both run inside their
+    # own try/except that logs and continues on failure -- losing this
+    # enrichment must degrade the answer's richness, never the answer
+    # itself (06.1-03-PLAN.md Task 3 <action> item 3).
+    try:
+        evidence = await expand_parent_context(pool, evidence)
+    except Exception:  # noqa: BLE001 - defense in depth around expand_parent_context's own guard
+        logger.warning("expand_parent_context raised unexpectedly; continuing without it.", exc_info=True)
+
+    graph_evidence: List[Dict[str, Any]] = []
+    try:
+        document_ids = sorted({item["document_id"] for item in evidence})
+        graph_evidence = await expand_graph_evidence(pool, system_id, document_ids)
+    except Exception:  # noqa: BLE001 - defense in depth around expand_graph_evidence's own guard
+        logger.warning("expand_graph_evidence raised unexpectedly; continuing without it.", exc_info=True)
+
+    # The UI-SPEC deliberately gives these two expansions no trace rows of
+    # their own -- their outcome folds into the already-appended
+    # `evaluating` stage's own detail string (mutated in place; `stages`
+    # holds the same dict `evaluating_stage` references).
+    evaluating_stage["detail"] = (
+        f"{evaluating_stage['detail']}, {len(evidence)} document excerpts, "
+        f"{len(graph_evidence)} graph relationships"
+    )
+
     return RetrievalOutcome(
-        evidence=evidence, trace=stages, insufficient_evidence=False, model_attribution=model_attribution
+        evidence=evidence + graph_evidence,
+        trace=stages,
+        insufficient_evidence=False,
+        model_attribution=model_attribution,
     )

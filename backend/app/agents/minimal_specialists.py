@@ -524,6 +524,13 @@ async def run_a1(state: Dict[str, Any]) -> Dict[str, Any]:
     `_safe_call_llm`'s own defensive stance for the one remaining gap: an
     unexpected exception from anywhere in that call chain degrades to the
     same abstain shape rather than crashing the concurrent A1-A6 fan-out.
+
+    Phase 06.1 plan 06.1-03 completes `hybrid_retrieve`'s Section 15.7
+    provenance: `retrieval_evidence` items now flow from up to FOUR
+    distinct sources -- semantic (dense/Qdrant), keyword (BM25),
+    parent_context (`expand_parent_context`), and graph
+    (`expand_graph_evidence`) -- named here so the next reader does not
+    go looking for a fifth.
     """
     system_id = state["system_id"]
     pool = await acquire_pool_or_none()
