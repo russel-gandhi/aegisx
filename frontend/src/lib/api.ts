@@ -28,6 +28,13 @@
  * added plan 06-02, Task 2, D-07 mini-card #4):
  *   - GET /api/audit/verify -> ChainVerificationResponse
  *
+ * And backend/app/routes/documents.py (plan 06.1-01/06.1-04): POST
+ * /api/documents/upload -> DocumentUploadResult; GET /api/documents ->
+ * DocumentListResult
+ *
+ * And backend/app/routes/copilot_query.py (plan 06.1-02, D-05): POST
+ * /api/copilot/investigate -> CopilotInvestigateResult
+ *
  * Follows `lib/ws.ts`'s conventions: a Vite env var with a default correct
  * for local development, kept out of `.env.example` (a cross-cutting file
  * BRANCHING.md §5 requires be changed in its own separate PR).
@@ -95,6 +102,27 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
       ...identityHeaders(),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!response.ok) {
+    const detail = await parseErrorDetail(response)
+    throw new ApiError(response.status, detail, `POST ${path} failed with status ${response.status}`)
+  }
+  return (await response.json()) as T
+}
+
+// Phase 06.1 (plan 06.1-05, Task 1): multipart sibling of `apiPost`, for
+// `POST /api/documents/upload`'s `multipart/form-data` body. Mirrors
+// `apiPost` exactly -- same `response.ok` check, same `parseErrorDetail` +
+// `ApiError` throw, same `(await response.json()) as T` return -- except
+// the body is the caller's own `FormData` and NO `Content-Type` header is
+// set: the browser derives the multipart boundary itself from the
+// `FormData` instance, and setting `Content-Type` manually here would
+// strip that boundary and break the request.
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { ...identityHeaders() },
+    body: form,
   })
   if (!response.ok) {
     const detail = await parseErrorDetail(response)
@@ -389,4 +417,132 @@ export interface ChainVerificationResponse {
 
 export function fetchChainVerification(): Promise<ChainVerificationResponse> {
   return apiGet<ChainVerificationResponse>('/api/audit/verify')
+}
+
+// Phase 06.1 (plan 06.1-05, Task 1): document ingestion + real-Copilot
+// contracts, mirroring `backend/app/schemas.py`'s field set one-for-one --
+// including nullability. A backend field typed `Optional[...] = None` is
+// declared here as `| null` (never `?`), so a field the server sends as
+// `null` stays visibly `null` in this type rather than silently degrading
+// to `undefined`.
+
+export interface DocumentUploadResult {
+  document_id: string
+  system_id: string
+  title: string
+  doc_type: string
+  chunk_count: number
+  indexed_vector_count: number
+  status: string
+  failed_stage: string | null
+}
+
+export interface DocumentSummary {
+  document_id: string
+  title: string
+  doc_type: string
+  version: string | null
+  system_id: string
+  created_date: string | null
+  chunk_count: number
+  ingestion_status: string
+  failed_stage: string | null
+}
+
+export interface DocumentListResult {
+  system_id: string | null
+  documents: DocumentSummary[]
+}
+
+// Bible Section 15.7's 16 named fields, transcribed one-for-one from
+// `backend/app/schemas.py`'s `RetrievalEvidenceItem`. `retrieval_method` is
+// one of "semantic" | "keyword" | "hybrid" | "parent_context" | "graph";
+// `evidence_type` is one of "document" | "graph_relationship" -- both kept
+// as `string` here (not a literal union) since the backend model itself
+// declares them as plain `str`, and narrowing here would silently diverge
+// from the source of truth.
+export interface RetrievalEvidenceItem {
+  evidence_id: string
+  document_id: string
+  chunk_id: string
+  document_title: string
+  section: string | null
+  page: number | null
+  content: string
+  retrieval_method: string
+  dense_score: number | null
+  bm25_score: number | null
+  reranker_score: number | null
+  parent_section: string | null
+  graph_path: string[]
+  regulatory_citations: string[]
+  evidence_type: string
+  why_selected: string
+}
+
+export interface InvestigationStage {
+  stage_id: string
+  label: string
+  status: string
+  detail: string | null
+}
+
+// D-13: deliberately NO `url`/`href`/`path`/`link` field -- the destination
+// address is assembled client-side (plan 06.1-08's route map) from `kind` +
+// `target_id`, never sent by the server, so neither this backend nor an
+// uploaded document's text can ever supply a navigable string. `kind` is a
+// literal union (not `string`) because `NAVIGATION_KINDS` is a genuinely
+// closed set on the backend (`field_validator` enforced), unlike
+// `retrieval_method`/`evidence_type` above.
+export interface NavigationTarget {
+  kind: 'document' | 'graph_node'
+  target_id: string
+  label: string
+  system_id: string
+  reason: string
+}
+
+// Mirrors `backend/app/schemas.py`'s `AgentFinding` -- the same
+// C1-verified-finding shape `AssuranceCardData` already carries a sibling
+// view of, kept as its own type here (not reused) since the two Pydantic
+// models are deliberately separate (schemas.py's own module docstring).
+export interface CopilotFinding {
+  finding_id: string
+  claim: string
+  regulatory_citations: string[]
+  confidence_score: string
+  evidence_ids: string[]
+  alcoa_score: Record<string, boolean>
+  model_attribution: string
+}
+
+export interface CopilotInvestigateResult {
+  answer: string
+  insufficient_evidence: boolean
+  blocked: boolean
+  blocked_reason: string | null
+  evidence: RetrievalEvidenceItem[]
+  stages: InvestigationStage[]
+  findings: CopilotFinding[]
+  verification_results: Record<string, unknown>
+  evidence_support: string
+  model_attribution: string
+  navigation_target: NavigationTarget | null
+}
+
+export async function uploadDocument(file: File, systemId: string): Promise<DocumentUploadResult> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('system_id', systemId)
+  return apiUpload<DocumentUploadResult>('/api/documents/upload', form)
+}
+
+export async function listDocuments(systemId?: string): Promise<DocumentListResult> {
+  return apiGet<DocumentListResult>(
+    systemId ? `/api/documents?system_id=${encodeURIComponent(systemId)}` : '/api/documents',
+  )
+}
+
+export async function investigateCopilot(query: string, systemId: string): Promise<CopilotInvestigateResult> {
+  return apiPost<CopilotInvestigateResult>('/api/copilot/investigate', { query, system_id: systemId })
 }

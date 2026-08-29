@@ -9,6 +9,7 @@ import Actions from './pages/Actions'
 import AssuranceLab from './pages/AssuranceLab'
 import TrustCentre from './pages/TrustCentre'
 import InspectionSimulator from './pages/InspectionSimulator'
+import Knowledge from './pages/Knowledge'
 
 export interface RouteDefinition {
   path: string
@@ -34,6 +35,12 @@ export const routes: RouteDefinition[] = [
   { path: '/findings', label: 'Evidence Investigation', Component: FindingInvestigation },
   { path: '/audit-readiness', label: 'Audit Readiness', Component: AuditReadiness }, // 11.3
   { path: '/blast-radius', label: 'Blast Radius', Component: BlastRadius }, // 11.4
+  // Phase 06.1 (plan 06.1-05, RAG-01, D-10/D-12): a deliberate, one new
+  // flat top-level route -- not a re-grouping of the table above. UI_SPEC.md
+  // §5's six-item grouped information architecture is a separate, larger
+  // piece of work this phase does not attempt; collapsing the existing
+  // flat routes into that structure is explicitly out of scope here.
+  { path: '/knowledge', label: 'Knowledge', Component: Knowledge },
   { path: '/suppliers', label: 'Supplier Intelligence', Component: Suppliers }, // 11.5
   { path: '/actions', label: 'Actions', Component: Actions }, // 11.6
   { path: '/assurance-lab', label: 'Assurance Lab', Component: AssuranceLab }, // 11.7

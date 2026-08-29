@@ -14,6 +14,7 @@ const expectedHeadings: Record<string, string> = {
   '/findings': 'Evidence Investigation',
   '/audit-readiness': 'Audit Readiness',
   '/blast-radius': 'Blast Radius',
+  '/knowledge': 'Knowledge',
   '/suppliers': 'Supplier Intelligence',
   '/actions': 'Action / Approval Centre',
   '/assurance-lab': 'Assurance Lab',
@@ -22,8 +23,11 @@ const expectedHeadings: Record<string, string> = {
 }
 
 describe('route table', () => {
-  it('has exactly ten entries', () => {
-    expect(routes).toHaveLength(10)
+  it('has exactly eleven entries', () => {
+    // Plan 06.1-05 (D-10/D-12) adds exactly one new flat top-level route
+    // (/knowledge) to the ten that existed before this phase -- see the
+    // provenance comment above the /knowledge entry in routes.tsx.
+    expect(routes).toHaveLength(11)
   })
 
   it('has unique paths', () => {
