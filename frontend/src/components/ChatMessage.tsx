@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
 import AssuranceCard from './AssuranceCard'
+import AutoNavigateNotice from './AutoNavigateNotice'
 import EvidenceView from './EvidenceView'
 import InvestigationTrace from './InvestigationTrace'
 
@@ -29,6 +30,13 @@ export interface ChatMessageData {
 
 export interface ChatMessageProps {
   message: ChatMessageData
+  // Phase 06.1 plan 06.1-08 (D-13): the system id the page sent with the
+  // request -- threaded down to EvidenceView's deep links and
+  // AutoNavigateNotice's route resolution, never inferred from the
+  // response.
+  systemId: string
+  autoNavigateArmed: boolean
+  onNavigationCancelled?: () => void
 }
 
 // Reused verbatim from 06-UI-SPEC.md's Color table: injection-blocked and
@@ -50,7 +58,12 @@ function useFadeIn(): boolean {
   return visible
 }
 
-export default function ChatMessage({ message }: ChatMessageProps) {
+export default function ChatMessage({
+  message,
+  systemId,
+  autoNavigateArmed,
+  onNavigationCancelled,
+}: ChatMessageProps) {
   const visible = useFadeIn()
   const opacityClass = visible ? 'opacity-100' : 'opacity-0'
 
@@ -112,6 +125,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                   evidence={result.evidence}
                   evidenceSupport={result.evidence_support}
                   insufficientEvidence
+                  systemId={systemId}
                 />
               ) : (
                 <>
@@ -122,9 +136,15 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                     evidence={result.evidence}
                     evidenceSupport={result.evidence_support}
                     insufficientEvidence={false}
+                    systemId={systemId}
                   />
                 </>
               )}
+              <AutoNavigateNotice
+                target={result.navigation_target}
+                armed={autoNavigateArmed && !result.insufficient_evidence}
+                onCancelled={onNavigationCancelled ?? (() => {})}
+              />
             </>
           )}
         </div>

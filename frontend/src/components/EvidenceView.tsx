@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { RetrievalEvidenceItem } from '../lib/api'
+import { evidenceHref, evidenceLinkLabel } from '../lib/navigation'
 
 // Pure presentation, per D-09/D-11 and Bible Section 1.3: this component is
 // a window onto server-trusted state, extending AssuranceCard.tsx's own
@@ -8,12 +10,16 @@ import type { RetrievalEvidenceItem } from '../lib/api'
 // props reflects exactly what the server sent, and a missing server field
 // is shown as missing (an explicit "no section" / "n/a"), never silently
 // replaced by a client-invented default. A client-side default here would
-// be precisely the failure mode D-09 forbids.
+// be precisely the failure mode D-09 forbids. Per D-13: each item's deep
+// link address is built by lib/navigation.ts from server-sent identifiers,
+// never taken from a server-sent URL, because this component renders
+// content that originated in an uploaded document.
 export interface EvidenceViewProps {
   evidence: RetrievalEvidenceItem[]
   evidenceSupport: string
   insufficientEvidence: boolean
   modelAttribution?: string
+  systemId: string
 }
 
 // Reused verbatim from AssuranceCard.tsx's CONFIDENCE_STYLES, remapped to
@@ -73,10 +79,12 @@ function formatScore(label: string, value: number | null): string | null {
   return `${label} ${value.toFixed(2)}`
 }
 
-function EvidenceItem({ item }: { item: RetrievalEvidenceItem }) {
+function EvidenceItem({ item, systemId }: { item: RetrievalEvidenceItem; systemId: string }) {
   const typeLabel = EVIDENCE_TYPE_LABELS[item.evidence_type] ?? item.evidence_type
   const methodLabel = RETRIEVAL_METHOD_LABELS[item.retrieval_method] ?? item.retrieval_method
   const isGraphRelationship = item.evidence_type === 'graph_relationship'
+  const href = evidenceHref(item, systemId)
+  const linkLabel = evidenceLinkLabel(item)
 
   const scores = [
     formatScore('Semantic', item.dense_score),
@@ -141,6 +149,18 @@ function EvidenceItem({ item }: { item: RetrievalEvidenceItem }) {
           {WHY_SELECTED_PREFIX} <span className="text-slate-300">{item.why_selected}</span>
         </p>
       </div>
+
+      {href !== null && linkLabel !== null && (
+        <div className="mt-2">
+          <Link
+            to={href}
+            data-testid="evidence-item-link"
+            className="text-slate-300 underline underline-offset-2 hover:text-slate-100"
+          >
+            {linkLabel}
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
@@ -154,6 +174,7 @@ export default function EvidenceView({
   evidenceSupport,
   insufficientEvidence,
   modelAttribution,
+  systemId,
 }: EvidenceViewProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -195,7 +216,7 @@ export default function EvidenceView({
               className={`transition-all duration-200 ${overflowClass}`}
               aria-hidden={false}
             >
-              <EvidenceItem item={item} />
+              <EvidenceItem item={item} systemId={systemId} />
             </div>
           )
         })}

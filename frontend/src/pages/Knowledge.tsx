@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   ApiError,
   listDocuments,
@@ -28,9 +29,14 @@ import {
  * specific failed stage highlighted, which is the honest limit of what the
  * server told it.
  *
- * `?system=`/`?document=` deep-link preselection and row highlighting are
- * plan 06.1-08's job (06.1-08-PLAN.md Task 3, "after plan 06.1-05") -- this
- * page establishes the row markup/keys that plan consumes, nothing more.
+ * `?system=`/`?document=` deep-link preselection and row highlighting (D-13,
+ * plan 06.1-08 Task 3) are read once on mount: `?system=` initialises the
+ * system selector (validated against KNOWLEDGE_SYSTEM_IDS -- a param
+ * cannot put the page into a state its own selector cannot represent), and
+ * `?document=` highlights the matching source-list row with a neutral ring
+ * (never the accent hue -- a highlight is not a success signal). An id
+ * with no matching row is not a failure; the list simply renders as it
+ * would without the param.
  */
 
 export const KNOWLEDGE_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
@@ -55,6 +61,10 @@ export const UNSUPPORTED_TYPE_COPY =
 export const TOO_LARGE_COPY =
   'This file is too large to upload. Nothing was uploaded — try a smaller file or split it into sections.'
 export const SELECT_SYSTEM_HINT = 'Select a system first'
+
+// D-13: a neutral ring, not an accent hue -- a deep-link highlight is a
+// landing cue, not a success/quality signal.
+export const HIGHLIGHTED_ROW_STYLE = 'ring-1 ring-slate-500'
 
 export function ingestionFailureCopy(stage: string): string {
   return `Processing stopped at ${stage} — the file was uploaded but not fully indexed, so it won't appear in retrieval yet. Try uploading it again.`
@@ -149,7 +159,17 @@ function StageChecklist({ state, documentId }: { state: RowStageState; documentI
 }
 
 export default function Knowledge() {
-  const [systemId, setSystemId] = useState('')
+  const [searchParams] = useSearchParams()
+  // D-13: `?system=` is read only as an initial value, validated against
+  // KNOWLEDGE_SYSTEM_IDS -- falls back to the page's ordinary default (no
+  // system selected) for a param naming an unknown system.
+  const [systemId, setSystemId] = useState(() => {
+    const requested = searchParams.get('system')
+    return requested !== null && KNOWLEDGE_SYSTEM_IDS.includes(requested) ? requested : ''
+  })
+  // D-13: `?document=` highlights the matching row once on mount -- not a
+  // filter, never refetched, never cleared by any control on this page.
+  const highlightedDocumentId = searchParams.get('document')
   const [documents, setDocuments] = useState<DocumentSummary[]>([])
   const [inlineError, setInlineError] = useState<string | null>(null)
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null)
@@ -355,11 +375,22 @@ export default function Knowledge() {
                   ? { kind: 'ready' }
                   : { kind: 'failed', failedStageIndex: failedStageIndexFor(cachedFailedStage) }
 
+              // D-13: the per-document `knowledge-source-row-{id}` testid is
+              // load-bearing for the rest of this page's test suite, so a
+              // highlighted row keeps it unchanged and carries an
+              // additional `data-testid="knowledge-row-highlighted"`
+              // attribute on the same node via a second `<span>`-free
+              // marker is not possible on one DOM node with two
+              // `data-testid`s -- `data-highlighted` is the queryable
+              // marker instead, kept alongside the unchanged row testid.
+              const isHighlighted = highlightedDocumentId !== null && doc.document_id === highlightedDocumentId
+
               return (
                 <div
                   key={doc.document_id}
                   data-testid={`knowledge-source-row-${doc.document_id}`}
-                  className="rounded border border-slate-800 bg-slate-900 p-4 transition-all duration-300 ease-out"
+                  data-highlighted={isHighlighted ? 'true' : undefined}
+                  className={`rounded border border-slate-800 bg-slate-900 p-4 transition-all duration-300 ease-out ${isHighlighted ? HIGHLIGHTED_ROW_STYLE : ''}`}
                 >
                   <p className="truncate text-sm font-medium text-slate-100" title={doc.title}>
                     {doc.title}
