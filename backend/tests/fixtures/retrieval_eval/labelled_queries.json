@@ -1,0 +1,52 @@
+{
+  "system_id": "GXP-MFG-DEMO-01",
+  "k": 5,
+  "_note": "relevant_markers are literal substrings (case-insensitive, whitespace-normalised) that must appear in a chunk's own content for that chunk to count as relevant -- not chunk ids. Substring ground truth survives a change to chunk boundaries without needing to be relabelled by id. query_id prefixes name the query shape this case exercises: ID- (exact identifier lookup, lexical search should win), PARA- (paraphrased conceptual question, dense search should win), MIX- (a question combining an exact identifier with conceptual language, fusion should win).",
+  "cases": [
+    {
+      "query_id": "ID-01",
+      "query": "What is the test case for URS-EVAL-017?",
+      "relevant_markers": ["URS-EVAL-017"]
+    },
+    {
+      "query_id": "ID-02",
+      "query": "What execution status is recorded for URS-EVAL-033?",
+      "relevant_markers": ["URS-EVAL-033"]
+    },
+    {
+      "query_id": "ID-03",
+      "query": "What test case id is linked to requirement URS-EVAL-006?",
+      "relevant_markers": ["URS-EVAL-006"]
+    },
+    {
+      "query_id": "PARA-01",
+      "query": "How much time do we have before we must start looking into a flagged issue, and by when should we have reached an outcome?",
+      "relevant_markers": ["seventy-two hour"]
+    },
+    {
+      "query_id": "PARA-02",
+      "query": "What happens when the people checking a document or a system on a regular schedule decide that nothing there actually needs to be revised?",
+      "relevant_markers": ["reaffirmation"]
+    },
+    {
+      "query_id": "PARA-03",
+      "query": "Who has to sign off on a big change before it goes live, and how do we confirm afterward that it actually worked?",
+      "relevant_markers": ["effectiveness check"]
+    },
+    {
+      "query_id": "MIX-01",
+      "query": "Tell me about training record TRN-EVAL-091 and how retraining assignments get triggered automatically when a document changes.",
+      "relevant_markers": ["TRN-EVAL-091"]
+    },
+    {
+      "query_id": "MIX-02",
+      "query": "What's linked to CAPA-EVAL-206 in terms of preventive action for the deviation program?",
+      "relevant_markers": ["CAPA-EVAL-206"]
+    },
+    {
+      "query_id": "MIX-03",
+      "query": "What does deviation record DEV-EVAL-142 show about how a major classification gets assigned?",
+      "relevant_markers": ["DEV-EVAL-142"]
+    }
+  ]
+}
