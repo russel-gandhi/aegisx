@@ -41,6 +41,7 @@ Never logs the API key, the full request body, or the embedded text --
 only the task name, provider entry, and failure category.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -54,6 +55,38 @@ logger = logging.getLogger(__name__)
 
 EMBEDDING_DIMENSIONS: int = 768
 EMBEDDING_BATCH_SIZE: int = 32
+
+# Deviation 19 (backend/README.md, 2026-08-29): bounded retry-with-backoff
+# specifically for HTTP 429 (rate limited), added after a real ~105-chunk
+# document reliably tripped the hosted embedding API's rate limit and
+# `index_document()`'s all-or-nothing write (correct-by-design, D-09 --
+# never a partial/fabricated index) discarded every already-embedded chunk
+# as a result. 429 is the one status this module already returns that is
+# specifically "try again shortly," not "this request is wrong" -- every
+# other status/error path is unchanged (no retry, degrade immediately).
+# Three retries at 1s/2s/4s (respecting a `Retry-After` header when the
+# provider sends one, which caps rather than replaces the backoff) keeps
+# the common transient-burst case working without turning a genuinely
+# exhausted quota into a long hang.
+EMBEDDING_MAX_RETRIES: int = 3
+EMBEDDING_RETRY_BASE_DELAY_SECONDS: float = 1.0
+
+
+def _retry_delay_seconds(attempt: int, response: httpx.Response) -> float:
+    """Delay before retry attempt `attempt` (1-indexed). A `Retry-After`
+    header (seconds, per RFC 9110) is the provider's own authoritative
+    instruction and is honored as-is when present and parseable as a
+    non-negative float; our own exponential backoff (1s/2s/4s) is only a
+    fallback for the common case where the provider sends none."""
+    retry_after = response.headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            header_delay = float(retry_after)
+            if header_delay >= 0:
+                return header_delay
+        except ValueError:
+            pass
+    return EMBEDDING_RETRY_BASE_DELAY_SECONDS * (2 ** (attempt - 1))
 
 # Mirrors `llm_router.PROVIDER_CONFIG`'s key structure exactly (provider,
 # model, base_url, api_key_env tuple, rpm_limit, use_for) so this module
@@ -144,6 +177,11 @@ async def call_embedding(
     Never raises to its caller -- see module docstring. On success,
     returns a `degraded=False` response whose `vector` is L2-normalised
     and has exactly `EMBEDDING_DIMENSIONS` entries.
+
+    A `429` response retries up to `EMBEDDING_MAX_RETRIES` times with
+    backoff (Deviation 19) before degrading -- every other failure
+    (timeout, non-429 status, transport error, malformed body) degrades
+    on the first attempt, unchanged.
     """
     entry_key, entry, failure = _resolve_entry(task_type)
     if failure is not None:
@@ -158,13 +196,29 @@ async def call_embedding(
         "output_dimensionality": EMBEDDING_DIMENSIONS,
     }
 
+    attempt = 1
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url, params={"key": api_key}, json=body, timeout=timeout
-            )
-            response.raise_for_status()
-            data = response.json()
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        url, params={"key": api_key}, json=body, timeout=timeout
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                break
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429 and attempt <= EMBEDDING_MAX_RETRIES:
+                    delay = _retry_delay_seconds(attempt, exc.response)
+                    logger.warning(
+                        "Embedding call rate-limited (provider=%s, attempt=%d/%d); "
+                        "retrying in %.1fs.",
+                        entry_key, attempt, EMBEDDING_MAX_RETRIES, delay,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    continue
+                raise
     except httpx.TimeoutException:
         logger.warning("Embedding call timed out (provider=%s, task_type=%s).", entry_key, task_type)
         return _degraded(f"timeout:{entry_key}")
@@ -207,9 +261,13 @@ async def _call_batch_group(
     texts: List[str], task_type: str, timeout: float
 ) -> List[EmbeddingResponse]:
     """Embed one group of at most `EMBEDDING_BATCH_SIZE` texts via a single
-    `:batchEmbedContents` request. On any failure (transport, status, or a
-    malformed/mismatched-length response), falls back to sequential
-    `call_embedding()` calls for this group -- never raises."""
+    `:batchEmbedContents` request. A `429` response retries up to
+    `EMBEDDING_MAX_RETRIES` times with backoff (Deviation 19) before
+    falling back. On any OTHER failure (transport, non-429 status, or a
+    malformed/mismatched-length response), or on 429-retry exhaustion,
+    falls back to sequential `call_embedding()` calls for this group --
+    each of which gets its own independent 429-retry budget -- never
+    raises."""
     entry_key, entry, failure = _resolve_entry(task_type)
     if failure is not None:
         return [failure for _ in texts]
@@ -230,12 +288,28 @@ async def _call_batch_group(
     }
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                url, params={"key": api_key}, json=body, timeout=timeout
-            )
-            response.raise_for_status()
-            data = response.json()
+        attempt = 1
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.post(
+                        url, params={"key": api_key}, json=body, timeout=timeout
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                break
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code == 429 and attempt <= EMBEDDING_MAX_RETRIES:
+                    delay = _retry_delay_seconds(attempt, exc.response)
+                    logger.warning(
+                        "Batch embedding call rate-limited (provider=%s, attempt=%d/%d); "
+                        "retrying in %.1fs.",
+                        entry_key, attempt, EMBEDDING_MAX_RETRIES, delay,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+                    continue
+                raise
         embeddings = data["embeddings"]
         if len(embeddings) != len(texts):
             raise ValueError("batch response length does not match request length")

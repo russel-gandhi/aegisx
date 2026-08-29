@@ -20,6 +20,7 @@ import respx
 
 from app.retrieval.embeddings import (
     EMBEDDING_DIMENSIONS,
+    EMBEDDING_MAX_RETRIES,
     EMBEDDING_PROVIDER_CONFIG,
     call_embedding,
     call_embeddings_batch,
@@ -123,6 +124,126 @@ def test_call_embedding_timeout_degrades_without_raising(monkeypatch):
     assert result.degraded is True
     assert result.failure_reason is not None
     assert result.vector == []
+
+
+def _no_sleep(monkeypatch):
+    """Patch `asyncio.sleep` inside `app.retrieval.embeddings` to a no-op
+    so retry-backoff tests run instantly rather than actually waiting the
+    real 1s/2s/4s delays."""
+    async def _instant(_seconds):
+        return None
+
+    monkeypatch.setattr("app.retrieval.embeddings.asyncio.sleep", _instant)
+
+
+def test_call_embedding_retries_429_then_succeeds(monkeypatch):
+    """Deviation 19: a single 429 is transient, not terminal -- the second
+    attempt succeeding must return a real (non-degraded) result, not the
+    old immediate-degrade behavior."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    _no_sleep(monkeypatch)
+    raw_vector = _unit_vector(EMBEDDING_DIMENSIONS, seed=3)
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
+            ).mock(
+                side_effect=[
+                    httpx.Response(429, json={"error": "rate limited"}),
+                    httpx.Response(200, json={"embedding": {"values": raw_vector}}),
+                ]
+            )
+            result = await call_embedding("Retries once then succeeds.")
+            return result, route
+
+    result, route = asyncio.run(_run())
+    assert route.call_count == 2
+    assert result.degraded is False
+    assert len(result.vector) == EMBEDDING_DIMENSIONS
+
+
+def test_call_embedding_exhausts_429_retries_then_degrades(monkeypatch):
+    """A sustained rate limit -- every attempt 429s -- must still degrade
+    rather than retry forever; exactly `EMBEDDING_MAX_RETRIES` + 1 total
+    attempts (the original plus every retry) are made."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    _no_sleep(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
+            ).mock(return_value=httpx.Response(429, json={"error": "rate limited"}))
+            result = await call_embedding("Always rate limited.")
+            return result, route
+
+    result, route = asyncio.run(_run())
+    assert route.call_count == EMBEDDING_MAX_RETRIES + 1
+    assert result.degraded is True
+    assert result.failure_reason == "http_429:google_gemini_embedding"
+    assert result.vector == []
+
+
+def test_call_embedding_honors_retry_after_header(monkeypatch):
+    """A provider-sent `Retry-After` header is authoritative over our own
+    exponential backoff -- asserted by checking the actual sleep delay
+    passed, not just that a retry happened."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    observed_delays = []
+
+    async def _capture_sleep(seconds):
+        observed_delays.append(seconds)
+
+    monkeypatch.setattr("app.retrieval.embeddings.asyncio.sleep", _capture_sleep)
+    raw_vector = _unit_vector(EMBEDDING_DIMENSIONS, seed=4)
+
+    async def _run():
+        with respx.mock:
+            respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
+            ).mock(
+                side_effect=[
+                    httpx.Response(429, headers={"Retry-After": "7"}, json={"error": "rate limited"}),
+                    httpx.Response(200, json={"embedding": {"values": raw_vector}}),
+                ]
+            )
+            return await call_embedding("Retry-After is honored.")
+
+    result = asyncio.run(_run())
+    assert result.degraded is False
+    assert observed_delays == [7.0]
+
+
+def test_call_embeddings_batch_retries_429_at_batch_level_before_falling_back(monkeypatch):
+    """A 429 on the batch endpoint itself must retry before falling back
+    to N sequential calls -- the fallback path exists for non-retryable
+    failures, not as the first response to a transient rate limit."""
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    _no_sleep(monkeypatch)
+    vectors = [_unit_vector(EMBEDDING_DIMENSIONS, seed=i) for i in range(3)]
+
+    async def _run():
+        with respx.mock:
+            batch_route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
+            ).mock(
+                side_effect=[
+                    httpx.Response(429, json={"error": "rate limited"}),
+                    httpx.Response(200, json={"embeddings": [{"values": v} for v in vectors]}),
+                ]
+            )
+            sequential_route = respx.post(
+                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
+            )
+            results = await call_embeddings_batch(["a", "b", "c"])
+            return results, batch_route, sequential_route
+
+    results, batch_route, sequential_route = asyncio.run(_run())
+    assert batch_route.call_count == 2
+    assert not sequential_route.called
+    assert all(not r.degraded for r in results)
+    assert len(results) == 3
 
 
 def test_call_embeddings_batch_returns_in_order_with_one_http_request(monkeypatch):
