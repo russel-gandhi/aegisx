@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react'
-import type { AssuranceCardData } from '../lib/api'
+import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
 import AssuranceCard from './AssuranceCard'
+import EvidenceView from './EvidenceView'
+import InvestigationTrace from './InvestigationTrace'
 
-// Phase 6 (UI-04, D-01/D-04/D-05): one entry per turn in the Copilot chat.
+// Phase 6 (UI-04, D-01/D-04/D-05) + Phase 06.1 plan 06 (RAG-06/RAG-07,
+// D-07/D-09/D-10/D-11): one entry per turn in the Copilot chat.
 // `kind: 'cards'` is the hero-query path (D-01/D-05) -- `cards` accumulates
 // as `AssuranceCard`s stream in, one at a time, never all-at-once.
+// `kind: 'investigation'` is the free-text real-graph path (06.1-06):
+// renders a grounded answer, an "How AegisX searched" trace toggle, and an
+// inspectable evidence list -- or, when the server reports
+// `insufficient_evidence`, the honest insufficient-evidence copy in place
+// of all three (D-09).
 // `kind: 'text'` covers everything else: the user's own echoed input, the
-// unrecognized-shape stub/response (D-04), an injection-blocked response
+// legacy unrecognized-shape stub/response, an injection-blocked response
 // (`variant: 'blocked'`), and a stream-failure message (`variant: 'error'`).
 export interface ChatMessageData {
   id: string
   role: 'user' | 'assistant'
-  kind: 'text' | 'cards'
+  kind: 'text' | 'cards' | 'investigation'
   text?: string
   cards?: AssuranceCardData[]
+  investigation?: CopilotInvestigateResult
   variant?: 'default' | 'error' | 'blocked'
   status?: 'investigating' | 'done'
 }
@@ -78,6 +87,46 @@ export default function ChatMessage({ message }: ChatMessageProps) {
           {cards.map((card) => (
             <AssuranceCard key={card.finding_id} card={card} />
           ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (message.kind === 'investigation') {
+    const investigating = message.status === 'investigating'
+    const result = message.investigation
+
+    return (
+      <div className="flex justify-start">
+        <div
+          data-testid="chat-message-assistant"
+          data-kind="investigation"
+          className={`max-w-2xl space-y-3 rounded-lg border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
+        >
+          {investigating && <p className="text-slate-400">Investigating…</p>}
+
+          {!investigating && result !== undefined && (
+            <>
+              {result.insufficient_evidence ? (
+                <EvidenceView
+                  evidence={result.evidence}
+                  evidenceSupport={result.evidence_support}
+                  insufficientEvidence
+                />
+              ) : (
+                <>
+                  <p className="whitespace-pre-wrap text-slate-100">{result.answer}</p>
+                  <p className="text-xs text-slate-500">Model: {result.model_attribution}</p>
+                  <InvestigationTrace stages={result.stages} />
+                  <EvidenceView
+                    evidence={result.evidence}
+                    evidenceSupport={result.evidence_support}
+                    insufficientEvidence={false}
+                  />
+                </>
+              )}
+            </>
+          )}
         </div>
       </div>
     )

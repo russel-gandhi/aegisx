@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom'
 import AgentTopologyCanvas, { type NodeStatusValue } from '../components/AgentTopologyCanvas'
 import ChatMessage, { type ChatMessageData } from '../components/ChatMessage'
 import { connectCopilotStream } from '../lib/ws'
-import { queryCopilot, streamAssuranceCards } from '../lib/api'
+import { investigateCopilot, streamAssuranceCards } from '../lib/api'
 
 // A value generated once per mount is sufficient for this plan's contract
 // -- nothing yet correlates a session id with a server-side record. Real
@@ -21,6 +21,14 @@ function generateSessionId(): string {
 const KNOWN_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
 const AUDIT_READY_PATTERN = /audit[-\s]+ready/i
 
+// Phase 06.1 (plan 06.1-06, D-07): the system selector offered for a
+// free-text (non-hero-query) investigation. Same two demo systems as the
+// hero-query path's KNOWN_SYSTEM_IDS, kept as a separate export per the
+// plan's own artifact list rather than reusing KNOWN_SYSTEM_IDS directly --
+// the hero-query gate and this selector are independent contracts that
+// happen to share the same seeded values today.
+export const COPILOT_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
+
 export function matchHeroQuery(text: string): string | null {
   if (!AUDIT_READY_PATTERN.test(text)) {
     return null
@@ -36,12 +44,17 @@ export const EMPTY_STATE_BODY =
   'Try: "Is GXP-MFG-DEMO-01 audit ready?" — Copilot verifies every claim against real database and policy state before showing it to you.'
 export const STREAM_FAILURE_COPY =
   'The investigation stopped before finishing — check your connection and ask again.'
-// D-04: rendered for a non-hero-query submit that `queryCopilot()` (real,
-// `POST /api/copilot/query`, backed by the already-tested, zero-LLM
-// `detect_injection()`) reports as NOT blocked -- an honest "not supported
-// yet" response, never a fabricated compliance answer. Also the
-// network/API-error degrade target (Task 2 <action>): a transport failure
-// must never look like a fabricated compliance answer either.
+// Phase 06.1 (plan 06.1-06): the free-text investigate path's transport-
+// failure copy, reusing STREAM_FAILURE_COPY's exact string -- the same
+// honest degrade target the hero-query stream already uses, so a failure
+// never looks like a fabricated compliance answer regardless of which path
+// produced it.
+export const INVESTIGATE_FAILURE_COPY = STREAM_FAILURE_COPY
+
+// Legacy export only, retained so nothing that imports it breaks -- no
+// longer reachable from handleSubmit as of plan 06.1-06 (D-07). Any free
+// text that does not match the hero-query fast path now reaches the real
+// graph via investigateCopilot() instead of this canned fallback.
 export const UNRECOGNIZED_SHAPE_COPY =
   'I can only answer system-readiness questions right now, e.g. "Is GXP-MFG-DEMO-01 audit ready?" — try rephrasing around a known system id.'
 
@@ -62,6 +75,7 @@ export default function Copilot() {
     () => (location.state as { prefillQuery?: string } | null)?.prefillQuery ?? '',
   )
   const [isStreaming, setIsStreaming] = useState(false)
+  const [selectedSystemId, setSelectedSystemId] = useState(COPILOT_SYSTEM_IDS[0])
   const [nodeStatus, setNodeStatus] = useState<Record<string, NodeStatusValue>>({})
   const [disconnected, setDisconnected] = useState(false)
   const sessionIdRef = useRef(generateSessionId())
@@ -191,45 +205,60 @@ export default function Copilot() {
       return
     }
 
-    // D-04: fast and synchronous from the UI's perspective -- no
-    // "Investigating…" placeholder needed, unlike the hero-query stream.
-    queryCopilot(trimmed)
+    // D-07: any non-hero-query free text now reaches the real graph via
+    // investigateCopilot(), replacing the old canned not-supported-yet
+    // fallback. An "Investigating…" placeholder mirrors the hero-query
+    // stream's own in-flight treatment (ChatMessage.tsx's `kind:
+    // 'investigation'` branch), and input/send stay disabled for the
+    // whole request via the same `isStreaming` flag the hero path uses.
+    const assistantId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: 'assistant', kind: 'investigation', status: 'investigating' },
+    ])
+    setIsStreaming(true)
+
+    investigateCopilot(trimmed, selectedSystemId)
       .then((response) => {
+        setIsStreaming(false)
         if (response.blocked) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              kind: 'text',
-              variant: 'blocked',
-              text: injectionDetectedCopy(response.reason ?? ''),
-            },
-          ])
+          // Unchanged from Phase 6: the destructive-styled bubble with
+          // C2's own real reason string, now sourced from
+          // investigateCopilot's blocked_reason field.
+          setMessages((prev) =>
+            prev.map((message) =>
+              message.id === assistantId
+                ? {
+                    ...message,
+                    kind: 'text',
+                    variant: 'blocked',
+                    text: injectionDetectedCopy(response.blocked_reason ?? ''),
+                  }
+                : message,
+            ),
+          )
           return
         }
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            kind: 'text',
-            text: UNRECOGNIZED_SHAPE_COPY,
-          },
-        ])
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? { ...message, kind: 'investigation', status: 'done', investigation: response }
+              : message,
+          ),
+        )
       })
       .catch(() => {
-        // Never let a transport failure look like a fabricated compliance
-        // answer -- degrade to the same honest unrecognized-shape copy.
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            kind: 'text',
-            text: UNRECOGNIZED_SHAPE_COPY,
-          },
-        ])
+        // A transport/5xx failure must never look like a fabricated
+        // compliance answer -- degrade to the same honest failure copy
+        // the hero-query stream uses.
+        setIsStreaming(false)
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === assistantId
+              ? { ...message, kind: 'text', variant: 'error', text: INVESTIGATE_FAILURE_COPY }
+              : message,
+          ),
+        )
       })
   }
 
@@ -237,10 +266,29 @@ export default function Copilot() {
     <div>
       <h1 className="text-2xl font-semibold text-slate-100">Ask GxP Copilot</h1>
       <p className="mt-2 max-w-2xl text-slate-400">
-        A natural-language chat interface backed by the C2 → A0 → [A1…A6] → C1 → A7 → C3 agent
-        pipeline. The canvas below visualizes live agent execution state as a question moves
-        through orchestration, evidence verification, and remediation.
+        Questions are answered from the indexed knowledge base with inspectable evidence -- every
+        answer names the source document, section/page, and retrieval method behind it, backed by
+        the C2 → A0 → [A1…A6] → C1 → A7 → C3 agent pipeline. The canvas below visualizes live
+        agent execution state for a system-readiness question.
       </p>
+
+      <div className="mt-4">
+        <label htmlFor="copilot-system" className="text-sm text-slate-400">
+          System
+        </label>
+        <select
+          id="copilot-system"
+          className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          value={selectedSystemId}
+          onChange={(event) => setSelectedSystemId(event.target.value)}
+        >
+          {COPILOT_SYSTEM_IDS.map((id) => (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="mt-6">
         <AgentTopologyCanvas nodeStatus={nodeStatus} disconnected={disconnected} />
