@@ -249,6 +249,22 @@ A2_CHECKS: Tuple[Callable[[Any, str], Awaitable[Dict[str, Any]]], ...] = (
     verify_no_stale_documents,
 )
 
+# Deviation 18 (2026-08-29): `app.llm_router.call_llm` now cascades through
+# up to four providers on failure, not one. `NARRATION_PER_HOP_TIMEOUT_SECONDS`
+# is the budget for EACH individual provider attempt; `NARRATION_CEILING_SECONDS`
+# is the TOTAL wall-clock budget across every hop. The old single-hop design
+# reused one 3.0s value for both, which correctly bounded a 1-primary +
+# 1-fallback cascade at ~6s worst case but silently truncated the new
+# multi-hop cascade before it could reach a working provider (observed live
+# 2026-08-29: Groq 429 -> OpenRouter cascade cut off mid-flight by the old
+# outer 3.0s ceiling, landing on deterministic-fallback despite a valid
+# OpenRouter key). The ceiling must sit ABOVE the worst-case sum of every hop
+# (4 hops x 3.0s = 12.0s), not below it — an outer ceiling tighter than the
+# cascade's own worst case reintroduces the exact bug this deviation fixes.
+# 13.0s gives ~1s of margin above that 12.0s worst case.
+NARRATION_PER_HOP_TIMEOUT_SECONDS = 3.0
+NARRATION_CEILING_SECONDS = 13.0
+
 # check name -> short human-readable description of what failed, used only
 # to build the deterministic-fallback narration sentence and the LLM
 # narration prompt. Purely descriptive text, never consulted for `passed`.
@@ -296,21 +312,22 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     so a later hit reproduces the same `model_attribution`.
 
     Provider routing (quick task 260826-p1q): narration is routed via the
-    dedicated `"narration"` task key to `groq_llama`, not `"compliance"`'s
+    dedicated `"narration"` task key to `groq_gpt_oss`, not `"compliance"`'s
     `gemini_flash_fast` — A0/A2's judgment tasks are untouched, only this
-    decoration step moved. The call is bounded by a ~3s TOTAL wall-clock
-    ceiling via `asyncio.wait_for`, not merely `call_llm`'s own `timeout`
-    argument: `call_llm` reuses that same timeout value for its internal
-    cascade to `openrouter_fallback`, so a raw `timeout=3.0` alone would
-    permit a ~6s worst case (Design Note 2). The outer `wait_for` is the
-    real ceiling — on a Groq TIMEOUT it fires first and the cascade gets no
-    second attempt (a 3s budget is a 3s budget); on a Groq FAST failure
-    (missing key, 429, 5xx — all sub-millisecond) `call_llm`'s cascade to
-    OpenRouter still runs normally inside what budget remains. Either way,
-    once the ceiling is hit or the response is blank/whitespace-only, this
-    function returns the same deterministic-fallback pair the `degraded`
-    branch returns, and caches nothing — a blank claim must never reach a
-    card (Design Note 4).
+    decoration step moved. The call is bounded by `NARRATION_CEILING_SECONDS`
+    (13.0s) TOTAL wall-clock via the outer `asyncio.wait_for`, not merely
+    `call_llm`'s own per-hop `timeout` argument (`NARRATION_PER_HOP_TIMEOUT_SECONDS`,
+    3.0s): `call_llm` now cascades through up to four providers on failure
+    (Deviation 18), each sharing that same per-hop budget, so the outer
+    ceiling must cover the worst case of every hop, not just one. On a
+    Groq TIMEOUT the outer `wait_for` fires once the total ceiling is
+    exhausted, wherever in the cascade that happens; on a Groq FAST
+    failure (missing key, 429, 5xx — all sub-millisecond) `call_llm`'s
+    cascade to the remaining providers still runs normally inside what
+    budget remains. Either way, once the ceiling is hit or the response
+    is blank/whitespace-only, this function returns the same
+    deterministic-fallback pair the `degraded` branch returns, and caches
+    nothing — a blank claim must never reach a card (Design Note 4).
     """
     record = check_result["record"] or {}
     record_id = record.get("id", "no matching record")
@@ -337,9 +354,9 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
                 task="narration",
                 prompt=prompt,
                 system_instruction=A2_SYSTEM_PROMPT,
-                timeout=3.0,
+                timeout=NARRATION_PER_HOP_TIMEOUT_SECONDS,
             ),
-            timeout=3.0,
+            timeout=NARRATION_CEILING_SECONDS,
         )
     except asyncio.TimeoutError:
         return _deterministic_gap_sentence(check_result), "deterministic-fallback"

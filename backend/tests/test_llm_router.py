@@ -46,18 +46,18 @@ def test_select_provider_routes_by_task():
 
 def test_select_provider_routes_remediation_to_groq_not_google(monkeypatch):
     """260826-rsw: 'remediation' moved from gemini_flash_thinking to
-    groq_llama. This must hold in BOTH directions -- the moved key
+    groq_gpt_oss. This must hold in BOTH directions -- the moved key
     resolves to Groq, AND the two keys that stay on the Google thinking
     entry (orchestrator, synthesis) are unaffected by the move. A
     half-done edit (append-only, leaving 'remediation' on Google too)
     would pass the first assertion and fail nothing else visibly, since
     select_provider returns the FIRST match and Google is declared first
     -- this is exactly what a no-op edit would look like."""
-    assert select_provider("remediation") == "groq_llama"
+    assert select_provider("remediation") == "groq_gpt_oss"
     assert select_provider("orchestrator") == "gemini_flash_thinking"
     assert select_provider("synthesis") == "gemini_flash_thinking"
     assert "remediation" not in PROVIDER_CONFIG["gemini_flash_thinking"]["use_for"]
-    assert "remediation" in PROVIDER_CONFIG["groq_llama"]["use_for"]
+    assert "remediation" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
 
 
 def test_select_provider_raises_keyerror_on_unknown_task():
@@ -85,11 +85,11 @@ def test_select_provider_resolves_rerank_to_gemini_flash_fast_without_disturbing
         "knowledge": "gemini_flash_fast",
         "change": "gemini_flash_fast",
         "risk_assessment": "deepseek_r1",
-        "incident": "groq_llama",
-        "access": "groq_llama",
-        "high_volume": "groq_llama",
-        "narration": "groq_llama",
-        "remediation": "groq_llama",
+        "incident": "groq_gpt_oss",
+        "access": "groq_gpt_oss",
+        "high_volume": "groq_gpt_oss",
+        "narration": "groq_gpt_oss",
+        "remediation": "groq_gpt_oss",
         "fallback": "openrouter_fallback",
     }
     for task, expected_provider in unchanged.items():
@@ -305,14 +305,14 @@ def test_leak_key_absent_from_log_on_missing_key_path(monkeypatch, caplog):
 # shape.
 
 
-@pytest.mark.parametrize("entry_key", ["groq_llama", "deepseek_r1", "openrouter_fallback"])
+@pytest.mark.parametrize("entry_key", ["groq_gpt_oss", "deepseek_r1", "openrouter_fallback"])
 def test_build_openai_compatible_request_carries_response_format_when_json_output_true(entry_key):
     entry = PROVIDER_CONFIG[entry_key]
     request = _build_openai_compatible_request(entry, "test-key", "prompt", "system", True)
     assert request["json"]["response_format"] == {"type": "json_object"}
 
 
-@pytest.mark.parametrize("entry_key", ["groq_llama", "deepseek_r1", "openrouter_fallback"])
+@pytest.mark.parametrize("entry_key", ["groq_gpt_oss", "deepseek_r1", "openrouter_fallback"])
 def test_build_openai_compatible_request_omits_response_format_when_json_output_false(entry_key):
     entry = PROVIDER_CONFIG[entry_key]
     request = _build_openai_compatible_request(entry, "test-key", "prompt", "system", False)
@@ -320,7 +320,7 @@ def test_build_openai_compatible_request_omits_response_format_when_json_output_
 
 
 def test_build_openai_compatible_request_groq_completion_cap_differs_by_json_output():
-    entry = PROVIDER_CONFIG["groq_llama"]
+    entry = PROVIDER_CONFIG["groq_gpt_oss"]
     without_json = _build_openai_compatible_request(entry, "k", "p", "s", False)
     with_json = _build_openai_compatible_request(entry, "k", "p", "s", True)
     assert without_json["json"]["max_completion_tokens"] == 512

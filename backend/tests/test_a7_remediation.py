@@ -20,7 +20,7 @@ needed" goal, and lets `test_prompt_labels_finding_text_as_untrusted`
 capture the exact prompt text passed to the fake, which respx-level HTTP
 mocking cannot do as directly (it only sees the outer request body). The
 fake's `model_id`/`provider` values are the Groq ones (260826-rsw moved
-remediation off `gemini_flash_thinking` onto `groq_llama`) — the fake
+remediation off `gemini_flash_thinking` onto `groq_gpt_oss`) — the fake
 stands in for a Groq request/response shape, not a Google one. The
 respx-level tests added by 260826-rsw (`GROQ_API_KEY`, no `call_llm`
 monkeypatch, a mocked Groq endpoint) are the proof that the flag actually

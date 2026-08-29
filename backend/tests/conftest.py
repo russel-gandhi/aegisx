@@ -146,3 +146,40 @@ def _clear_narration_cache():
     narration_cache.clear()
     yield
     narration_cache.clear()
+
+
+_LLM_PROVIDER_KEY_ENV_VARS = (
+    "GEMINI_API_KEY",
+    "GOOGLE_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "GROQ_API_KEY",
+    "OPENROUTER_API_KEY",
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_llm_provider_keys(monkeypatch):
+    """Autouse test isolation for the four LLM provider API keys
+    (2026-08-29, following `app.llm_router`'s multi-provider cascade
+    change, Deviation 18).
+
+    `app.llm_router` calls `load_dotenv()` at import time, so a real
+    `.env` with genuine keys configured (as this environment now has, for
+    live manual testing) makes those keys ambient in every test's
+    `os.environ` unless a test explicitly clears them — previously
+    harmless, because the old single-hop cascade only ever touched
+    whichever ONE provider a given task routed to plus `openrouter_fallback`,
+    and most tests happened to only `monkeypatch.setenv` those two. The
+    multi-hop cascade now walks ALL FOUR providers on failure, so a test
+    that mocks only two hosts via `respx.mock` but leaves the other two
+    providers' real keys ambient will unexpectedly fire a real, unmocked
+    network request — `respx` raises `AllMockedAssertionError` for that,
+    a type `call_llm()` does not catch, surfacing as a confusing test
+    failure far from its actual cause.
+
+    Deletes all four before every test; a test that wants a specific key
+    present still calls `monkeypatch.setenv` itself, same as before — this
+    fixture only removes the ambient leak, it does not change any test's
+    own explicit key configuration."""
+    for env_name in _LLM_PROVIDER_KEY_ENV_VARS:
+        monkeypatch.delenv(env_name, raising=False)

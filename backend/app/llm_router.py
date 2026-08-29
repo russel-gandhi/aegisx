@@ -22,13 +22,13 @@ with corrections, each recorded in `backend/README.md` under
   - `gemini_flash_fast["thinking_budget"]`: Bible's `0` is now rejected
     by Google with HTTP 400; corrected to `1`, the smallest accepted
     value (Deviation 11).
-  - `groq_llama["model"]`: the retired Llama 3.3 70B id is no longer
+  - `groq_gpt_oss["model"]`: the retired Llama 3.3 70B id is no longer
     served; corrected to "openai/gpt-oss-120b" (Deviation 12).
   - `use_for`: NOT byte-identical to the Bible any more. Quick task
     260826-p1q added a dedicated "narration" key to
-    `groq_llama["use_for"]` (never Bible-listed under any entry). Quick
+    `groq_gpt_oss["use_for"]` (never Bible-listed under any entry). Quick
     task 260826-rsw then moved "remediation" from
-    `gemini_flash_thinking["use_for"]` to `groq_llama["use_for"]`
+    `gemini_flash_thinking["use_for"]` to `groq_gpt_oss["use_for"]`
     alongside it — Bible Section 8.1 lists "remediation" under the
     Google thinking entry; this router now routes it to Groq instead,
     under the total wall-clock ceiling `a7_remediation.synthesize_capa`
@@ -122,7 +122,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "rpm_limit": 30,
         "use_for": ["risk_assessment"],
     },
-    "groq_llama": {
+    "groq_gpt_oss": {
         "provider": "groq",
         # Deviation 12: retired Llama 3.3 70B id corrected.
         "model": "openai/gpt-oss-120b",
@@ -142,6 +142,26 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "use_for": ["fallback"],
     },
 }
+
+
+# Deviation 18 (backend/README.md): Bible Section 8.2 specifies a single
+# hop -- any failing provider cascades exactly once to `openrouter_fallback`
+# and stops. User directive 2026-08-29 (live demo hit repeated Groq 429s
+# with GEMINI/DEEPSEEK/OPENROUTER keys all genuinely configured and idle)
+# changed this to a full multi-provider cascade: on failure, walk this list
+# in order, skipping any entry whose underlying `provider` was already
+# attempted (so a Google-family retry never fires twice against the same
+# quota), ending at `openrouter_fallback` as the guaranteed last resort.
+# `gemini_flash_fast` represents the whole "google" provider here (lower
+# thinking_budget than `gemini_flash_thinking`, so it is also the faster of
+# the two to fail if Google itself is down) -- trying both Google entries
+# would just retry the same API key/quota twice for no benefit.
+FALLBACK_CASCADE: tuple[str, ...] = (
+    "gemini_flash_fast",
+    "deepseek_r1",
+    "groq_gpt_oss",
+    "openrouter_fallback",
+)
 
 
 class LLMResponse(BaseModel):
@@ -299,6 +319,28 @@ class _MissingKeyError(Exception):
         super().__init__(f"No API key configured for {entry_key!r}")
 
 
+def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bool]:
+    """Classify an exception raised by `_send_one`.
+
+    Returns `(reason, cascadable)`. `reason` is `None` only when `exc` is
+    not one of the three failure types `call_llm` handles (unreachable in
+    practice, since `_send_one` only ever raises `_MissingKeyError`,
+    `httpx.TimeoutException`, or `httpx.HTTPStatusError` — kept explicit
+    rather than assumed so a future new exception type fails loudly
+    instead of silently mis-classifying as cascadable).
+    """
+    if isinstance(exc, _MissingKeyError):
+        return f"missing_key:{exc.entry_key}", True
+    if isinstance(exc, httpx.TimeoutException):
+        return f"timeout:{entry_key}", True
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status == 429 or status >= 500:
+            return f"http_{status}:{entry_key}", True
+        return f"http_{status}:{entry_key}", False
+    return None, False
+
+
 async def call_llm(
     task: str,
     prompt: str,
@@ -309,64 +351,60 @@ async def call_llm(
     """Route `task` to its configured provider, call it, and return a
     typed `LLMResponse`.
 
-    Never raises to its caller. On any of the following, cascades exactly
-    once to `openrouter_fallback` (Bible Section 8.2): a missing API key
-    for the selected provider, `httpx.TimeoutException`, an
-    `httpx.HTTPStatusError` with status 429, or any 5xx status. If the
-    cascade target is itself unusable (missing key, or also fails),
-    returns a degraded `LLMResponse` (`degraded=True`, non-empty
-    `failure_reason`) instead of raising. This is what makes each
-    calling agent's own Bible-specified fallback the last resort rather
-    than the first — the router absorbs provider-level failures before
-    they ever reach agent logic.
+    Never raises to its caller. On a missing API key, `httpx.TimeoutException`,
+    an `httpx.HTTPStatusError` with status 429, or any 5xx status, cascades
+    through `FALLBACK_CASCADE` in order — skipping any entry whose
+    underlying `provider` was already attempted (Deviation 18: this is a
+    genuine multi-hop cascade, not the Bible's original single hop to
+    `openrouter_fallback`) — until one succeeds or every entry has been
+    tried, including `openrouter_fallback` as the guaranteed last resort.
+    A non-cascadable error (any other 4xx) returns a degraded response
+    immediately without cascading. If every reachable entry fails,
+    returns a degraded `LLMResponse` (`degraded=True`, `failure_reason`
+    a `;`-joined trail of every hop's reason) instead of raising.
 
-    No retry beyond the single cascade: a slow provider is A0's fallback
-    trigger, not a retry trigger.
+    Every hop shares the same per-request `timeout` budget the caller
+    passed in — a caller wrapping this in its own `asyncio.wait_for` must
+    size that outer ceiling for the worst case of `len(FALLBACK_CASCADE)`
+    sequential attempts, not a single one (see `a2_compliance.narrate_gap`
+    and `a7_remediation.synthesize_capa` for the two call sites that do).
     """
     entry_key = select_provider(task)
+    tried_providers: set[str] = set()
+    reasons: list[str] = []
+    current_key = entry_key
 
-    try:
-        return await _send_one(entry_key, prompt, system_instruction, timeout, json_output)
-    except _MissingKeyError as e:
-        reason = f"missing_key:{e.entry_key}"
-        cascadable = True
-    except httpx.TimeoutException:
-        reason = f"timeout:{entry_key}"
-        cascadable = True
-    except httpx.HTTPStatusError as e:
-        status = e.response.status_code
-        if status == 429 or status >= 500:
-            reason = f"http_{status}:{entry_key}"
-            cascadable = True
-        else:
-            logger.warning(
-                "LLM call failed (provider=%s, host=%s, status=%s): non-cascading error.",
-                entry_key, httpx.URL(str(e.request.url)).host, status,
+    while True:
+        try:
+            return await _send_one(current_key, prompt, system_instruction, timeout, json_output)
+        except (_MissingKeyError, httpx.TimeoutException, httpx.HTTPStatusError) as exc:
+            reason, cascadable = _classify_failure(current_key, exc)
+            if not cascadable:
+                logger.warning(
+                    "LLM call failed (provider=%s): %s. Non-cascading error.",
+                    current_key, reason,
+                )
+                return _degraded(reason)
+
+            reasons.append(reason)
+            tried_providers.add(PROVIDER_CONFIG[current_key]["provider"])
+
+            next_key = next(
+                (
+                    key for key in FALLBACK_CASCADE
+                    if key != current_key and PROVIDER_CONFIG[key]["provider"] not in tried_providers
+                ),
+                None,
             )
-            return _degraded(f"http_{status}:{entry_key}")
+            if next_key is None:
+                logger.warning(
+                    "LLM call failed (provider=%s): %s. No more providers to cascade to.",
+                    current_key, reason,
+                )
+                return _degraded(";".join(reasons))
 
-    logger.warning(
-        "LLM call failed (provider=%s): %s. Cascading to openrouter_fallback.",
-        entry_key, reason,
-    )
-
-    if entry_key == "openrouter_fallback":
-        # Already the fallback itself — nothing left to cascade to.
-        return _degraded(reason)
-
-    try:
-        return await _send_one("openrouter_fallback", prompt, system_instruction, timeout, json_output)
-    except _MissingKeyError:
-        logger.warning(
-            "openrouter_fallback also unavailable (no key). Returning degraded response."
-        )
-        return _degraded(f"{reason};missing_key:openrouter_fallback")
-    except httpx.TimeoutException:
-        logger.warning("openrouter_fallback timed out. Returning degraded response.")
-        return _degraded(f"{reason};timeout:openrouter_fallback")
-    except httpx.HTTPStatusError as e:
-        logger.warning(
-            "openrouter_fallback failed (status=%s). Returning degraded response.",
-            e.response.status_code,
-        )
-        return _degraded(f"{reason};http_{e.response.status_code}:openrouter_fallback")
+            logger.warning(
+                "LLM call failed (provider=%s): %s. Cascading to %s.",
+                current_key, reason, next_key,
+            )
+            current_key = next_key

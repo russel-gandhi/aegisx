@@ -37,14 +37,22 @@ from app.llm_router import call_llm
 
 logger = logging.getLogger(__name__)
 
-# Total wall-clock ceiling (260826-rsw) for `synthesize_capa`'s call_llm
-# invocation, enforced by `asyncio.wait_for` -- NOT the same as call_llm's
-# own `timeout` argument. `call_llm` reuses its `timeout` value for its
-# internal OpenRouter cascade attempt, so a raw `timeout=6.0` alone would
-# permit a ~12s worst case; the outer `wait_for` below is the real ceiling.
-# 6.0s rather than narration's 3.0s (260826-p1q): a four-field CAPA needs
-# more generation room than one sentence (Design Note 4).
-A7_REMEDIATION_CEILING_SECONDS = 6.0
+# Per-hop budget (Deviation 18, 2026-08-29) for EACH individual provider
+# attempt inside `synthesize_capa`'s call_llm invocation -- passed as
+# call_llm's own `timeout` argument, NOT the total ceiling below.
+A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 4.0
+
+# Total wall-clock ceiling (260826-rsw; widened 2026-08-29 for Deviation 18)
+# for `synthesize_capa`'s call_llm invocation, enforced by `asyncio.wait_for`
+# -- NOT the same as call_llm's own per-hop `timeout` argument above.
+# `call_llm` now cascades through up to four providers on failure
+# (`app.llm_router.FALLBACK_CASCADE`), each sharing the per-hop budget above,
+# so the outer ceiling must sit ABOVE the worst-case sum of every hop
+# (4 hops x 4.0s = 16.0s), not below it -- an outer ceiling tighter than the
+# cascade's own worst case reintroduces the exact bug this deviation fixes
+# (the outer wait_for firing mid-cascade before a later, working provider
+# gets its turn). 18.0s gives ~2s of margin above that 16.0s worst case.
+A7_REMEDIATION_CEILING_SECONDS = 18.0
 
 # Bible Section 6, "A7: Remediation Agent Prompt", transcribed verbatim.
 A7_SYSTEM_PROMPT = (
@@ -209,7 +217,7 @@ async def synthesize_capa(
     prevent.
 
     Otherwise call the LLM router (task="remediation", routed to
-    `groq_llama` per `llm_router.PROVIDER_CONFIG` -- 260826-rsw moved this
+    `groq_gpt_oss` per `llm_router.PROVIDER_CONFIG` -- 260826-rsw moved this
     off `gemini_flash_thinking`, which the Bible names but which measured
     ~18s per call with no wall-clock ceiling) with `json_output=True` to
     narrate the four `CAPA_NARRATIVE_FIELDS` from the finding's own
@@ -218,17 +226,19 @@ async def synthesize_capa(
     exactly those four keys.
 
     The call is bounded by a TOTAL wall-clock ceiling
-    (`A7_REMEDIATION_CEILING_SECONDS`, 6.0s) via `asyncio.wait_for`, not
-    merely `call_llm`'s own `timeout` argument: `call_llm` reuses that
-    same timeout value for its internal cascade to `openrouter_fallback`,
-    so a raw `timeout=6.0` alone would permit a ~12s worst case
-    (260826-rsw Design Note 4, mirroring 260826-p1q's Design Note 2 for
-    narration). On a Groq TIMEOUT the outer `wait_for` fires first and the
-    cascade gets no second attempt (a 6s budget is a 6s budget); on a
+    (`A7_REMEDIATION_CEILING_SECONDS`, 18.0s) via `asyncio.wait_for`, not
+    merely `call_llm`'s own per-hop `timeout` argument
+    (`A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS`, 4.0s): `call_llm` now
+    cascades through up to four providers on failure (Deviation 18), each
+    sharing that same per-hop budget, so the outer ceiling must cover the
+    worst case of every hop, not just one (260826-rsw Design Note 4,
+    mirroring 260826-p1q's Design Note 2 for narration, both widened
+    2026-08-29). On a Groq TIMEOUT the outer `wait_for` fires once the
+    total ceiling is exhausted, wherever in the cascade that happens; on a
     Groq FAST failure (missing key, 429, 5xx -- all sub-millisecond)
-    `call_llm`'s cascade to OpenRouter still runs normally inside what
-    budget remains. Hitting the ceiling, a degraded response, malformed
-    JSON, or a missing narrative key all return the same
+    `call_llm`'s cascade to the remaining providers still runs normally
+    inside what budget remains. Hitting the ceiling, a degraded response,
+    malformed JSON, or a missing narrative key all return the same
     deterministic-fallback pair via `_deterministic_capa`, and all now log
     a warning naming the failure so a future `json_output` plumbing
     regression is loud rather than silent (Design Note 5) -- the
@@ -264,7 +274,7 @@ async def synthesize_capa(
                 task="remediation",
                 prompt=prompt,
                 system_instruction=A7_SYSTEM_PROMPT,
-                timeout=A7_REMEDIATION_CEILING_SECONDS,
+                timeout=A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS,
                 json_output=True,
             ),
             timeout=A7_REMEDIATION_CEILING_SECONDS,
