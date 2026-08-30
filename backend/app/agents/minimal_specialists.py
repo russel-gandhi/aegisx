@@ -248,8 +248,11 @@ def _is_json_shaped(text: str) -> bool:
     `app.agents.a2_compliance.narrate_gap`'s guard) -- some models echo
     the untrusted `record!r` blob back as structured JSON instead of
     narrating it, which must never reach an AssuranceCard's claim text
-    verbatim."""
-    stripped = text.strip()
+    verbatim. A model wrapping that same JSON in a markdown code fence
+    (```json ... ```) does not start with "{"/"[", so the fence is
+    stripped first -- otherwise the fenced JSON slips past this guard
+    and the raw blob (fence markers included) leaks into the claim."""
+    stripped = _strip_markdown_code_fence(text.strip())
     if not stripped.startswith(("{", "[")):
         return False
     try:
@@ -257,6 +260,19 @@ def _is_json_shaped(text: str) -> bool:
         return True
     except (json.JSONDecodeError, ValueError):
         return False
+
+
+def _strip_markdown_code_fence(text: str) -> str:
+    """Strips one leading/trailing ``` or ```json code fence, if present,
+    so JSON-shape detection sees the payload a model actually intended as
+    code rather than being fooled by the fence markers. Returns `text`
+    unchanged when it is not fenced."""
+    if not text.startswith("```"):
+        return text
+    lines = text.split("\n")
+    if len(lines) < 2 or lines[-1].strip() != "```":
+        return text
+    return "\n".join(lines[1:-1]).strip()
 
 
 async def _narrate_a3(rule_id: str, record: Dict[str, Any], sentence_fn: Callable) -> (str, str):

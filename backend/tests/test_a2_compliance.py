@@ -24,6 +24,7 @@ from app.db import get_pool
 from app.agents.a2_compliance import (
     A2_CHECKS,
     build_finding,
+    narrate_gap,
     run_a2,
     verify_no_stale_documents,
     verify_periodic_eval_current,
@@ -313,6 +314,42 @@ def test_run_a2_findings_conform_to_phase3_agentfinding_conventions(monkeypatch)
         assert finding["evidence_ids"][0] in finding["finding_id"]
         assert set(finding["alcoa_score"].keys()) == alcoa_fields
         assert finding["model_attribution"]  # non-empty
+
+
+def test_narrate_gap_markdown_fenced_json_falls_back_to_deterministic_sentence(monkeypatch):
+    # Regression: a model echoing its JSON in a ```json fence does not
+    # start with "{"/"[", so it previously slipped past the JSON-shaped
+    # guard and the raw fenced blob (fence markers included) would have
+    # reached the AssuranceCard claim text verbatim.
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    narration_cache.clear()
+    fenced_body = {
+        "choices": [
+            {
+                "message": {
+                    "content": (
+                        '```json\n{"finding_id": "X", "risk_score": 12}\n```'
+                    )
+                }
+            }
+        ]
+    }
+    check_result = {
+        "check": "verify_urs_approved",
+        "rule_id": "ANNEX11-S4-DOC-001",
+        "passed": False,
+        "record": {"id": "URS-001"},
+    }
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_ENDPOINT).mock(return_value=httpx.Response(200, json=fenced_body))
+            return await narrate_gap(check_result)
+
+    claim, model_id = asyncio.run(_run())
+    assert model_id == "deterministic-fallback"
+    assert "```" not in claim
+    assert "URS-001" in claim
 
 
 def test_build_finding_with_null_record_has_empty_evidence_and_marks_no_record():

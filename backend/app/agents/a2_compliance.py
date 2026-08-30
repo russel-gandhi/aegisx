@@ -81,6 +81,7 @@ import logging
 import time
 from typing import Any, Callable, Awaitable, Dict, Optional, Tuple
 
+from app.agents.minimal_specialists import _strip_markdown_code_fence
 from app.db import acquire_pool_or_none
 from app.llm_router import call_llm
 from app import narration_cache
@@ -259,11 +260,14 @@ A2_CHECKS: Tuple[Callable[[Any, str], Awaitable[Dict[str, Any]]], ...] = (
 # 2026-08-29: Groq 429 -> OpenRouter cascade cut off mid-flight by the old
 # outer 3.0s ceiling, landing on deterministic-fallback despite a valid
 # OpenRouter key). The ceiling must sit ABOVE the worst-case sum of every hop
-# (4 hops x 3.0s = 12.0s), not below it — an outer ceiling tighter than the
-# cascade's own worst case reintroduces the exact bug this deviation fixes.
-# 13.0s gives ~1s of margin above that 12.0s worst case.
+# (4 hops x 3.0s = 12.0s) PLUS the inter-hop cascade delay call_llm now
+# sleeps between failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s,
+# applied 3 times across a 4-hop cascade = 3.0s), not below it — an outer
+# ceiling tighter than the cascade's own worst case reintroduces the exact
+# bug this deviation fixes. 17.0s gives ~2s of margin above that 15.0s
+# worst case (12.0s hops + 3.0s of inter-hop delay).
 NARRATION_PER_HOP_TIMEOUT_SECONDS = 3.0
-NARRATION_CEILING_SECONDS = 13.0
+NARRATION_CEILING_SECONDS = 17.0
 
 # check name -> short human-readable description of what failed, used only
 # to build the deterministic-fallback narration sentence and the LLM
@@ -374,10 +378,14 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     # JSON object instead (mirroring the untrusted `record!r` blob back).
     # A JSON-shaped claim is exactly the exposed-raw-data failure mode
     # AssuranceCard.tsx's CLAIM section must never render — treat it as a
-    # degraded response (not cached) rather than using it verbatim.
-    if narrated.startswith(("{", "[")):
+    # degraded response (not cached) rather than using it verbatim. A
+    # model wrapping that same JSON in a markdown code fence (```json
+    # ... ```) does not start with "{"/"[", so the fence must be
+    # stripped first or the fenced JSON slips past this guard verbatim.
+    unfenced = _strip_markdown_code_fence(narrated)
+    if unfenced.startswith(("{", "[")):
         try:
-            json.loads(narrated)
+            json.loads(unfenced)
             return _deterministic_gap_sentence(check_result), "deterministic-fallback"
         except (json.JSONDecodeError, ValueError):
             pass

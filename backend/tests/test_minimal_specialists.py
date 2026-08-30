@@ -25,6 +25,8 @@ from app.agents.c1_verifier import RULE_EVIDENCE_TABLES, RULE_OPA_INPUT
 from app.agents.minimal_specialists import (
     SPECIALIST_CONFIG,
     _a1_abstain_finding,
+    _is_json_shaped,
+    _strip_markdown_code_fence,
     run_a1,
     run_a3,
     run_a4,
@@ -52,6 +54,36 @@ ALL_PROVIDER_KEYS = (
 )
 
 RUNNERS = {"A1": run_a1, "A3": run_a3, "A4": run_a4, "A5": run_a5, "A6": run_a6}
+
+
+def test_strip_markdown_code_fence_removes_json_fence():
+    fenced = '```json\n{"finding_id": "X", "risk_score": 12}\n```'
+    assert _strip_markdown_code_fence(fenced) == '{"finding_id": "X", "risk_score": 12}'
+
+
+def test_strip_markdown_code_fence_removes_bare_fence():
+    fenced = '```\n{"a": 1}\n```'
+    assert _strip_markdown_code_fence(fenced) == '{"a": 1}'
+
+
+def test_strip_markdown_code_fence_leaves_unfenced_text_unchanged():
+    assert _strip_markdown_code_fence("plain prose claim.") == "plain prose claim."
+
+
+def test_is_json_shaped_detects_fenced_json_object():
+    # Regression: a model that wraps its JSON echo in a ```json fence
+    # must still be caught as JSON-shaped -- previously this text slipped
+    # past the guard (it doesn't start with "{"/"[") and the raw fenced
+    # blob leaked into the user-facing claim verbatim.
+    fenced = (
+        '```json\n{\n  "finding_id": "FIND-RSK-2024-11",\n  "risk_score": 12\n}\n```'
+    )
+    assert _is_json_shaped(fenced) is True
+
+
+def test_is_json_shaped_false_for_fenced_prose():
+    fenced = "```\nnot actually json, just fenced prose.\n```"
+    assert _is_json_shaped(fenced) is False
 
 
 def _state(system_id: str = SYSTEM_ID):
