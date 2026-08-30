@@ -41,6 +41,8 @@ Ticket IDs: `SENT-<stage>-<number>`. Dependencies reference other ticket IDs —
 ## Stage 2 — Intelligence & Retrieval (target: Days 5–8)
 **Gate:** a real query enters A0, fans out to real (non-stub) A1–A6, C1 produces a non-trivial confidence score sourced from real DB + OPA state.
 
+**Note:** Advanced retrieval (SENT-2-09 hybrid, SENT-2-10 fusion/reranking, SENT-2-11 parent-context) stays as specified below — no changes. SENT-2-08 is the one ticket that must run against the real `Dummy_data/` corpus rather than synthetic text.
+
 | ID | Ticket | Contract | Owner | Pri | Review |
 |---|---|---|---|---|---|
 | SENT-2-01 | A0 Orchestrator | Intent classification via Gemini 2.5 Flash, `Send` fan-out per Section 1.2, 2000ms timeout → full `["A1"..."A6"]` fallback tested explicitly | Sonnet | P0 | Standard |
@@ -50,7 +52,7 @@ Ticket IDs: `SENT-<stage>-<number>`. Dependencies reference other ticket IDs —
 | SENT-2-05 | A4 Change agent | `traverse_change_impact()` tool + direct-metadata-only fallback path when graph traversal is skipped | Sonnet | P0 | Standard |
 | SENT-2-06 | A5 Incident agent | Groq Llama 3.3 70B classification + `time.diff` overdue-RCA rule; bypass-to-rule-only fallback tested | Sonnet | P0 | Standard |
 | SENT-2-07 | A6 Access agent | Overdue review query + orphaned-privileged-account query; OpenRouter fallback tested | Sonnet | P0 | Standard |
-| SENT-2-08 | Qdrant ingestion pipeline | Document chunking + embedding per Section 9.1, collection config matches Section 4.2 | Sonnet | P0 | Standard |
+| SENT-2-08 | Qdrant ingestion pipeline | Parse `Dummy_data/*.docx` (34 files, NovoLife MES lifecycle doc set): extract structured header/approval-table fields into `documents` (and `requirements`/`test_cases`/`changes`/etc. for URS/TRM/DEFL/CHG-style docs with numbered tables) via `python-docx`; chunk narrative body text (512 tokens / 64 overlap per Section 9.1) and embed into Qdrant per the Section 4.2 collection config. Chunking must run against this real dummy corpus, not placeholder text — this is what SENT-2-03 (A1) and the Copilot page actually retrieve against | Sonnet | P0 | Standard |
 | SENT-2-09 | Hybrid retrieval — dense + sparse | Dense (Qdrant) and sparse (BM25) retrieval both return results independently, per Section 15.2 | Sonnet | P0 | Standard |
 | SENT-2-10 | Fusion + cross-encoder reranking | Fusion combines dense/sparse; reranker reorders top-k per Section 15.3 | Sonnet | P1 | Standard |
 | SENT-2-11 | Parent-context retrieval | Chunk hits resolve back to full parent document context per Section 15.4 | Sonnet | P1 | Standard |
@@ -91,8 +93,9 @@ Ticket IDs: `SENT-<stage>-<number>`. Dependencies reference other ticket IDs —
 | SENT-4-06 | Hash-chained audit trail | Append-only chain per Section 7.1; `verify_chain()` implemented alongside the chain, not after | Opus (design) / Sonnet (impl) | P0 | **Critical** |
 | SENT-4-07 | Tamper-detection test + demo endpoint | `/api/audit/demonstrate-tamper` executes a raw SQL modification; `verify_chain()` correctly flags it | Sonnet | P0 | **Critical** |
 | SENT-4-08 | Action / Approval Centre UI | Full queue UI per Section 11.6 | Sonnet | P0 | Standard |
+| SENT-4-09 | Simulate Change Submission | A "Submit Change" form/endpoint (`POST /api/changes`) that inserts a `changes` row (description, risk fields, linked system) through the existing C3 `MOCK_WRITE_LOW_RISK` category; on insert, A4 (SENT-2-05) picks it up, evaluates `ANNEX11-S10-CHG-001`, and the evidence graph (SENT-3-01) updates to show blast radius live | Sonnet | P1 | Standard |
 
-**Dependencies:** SENT-4-03/04/05 depend on SENT-2-12 (C1) and SENT-1-06 (graph topology). SENT-4-07 depends on SENT-4-06.
+**Dependencies:** SENT-4-03/04/05 depend on SENT-2-12 (C1) and SENT-1-06 (graph topology). SENT-4-07 depends on SENT-4-06. SENT-4-09 depends on SENT-2-05 (A4), SENT-3-01 (evidence graph), and SENT-4-03 (C3 routing).
 
 ---
 
