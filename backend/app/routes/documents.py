@@ -165,6 +165,15 @@ async def upload_document(
     # place so the Knowledge list can show the failure honestly instead
     # of silently discarding the upload attempt.
     if not blocks and fmt != "csv" and len(raw) > 0:
+        # The `documents` row was inserted as "READY" above before parsing
+        # ran; a parsing failure must not leave that raw column claiming
+        # success indefinitely (Phase 13 DB-integrity invariant) even
+        # though `list_documents` already recomputes an honest status at
+        # read time from `chunk_count`. Any future direct reader of this
+        # column (e.g. a new agent query) must see the true outcome.
+        await pool.execute(
+            "UPDATE documents SET status = 'FAILED' WHERE id = $1", document_id
+        )
         return DocumentUploadResponse(
             document_id=document_id,
             system_id=system_id,
@@ -185,6 +194,14 @@ async def upload_document(
         chunk.metadata["source_filename"] = title
 
     result = await index_document(pool, qdrant_client, document_id, system_id, chunks)
+
+    # Mirror the true ingest outcome onto the persisted row (see the
+    # parsing-failure branch above for why this matters even though
+    # `list_documents` already recomputes status from `chunk_count`).
+    if result.status == "FAILED":
+        await pool.execute(
+            "UPDATE documents SET status = 'FAILED' WHERE id = $1", document_id
+        )
 
     # Post-ingest evidence-graph rebuild (06.1-04-PLAN.md Task 3, closes
     # 06.1-RESEARCH.md Pitfall 2) -- only after a successful index, never

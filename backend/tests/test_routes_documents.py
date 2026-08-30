@@ -430,6 +430,52 @@ def _upload_ready(client, monkeypatch, filename="fixture.md", content=None):
     return body
 
 
+def test_parsing_failure_persists_failed_status_on_raw_documents_row(client, monkeypatch):
+    # The `documents` row is inserted as "READY" before parsing runs. A
+    # parsing failure must overwrite that raw column to "FAILED" instead
+    # of leaving misleading persistent state -- `list_documents` already
+    # recomputes an honest status from `chunk_count` at read time, but any
+    # other/future direct reader of the raw column must see the truth too.
+    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    corrupt_pdf = b"%PDF-1.4\nthis is not a real, well-formed PDF body at all"
+    resp = _upload(client, corrupt_pdf, "corrupt2.pdf")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "FAILED"
+    try:
+
+        async def _raw_status():
+            pool = await get_pool()
+            return await pool.fetchval(
+                "SELECT status FROM documents WHERE id = $1", body["document_id"]
+            )
+
+        assert asyncio.run(_raw_status()) == "FAILED"
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
+def test_indexing_failure_persists_failed_status_on_raw_documents_row(client, monkeypatch):
+    # Same invariant as above, but for a failure at the indexing stage
+    # (embeddings degraded) rather than the parsing stage.
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    resp = _upload(client, MARKDOWN_CONTENT, "degraded2.md")
+    body = resp.json()
+    assert body["status"] == "FAILED"
+    try:
+
+        async def _raw_status():
+            pool = await get_pool()
+            return await pool.fetchval(
+                "SELECT status FROM documents WHERE id = $1", body["document_id"]
+            )
+
+        assert asyncio.run(_raw_status()) == "FAILED"
+    finally:
+        asyncio.run(_cleanup_document(body["document_id"]))
+
+
 def test_list_documents_returns_newest_first_with_real_chunk_count(client, monkeypatch):
     body = _upload_ready(client, monkeypatch)
     try:
