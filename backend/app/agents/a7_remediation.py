@@ -48,11 +48,14 @@ A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 4.0
 # `call_llm` now cascades through up to four providers on failure
 # (`app.llm_router.FALLBACK_CASCADE`), each sharing the per-hop budget above,
 # so the outer ceiling must sit ABOVE the worst-case sum of every hop
-# (4 hops x 4.0s = 16.0s), not below it -- an outer ceiling tighter than the
-# cascade's own worst case reintroduces the exact bug this deviation fixes
-# (the outer wait_for firing mid-cascade before a later, working provider
-# gets its turn). 18.0s gives ~2s of margin above that 16.0s worst case.
-A7_REMEDIATION_CEILING_SECONDS = 18.0
+# (4 hops x 4.0s = 16.0s) PLUS the inter-hop cascade delay call_llm now
+# sleeps between failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s,
+# applied 3 times across a 4-hop cascade = 3.0s), not below it -- an outer
+# ceiling tighter than the cascade's own worst case reintroduces the exact
+# bug this deviation fixes (the outer wait_for firing mid-cascade before a
+# later, working provider gets its turn). 21.0s gives ~2s of margin above
+# that 19.0s worst case (16.0s hops + 3.0s of inter-hop delay).
+A7_REMEDIATION_CEILING_SECONDS = 21.0
 
 # Bible Section 6, "A7: Remediation Agent Prompt", transcribed verbatim.
 A7_SYSTEM_PROMPT = (

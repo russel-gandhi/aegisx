@@ -54,6 +54,7 @@ environment flag or "if DEMO_MODE" branch may short-circuit request
 construction to return a canned string.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any, Dict, Optional
@@ -74,6 +75,11 @@ logger = logging.getLogger(__name__)
 # exists to avoid (260826-rsw Design Note 2).
 GROQ_MAX_COMPLETION_TOKENS_DEFAULT = 512
 GROQ_MAX_COMPLETION_TOKENS_JSON = 2048
+
+# Delay between successive provider attempts within a single call_llm()
+# cascade, to avoid hammering the next provider immediately after the
+# previous one failed/rate-limited. Not applied before the first attempt.
+LLM_CASCADE_DELAY_SECONDS = float(os.getenv("LLM_CASCADE_DELAY_SECONDS", "1.0"))
 
 # Bible Section 8.1, transcribed with the corrections documented in this
 # module's docstring and in backend/README.md Deviations 4-6, 10-13.
@@ -366,8 +372,13 @@ async def call_llm(
     Every hop shares the same per-request `timeout` budget the caller
     passed in — a caller wrapping this in its own `asyncio.wait_for` must
     size that outer ceiling for the worst case of `len(FALLBACK_CASCADE)`
-    sequential attempts, not a single one (see `a2_compliance.narrate_gap`
-    and `a7_remediation.synthesize_capa` for the two call sites that do).
+    sequential attempts plus `(len(FALLBACK_CASCADE) - 1) *
+    LLM_CASCADE_DELAY_SECONDS`, not a single attempt's timeout alone (see
+    `a2_compliance.narrate_gap` and `a7_remediation.synthesize_capa` for
+    the two call sites that do). `LLM_CASCADE_DELAY_SECONDS` (env
+    `LLM_CASCADE_DELAY_SECONDS`, default 1.0s) is slept between a failed
+    hop and the next cascade attempt only — never before the first
+    attempt — to avoid immediately hammering the next provider.
     """
     entry_key = select_provider(task)
     tried_providers: set[str] = set()
@@ -407,4 +418,6 @@ async def call_llm(
                 "LLM call failed (provider=%s): %s. Cascading to %s.",
                 current_key, reason, next_key,
             )
+            if LLM_CASCADE_DELAY_SECONDS > 0:
+                await asyncio.sleep(LLM_CASCADE_DELAY_SECONDS)
             current_key = next_key

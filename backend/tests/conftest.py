@@ -183,3 +183,22 @@ def _isolate_llm_provider_keys(monkeypatch):
     own explicit key configuration."""
     for env_name in _LLM_PROVIDER_KEY_ENV_VARS:
         monkeypatch.delenv(env_name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def _zero_llm_cascade_delay(monkeypatch):
+    """Autouse test-speed fixture for `app.llm_router.LLM_CASCADE_DELAY_SECONDS`
+    (the real `asyncio.sleep` `call_llm()` now performs between failed
+    cascade hops, added alongside the multi-hop cascade). Production
+    defaults this to 1.0s so a rate-limited provider isn't hammered again
+    immediately; a mocked multi-hop cascade test has no such provider to
+    protect and would otherwise pay that real wall-clock cost on every
+    hop it exercises. Patches the module attribute directly (not the env
+    var) since `LLM_CASCADE_DELAY_SECONDS` is read once at import time,
+    same as this file's own `_isolate_llm_provider_keys` pattern for
+    other `app.llm_router` module state. A test that wants to assert on
+    the real delay sets `monkeypatch.setattr(llm_router,
+    "LLM_CASCADE_DELAY_SECONDS", <value>)` itself, same override
+    mechanism, after this fixture has already run."""
+    from app import llm_router
+    monkeypatch.setattr(llm_router, "LLM_CASCADE_DELAY_SECONDS", 0.0)
