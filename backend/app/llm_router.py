@@ -336,6 +336,23 @@ class _MissingKeyError(Exception):
         super().__init__(f"No API key configured for {entry_key!r}")
 
 
+# Status codes that mean "this provider's account/credentials are broken
+# right now" rather than "this request is malformed": an expired/invalid
+# key (401), no billing/credits (402), or an access-scope rejection (403).
+# All three are properties of the specific provider being called, not of
+# the request shape -- Groq or OpenRouter having no relationship to
+# DeepSeek's billing status is exactly why these must cascade to the next
+# untried provider rather than abort the whole call. Discovered live
+# (2026-08-31): a real DeepSeek key returning 402 Payment Required was
+# silently taking Groq and OpenRouter off the table for every `rerank`
+# call, degrading retrieval quality for a reason that had nothing to do
+# with either of those providers. Every other 4xx (400 Bad Request, 404,
+# 422 Unprocessable Entity, ...) still does not cascade: those indicate a
+# problem with the request itself, which the next provider is not
+# expected to handle any differently.
+_ACCOUNT_SPECIFIC_CASCADABLE_STATUSES = frozenset({401, 402, 403})
+
+
 def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bool]:
     """Classify an exception raised by `_send_one`.
 
@@ -352,7 +369,7 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
         return f"timeout:{entry_key}", True
     if isinstance(exc, httpx.HTTPStatusError):
         status = exc.response.status_code
-        if status == 429 or status >= 500:
+        if status == 429 or status >= 500 or status in _ACCOUNT_SPECIFIC_CASCADABLE_STATUSES:
             return f"http_{status}:{entry_key}", True
         return f"http_{status}:{entry_key}", False
     return None, False
@@ -369,14 +386,18 @@ async def call_llm(
     typed `LLMResponse`.
 
     Never raises to its caller. On a missing API key, `httpx.TimeoutException`,
-    an `httpx.HTTPStatusError` with status 429, or any 5xx status, cascades
-    through `FALLBACK_CASCADE` in order — skipping any entry whose
-    underlying `provider` was already attempted (Deviation 18: this is a
-    genuine multi-hop cascade, not the Bible's original single hop to
-    `openrouter_fallback`) — until one succeeds or every entry has been
-    tried, including `openrouter_fallback` as the guaranteed last resort.
-    A non-cascadable error (any other 4xx) returns a degraded response
-    immediately without cascading. If every reachable entry fails,
+    an `httpx.HTTPStatusError` with status 429, any 5xx status, or an
+    account-specific 401/402/403 (see `_ACCOUNT_SPECIFIC_CASCADABLE_STATUSES`
+    — one provider's bad key or billing issue must not take the others off
+    the table), cascades through `FALLBACK_CASCADE` in order — skipping
+    any entry whose underlying `provider` was already attempted (Deviation
+    18: this is a genuine multi-hop cascade, not the Bible's original
+    single hop to `openrouter_fallback`) — until one succeeds or every
+    entry has been tried, including `openrouter_fallback` as the
+    guaranteed last resort. A non-cascadable error (400/404/422/... —
+    request-shape problems the next provider isn't expected to handle any
+    differently) returns a degraded response immediately without
+    cascading. If every reachable entry fails,
     returns a degraded `LLMResponse` (`degraded=True`, `failure_reason`
     a `;`-joined trail of every hop's reason) instead of raising.
 

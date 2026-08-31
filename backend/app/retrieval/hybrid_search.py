@@ -66,16 +66,34 @@ logger = logging.getLogger(__name__)
 DENSE_CANDIDATE_LIMIT: int = 20
 
 # Cosine similarity floor a dense hit must clear to be treated as relevant
-# evidence on its own (D-08's deterministic gate). A candidate found by
-# BM25 (`bm25_score is not None`) is kept regardless of this threshold --
-# `bm25_search` already drops non-positive/no-overlap scores, so a
-# lexical match's own presence in that list is itself the signal, on a
-# scale (unbounded, corpus-dependent) this cosine-calibrated constant was
-# never meant to gate. Superseded as the *combined* gate's input by
-# `RERANK_RELEVANCE_THRESHOLD` once plan 06.1-03 Task 2's reranker lands;
-# this constant remains that gate's documented fallback when reranking
-# degrades (Task 2 <action>).
+# evidence on its own (D-08's deterministic gate). Superseded as the
+# *combined* gate's input by `RERANK_RELEVANCE_THRESHOLD` once plan
+# 06.1-03 Task 2's reranker lands; this constant remains that gate's
+# documented fallback when reranking degrades (Task 2 <action>).
 DENSE_RELEVANCE_THRESHOLD: float = 0.55
+
+# BM25 floor a lexical hit must clear to be treated as relevant evidence
+# in the reranking-degraded fallback gate, alongside
+# `DENSE_RELEVANCE_THRESHOLD` above. Originally this fallback kept ANY
+# candidate with `bm25_score is not None` at all, on the reasoning that
+# `bm25_search` already drops non-positive/no-overlap scores so mere
+# presence in that list was itself the signal. Live testing (2026-08-31)
+# showed that reasoning fails in practice: a genuinely off-topic query
+# ("airspeed velocity of an unladen swallow") still produced incidental
+# BM25 overlap (observed score 0.28) on completely unrelated chunks purely
+# from common-word matches, which the old "not None" gate happily kept --
+# turning what should have been an honest "insufficient evidence" refusal
+# into a hedged "found potentially relevant evidence" answer, for a reason
+# (the reranker call failing on an unrelated provider billing error) that
+# had nothing to do with the query's actual relevance. BM25 scores are
+# unbounded and corpus/query-dependent, so no single constant is perfectly
+# calibrated the way cosine-similarity thresholds are -- but a floor is
+# still strictly better than none. 1.0 is set from the one real data point
+# observed live: 0.28 (irrelevant) below it, 3.22 (a genuine match) well
+# above it. A named, tunable constant, exactly like the two thresholds
+# above it, for the 06.1-07 eval harness to calibrate against a larger
+# labelled corpus later.
+BM25_RELEVANCE_THRESHOLD: float = 1.0
 
 # Standard IR technique (06.1-RESEARCH.md Pattern 2): a named module
 # constant, not a magic number, so it can be tuned against this project's
@@ -670,14 +688,17 @@ async def hybrid_retrieve(pool: Any, query: str, system_id: str) -> RetrievalOut
     else:
         stages.append(_stage("reranking", "skipped", f"reranking degraded ({rerank_model_id})"))
         # Fallback gate (Task 1, documented in DENSE_RELEVANCE_THRESHOLD's
-        # own docstring): a candidate carrying a dense_score must clear
-        # DENSE_RELEVANCE_THRESHOLD; a candidate found ONLY by BM25 is
-        # kept on the strength of that lexical match alone. `candidates`
-        # is already ordered by descending fused (RRF) score.
+        # and BM25_RELEVANCE_THRESHOLD's own docstrings): a candidate
+        # carrying a dense_score must clear DENSE_RELEVANCE_THRESHOLD; a
+        # candidate carrying a bm25_score must clear
+        # BM25_RELEVANCE_THRESHOLD (not merely be present -- see that
+        # constant's docstring for the live-observed failure this closes).
+        # `candidates` is already ordered by descending fused (RRF) score.
         kept = [
             (chunk_id, fused_score, dense_score, bm25_score, None, row)
             for chunk_id, fused_score, dense_score, bm25_score, row in candidates
-            if (dense_score is not None and dense_score >= DENSE_RELEVANCE_THRESHOLD) or bm25_score is not None
+            if (dense_score is not None and dense_score >= DENSE_RELEVANCE_THRESHOLD)
+            or (bm25_score is not None and bm25_score >= BM25_RELEVANCE_THRESHOLD)
         ][:MAX_EVIDENCE_ITEMS]
 
     evaluating_stage = _stage(
