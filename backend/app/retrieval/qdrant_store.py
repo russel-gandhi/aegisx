@@ -30,6 +30,7 @@ installed `qdrant-client==1.19.0`'s own `query_points` signature
 at implementation time.
 """
 
+import asyncio
 import logging
 import os
 from typing import Any, Dict, List, Optional
@@ -67,28 +68,86 @@ class DenseHit(BaseModel):
     score: float
 
 
+# Cached client + owning loop (SYSTEM-DESIGN-DIAGNOSIS.md #2): mirrors
+# `app.db.get_pool()`'s exact pattern. Previously this module constructed a
+# brand-new `AsyncQdrantClient` -- a new underlying connection pool -- on
+# every single call, and never closed any of them, relying on garbage
+# collection to eventually release the sockets; that's both a latency tax
+# (every document upload and every Copilot query paid full client
+# construction) and a standing resource-leak risk under load. An
+# `AsyncQdrantClient`'s transport holds asyncio primitives bound to the
+# loop that created it, the same coupling `get_pool()` documents for
+# `asyncpg.Pool` -- this codebase's test convention runs every test in its
+# own `asyncio.run()` (a fresh loop per test), so the cache is invalidated
+# whenever the current running loop doesn't match the one that built it.
+_client: Optional[AsyncQdrantClient] = None
+_client_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
 async def get_qdrant_client() -> Optional[AsyncQdrantClient]:
-    """Construct an `AsyncQdrantClient` against the current `QDRANT_URL`
-    and confirm it actually answers before returning it.
+    """Return the cached `AsyncQdrantClient` for the current running event
+    loop, constructing one if none exists yet (or the cached one belongs
+    to a different/closed loop), and confirm it actually answers before
+    returning it.
+
+    The liveness ping (`get_collections()`) still runs on every call, even
+    against an already-cached client -- this preserves the exact
+    `None`-on-unreachable contract every caller already depends on for its
+    own clean 503 guard, unlike a plain "construct once, never check
+    again" cache that would let a mid-session Qdrant outage surface as an
+    unhandled exception deep inside `ensure_collection`/`upsert_chunks`
+    instead. What changes is that the ping now reuses the cached client's
+    already-open connection pool rather than negotiating a brand-new one
+    first -- the same reuse benefit `app.http_client.get_shared_client()`
+    gives the HTTP-based providers.
 
     Never raises: any construction or connectivity failure is logged at
     `warning` level (target URL + exception type only, matching this
-    module's degrade-don't-raise contract) and `None` is returned, exactly
-    as `app.db.acquire_pool_or_none()` degrades on an unreachable
-    Postgres. Every caller of this function must handle `None` as a real,
-    expected state -- not treat it as impossible.
+    module's degrade-don't-raise contract), the stale cached client (if
+    any) is discarded, and `None` is returned -- exactly as
+    `app.db.acquire_pool_or_none()` degrades on an unreachable Postgres.
+    Every caller of this function must handle `None` as a real, expected
+    state -- not treat it as impossible.
     """
+    global _client, _client_loop
+    current_loop = asyncio.get_running_loop()
+    if _client is not None and _client_loop is not current_loop:
+        # Never await anything on the stale client here: the loop that
+        # owns it may already be closed (the exact case get_pool() guards
+        # against for asyncpg) -- awaiting a close on it would raise
+        # instead of cleanly discarding a reference we're replacing anyway.
+        _client = None
+        _client_loop = None
+
     try:
-        client = AsyncQdrantClient(url=QDRANT_URL)
-        await client.get_collections()
-        return client
+        if _client is None:
+            _client = AsyncQdrantClient(url=QDRANT_URL)
+            _client_loop = current_loop
+        await _client.get_collections()
+        return _client
     except Exception as exc:  # noqa: BLE001 -- qdrant-client/httpx raise a
         # variety of exception types for "unreachable"; the caller-facing
         # contract here is "never raises", so every exception degrades.
         logger.warning(
             "Qdrant client unavailable (target=%s): %s", QDRANT_URL, type(exc).__name__
         )
+        _client = None
+        _client_loop = None
         return None
+
+
+async def aclose_qdrant_client() -> None:
+    """Close the cached client, if one exists on the current loop.
+
+    Called once from `main.py`'s lifespan shutdown, mirroring
+    `app.http_client.aclose_shared_client()` -- so a live process doesn't
+    leak the pooled connection on shutdown. Safe to call when no client has
+    ever been created and safe to call more than once."""
+    global _client, _client_loop
+    if _client is not None:
+        await _client.close()
+        _client = None
+        _client_loop = None
 
 
 async def ensure_collection(client: AsyncQdrantClient) -> bool:

@@ -46,6 +46,19 @@ endpoint from `app.routes.system_signals` (D-07 mini-cards #5/#6).
 Plan 06.1-01 registers an eighth router: the document ingestion endpoint
 from `app.routes.documents` (RAG-01) -- `POST /api/documents/upload`.
 
+REMEDIATION-PLAN.md #6 registers a ninth and tenth router: `GET
+/api/systems` and `GET /api/systems/{id}/readiness` from
+`app.routes.systems`, and `POST /api/opa/evaluate` (Bible lists this as
+GET; see `app.routes.opa`'s own docstring for why that's a deliberate
+deviation) from `app.routes.opa` -- closing two of the four remaining
+gaps against the Bible's original ten-endpoint list this docstring's
+opening paragraph names. `POST /api/reports/evidence-pack` remains
+unbuilt: it requires WeasyPrint, which needs native GTK/Pango/Cairo
+libraries this project has no provisioning path for yet (no backend
+Dockerfile exists anywhere in this repo to install them into, and they
+don't install via pip alone on Windows) -- implementing it without a way
+to verify it actually runs would be shipping untested code, not a fix.
+
 Quick task 260826-p1q (Task 3) adds a `lifespan` context manager: on
 startup it schedules `app.prewarm.prewarm_narration_cache()` as a
 background `asyncio.create_task` WITHOUT awaiting it, so the ASGI
@@ -70,14 +83,18 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.http_client import aclose_shared_client
 from app.prewarm import prewarm_narration_cache
+from app.retrieval.qdrant_store import aclose_qdrant_client
 from app.routes.actions import router as actions_router
 from app.routes.audit import router as audit_router
 from app.routes.copilot_query import router as copilot_query_router
 from app.routes.documents import router as documents_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
+from app.routes.opa import router as opa_router
 from app.routes.system_signals import router as system_signals_router
+from app.routes.systems import router as systems_router
 from app.ws.copilot import router as copilot_ws_router
 
 
@@ -95,6 +112,13 @@ async def lifespan(app: FastAPI):
         await app.state.prewarm_task
     except asyncio.CancelledError:
         pass
+    # Closes the shared httpx.AsyncClient (SYSTEM-DESIGN-DIAGNOSIS.md #1)
+    # and the cached Qdrant client (#2) so a live process doesn't leak
+    # pooled connections on shutdown. Never entered under pytest, matching
+    # the prewarm task above -- see this module's own docstring on why
+    # TestClient(app) never runs the ASGI lifespan.
+    await aclose_shared_client()
+    await aclose_qdrant_client()
 
 
 app = FastAPI(
@@ -126,6 +150,8 @@ app.include_router(audit_router)
 app.include_router(copilot_query_router)
 app.include_router(documents_router)
 app.include_router(system_signals_router)
+app.include_router(systems_router)
+app.include_router(opa_router)
 
 
 @app.get("/api/health")

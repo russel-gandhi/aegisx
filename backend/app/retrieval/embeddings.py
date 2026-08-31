@@ -49,7 +49,9 @@ import httpx
 import numpy as np
 from pydantic import BaseModel
 
+from app.http_client import get_shared_client
 from app.llm_router import _resolve_api_key
+from app.rate_limiter import acquire_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -200,12 +202,17 @@ async def call_embedding(
     try:
         while True:
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
-                        url, params={"key": api_key}, json=body, timeout=timeout
-                    )
-                    response.raise_for_status()
-                    data = response.json()
+                # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3),
+                # re-acquired on every retry attempt too -- a 429-triggered
+                # retry should still respect the provider's own declared
+                # ceiling, not just the backoff delay already applied.
+                await acquire_rate_limit(entry_key, entry["rpm_limit"])
+                client = get_shared_client()
+                response = await client.post(
+                    url, params={"key": api_key}, json=body, timeout=timeout
+                )
+                response.raise_for_status()
+                data = response.json()
                 break
             except httpx.HTTPStatusError as exc:
                 if exc.response.status_code == 429 and attempt <= EMBEDDING_MAX_RETRIES:
@@ -257,17 +264,33 @@ async def call_embedding(
     )
 
 
+# A batch failure that isn't a 429 (transport error, 5xx, a malformed or
+# mismatched-length body) previously fell straight through to N fully
+# independent sequential calls with no retry of the batch itself at all --
+# turning one failed request into up to `EMBEDDING_BATCH_SIZE` new ones at
+# exactly the moment the provider had already signaled trouble
+# (SYSTEM-DESIGN-DIAGNOSIS.md #3a). One whole-batch retry, with a short
+# fixed delay, absorbs a transient blip (a dropped connection, a momentary
+# 500) without amplifying it -- the sequential fallback still exists for a
+# genuinely persistent failure, it's just no longer the first response to
+# any failure.
+EMBEDDING_BATCH_RETRY_ATTEMPTS: int = 2
+EMBEDDING_BATCH_RETRY_DELAY_SECONDS: float = 1.0
+
+
 async def _call_batch_group(
     texts: List[str], task_type: str, timeout: float
 ) -> List[EmbeddingResponse]:
     """Embed one group of at most `EMBEDDING_BATCH_SIZE` texts via a single
     `:batchEmbedContents` request. A `429` response retries up to
     `EMBEDDING_MAX_RETRIES` times with backoff (Deviation 19) before
-    falling back. On any OTHER failure (transport, non-429 status, or a
-    malformed/mismatched-length response), or on 429-retry exhaustion,
-    falls back to sequential `call_embedding()` calls for this group --
-    each of which gets its own independent 429-retry budget -- never
-    raises."""
+    counting as a failed attempt. Any failure of the whole-batch attempt
+    (429-retry exhaustion, a non-429 status, a transport error, or a
+    malformed/mismatched-length response) retries the entire batch once
+    more (`EMBEDDING_BATCH_RETRY_ATTEMPTS`) after a short fixed delay
+    before falling back to sequential `call_embedding()` calls for this
+    group -- each of which gets its own independent 429-retry budget --
+    never raises."""
     entry_key, entry, failure = _resolve_entry(task_type)
     if failure is not None:
         return [failure for _ in texts]
@@ -287,58 +310,73 @@ async def _call_batch_group(
         ]
     }
 
-    try:
-        attempt = 1
-        while True:
-            try:
-                async with httpx.AsyncClient() as client:
+    for batch_attempt in range(1, EMBEDDING_BATCH_RETRY_ATTEMPTS + 1):
+        try:
+            attempt = 1
+            while True:
+                try:
+                    # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3).
+                    await acquire_rate_limit(entry_key, entry["rpm_limit"])
+                    client = get_shared_client()
                     response = await client.post(
                         url, params={"key": api_key}, json=body, timeout=timeout
                     )
                     response.raise_for_status()
                     data = response.json()
-                break
-            except httpx.HTTPStatusError as exc:
-                if exc.response.status_code == 429 and attempt <= EMBEDDING_MAX_RETRIES:
-                    delay = _retry_delay_seconds(attempt, exc.response)
-                    logger.warning(
-                        "Batch embedding call rate-limited (provider=%s, attempt=%d/%d); "
-                        "retrying in %.1fs.",
-                        entry_key, attempt, EMBEDDING_MAX_RETRIES, delay,
-                    )
-                    await asyncio.sleep(delay)
-                    attempt += 1
-                    continue
-                raise
-        embeddings = data["embeddings"]
-        if len(embeddings) != len(texts):
-            raise ValueError("batch response length does not match request length")
-        return [
-            EmbeddingResponse(
-                vector=_l2_normalize(item["values"]),
-                model_id=entry["model"],
-                provider=entry["provider"],
-                degraded=False,
-                failure_reason=None,
+                    break
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 429 and attempt <= EMBEDDING_MAX_RETRIES:
+                        delay = _retry_delay_seconds(attempt, exc.response)
+                        logger.warning(
+                            "Batch embedding call rate-limited (provider=%s, attempt=%d/%d); "
+                            "retrying in %.1fs.",
+                            entry_key, attempt, EMBEDDING_MAX_RETRIES, delay,
+                        )
+                        await asyncio.sleep(delay)
+                        attempt += 1
+                        continue
+                    raise
+            embeddings = data["embeddings"]
+            if len(embeddings) != len(texts):
+                raise ValueError("batch response length does not match request length")
+            return [
+                EmbeddingResponse(
+                    vector=_l2_normalize(item["values"]),
+                    model_id=entry["model"],
+                    provider=entry["provider"],
+                    degraded=False,
+                    failure_reason=None,
+                )
+                for item in embeddings
+            ]
+        except (
+            httpx.TimeoutException,
+            httpx.HTTPStatusError,
+            httpx.RequestError,
+            KeyError,
+            ValueError,
+            TypeError,
+            IndexError,
+        ) as exc:
+            if batch_attempt < EMBEDDING_BATCH_RETRY_ATTEMPTS:
+                logger.warning(
+                    "Batch embedding call failed (provider=%s): %s. Retrying whole batch "
+                    "(attempt %d/%d) in %.1fs before falling back to sequential.",
+                    entry_key, type(exc).__name__, batch_attempt + 1,
+                    EMBEDDING_BATCH_RETRY_ATTEMPTS, EMBEDDING_BATCH_RETRY_DELAY_SECONDS,
+                )
+                await asyncio.sleep(EMBEDDING_BATCH_RETRY_DELAY_SECONDS)
+                continue
+            logger.warning(
+                "Batch embedding call failed (provider=%s): %s. Falling back to %d "
+                "sequential call(s).",
+                entry_key,
+                type(exc).__name__,
+                len(texts),
             )
-            for item in embeddings
-        ]
-    except (
-        httpx.TimeoutException,
-        httpx.HTTPStatusError,
-        httpx.RequestError,
-        KeyError,
-        ValueError,
-        TypeError,
-        IndexError,
-    ) as exc:
-        logger.warning(
-            "Batch embedding call failed (provider=%s): %s. Falling back to %d sequential call(s).",
-            entry_key,
-            type(exc).__name__,
-            len(texts),
-        )
-        return [await call_embedding(text, task_type=task_type, timeout=timeout) for text in texts]
+            return [await call_embedding(text, task_type=task_type, timeout=timeout) for text in texts]
+
+    raise AssertionError("unreachable: loop above always returns or continues")
 
 
 async def call_embeddings_batch(

@@ -461,6 +461,11 @@ class DocumentUploadResponse(BaseModel):
     indexed_vector_count: int
     status: str
     failed_stage: Optional[str] = None
+    # True when this upload's content hash already matched an existing
+    # document for this system_id -- the response describes that existing
+    # document, and no parse/embed/index work ran for this request
+    # (SYSTEM-DESIGN-DIAGNOSIS.md #6: upload idempotency).
+    duplicate: bool = False
 
 
 class DocumentSummary(BaseModel):
@@ -478,3 +483,9 @@ class DocumentSummary(BaseModel):
 class DocumentListResponse(BaseModel):
     system_id: Optional[str]
     documents: List[DocumentSummary]
+    # Pagination (SYSTEM-DESIGN-DIAGNOSIS.md #5). Defaulted so existing
+    # callers/tests constructing this model positionally/without these
+    # fields keep working.
+    total_count: int = 0
+    limit: int = 50
+    offset: int = 0

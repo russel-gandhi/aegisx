@@ -65,12 +65,12 @@ Requirements for the hackathon build. Ordered by the user's own demo hierarchy: 
 
 ### Advanced Retrieval (pulled forward from v2, Phase 06.1 — user directive, 2026-08-28)
 
-- [ ] **AGT-01**: A1 System Knowledge agent (Qdrant RAG) with hybrid dense+sparse retrieval, fusion, and cross-encoder reranking — *moved from v2; see below, no longer deferred*
-- [ ] **HARD-04**: RAG retrieval precision evaluation — *moved from v2; see below, no longer deferred*
+- [x] **AGT-01**: A1 System Knowledge agent (Qdrant RAG) with hybrid dense+sparse retrieval, fusion, and cross-encoder reranking — *moved from v2; see below, no longer deferred* — verified live 2026-08-29 (`06.1-VERIFICATION.md`)
+- [x] **HARD-04**: RAG retrieval precision evaluation — *moved from v2; see below, no longer deferred* — verified live 2026-08-29 (`06.1-VERIFICATION.md`)
 - [x] **RAG-01**: Real document ingestion (upload → parse → structure-aware chunk → index) for PDF/DOCX/CSV/plain-text
 - [x] **RAG-02**: `document_chunks` schema extended with section/page/parent_chunk_id/chunk_index/metadata (documented Bible deviation)
-- [ ] **RAG-03**: Hybrid retrieval (Qdrant dense + BM25 lexical) with explicit fusion, per Bible Section 15
-- [ ] **RAG-04**: Cross-encoder reranking stage between candidate fusion and evidence filtering
+- [x] **RAG-03**: Hybrid retrieval (Qdrant dense + BM25 lexical) with explicit fusion, per Bible Section 15 — verified live 2026-08-29 (`06.1-VERIFICATION.md`)
+- [x] **RAG-04**: Cross-encoder reranking stage between candidate fusion and evidence filtering — verified live 2026-08-29 (`06.1-VERIFICATION.md`)
 - [x] **RAG-05**: Evidence filtering + context assembly with full provenance (Bible Section 15.7 fields), never dumping the raw candidate pool to the LLM
 - [x] **RAG-06**: Copilot wired to the real compiled `StateGraph` (`compiled_graph.ainvoke`) instead of the readiness-only stub; honest "insufficient evidence" when retrieval finds nothing above threshold
 - [x] **RAG-07**: Evidence inspection UI (source/section/page/retrieval method) per `UI_SPEC.md` Section 11, reusing the `AssuranceCard` provenance pattern
@@ -158,12 +158,23 @@ Explicitly excluded from v1. Documented to prevent scope creep.
 | UI-02 | Phase 5 | Complete |
 | UI-03 | Phase 6 | Complete |
 | UI-04 | Phase 6 | Complete |
+| RAG-01 | Phase 06.1 | Complete |
+| RAG-02 | Phase 06.1 | Complete |
+| RAG-03 | Phase 06.1 | Complete |
+| RAG-04 | Phase 06.1 | Complete |
+| RAG-05 | Phase 06.1 | Complete |
+| RAG-06 | Phase 06.1 | Complete |
+| RAG-07 | Phase 06.1 | Complete |
+| AGT-01 | Phase 06.1 | Complete |
+| HARD-04 | Phase 06.1 | Complete |
 
 **Coverage:**
 
-- v1 requirements: 29 total
-- Mapped to phases: 29/29 ✓
+- v1 requirements: 38 total (29 original + 9 pulled forward from v2 into Phase 06.1 on 2026-08-28)
+- Mapped to phases: 38/38 ✓
 - Unmapped: 0
+
+**Note (fixed 2026-08-31):** RAG-01 through RAG-07, AGT-01, and HARD-04 were satisfied and independently live-verified by `.planning/phases/06.1-advanced-retrieval-real-copilot/06.1-VERIFICATION.md` (2026-08-29) but this table's rows for them, and 4 of their checkboxes above, were never updated at the time — a documentation-accuracy gap the verification report itself called out. Closed here as a remediation follow-up (REMEDIATION-PLAN.md #7); no functional change, the underlying capability was already real.
 
 **Phases with no v1 requirements:** Phase 7 (Integration & Hardening) and Phase 8 (Freeze) carry no v1 requirement mappings — they validate/harden the capabilities delivered in Phases 1–6 and correspond to the v2 Hardening items (HARD-01 through HARD-06) above, per AegisX-Build-Map.md Stages 6–7.
 

@@ -22,22 +22,67 @@ const COLUMN_STEP = 220
 const ROW_STEP = 120
 const COLUMNS = 6
 
+// One node_type -> accent colour mapping, the single source of truth for
+// "what a node means visually" (REMEDIATION-PLAN.md #5). Exported so any
+// other view that renders these node types (a detail panel, a legend) can
+// reuse the exact same mapping instead of a second component independently
+// deciding what a node type looks like. A type not in this table (an
+// entity kind added later without a matching design decision) falls back
+// to the neutral colour rather than silently rendering unstyled.
+export const NODE_TYPE_COLORS: Record<string, string> = {
+  SYSTEM: '#38bdf8', // sky-400
+  REQUIREMENT: '#a78bfa', // violet-400
+  TEST_CASE: '#34d399', // emerald-400
+  RISK: '#f87171', // red-400
+  CHANGE: '#fbbf24', // amber-400
+  CONTROL: '#fb923c', // orange-400
+  DOCUMENT: '#94a3b8', // slate-400
+}
+const NODE_TYPE_COLOR_DEFAULT = '#64748b' // slate-500
+
+export function nodeAccentColor(nodeType: string): string {
+  return NODE_TYPE_COLORS[nodeType] ?? NODE_TYPE_COLOR_DEFAULT
+}
+
+// Prefers a human-readable field already present on the node's own
+// properties (whichever the domain table actually populates) over the raw
+// "{node_type}:{entity_id}" id string. Every existing fixture/seed record
+// in this codebase has no such field yet, so this always falls back to the
+// id today -- the fallback, not the preference, is what every current
+// caller actually exercises, which is why this doesn't require a schema
+// change to add: it activates automatically the day a domain table starts
+// populating a title/name-shaped property.
+function humanReadableLabel(n: EvidenceGraphNode): string {
+  const props = n.properties as Record<string, unknown>
+  const candidate = props?.title ?? props?.name
+  return typeof candidate === 'string' && candidate.trim().length > 0
+    ? candidate
+    : n.node_id
+}
+
 function toFlowNodes(apiNodes: EvidenceGraphNode[], selectedNodeId?: string | null): Node[] {
   return apiNodes.map((n, i) => {
     const isSelected = n.node_id === selectedNodeId
+    const accent = nodeAccentColor(n.node_type)
     return {
       id: n.node_id,
       position: { x: (i % COLUMNS) * COLUMN_STEP, y: Math.floor(i / COLUMNS) * ROW_STEP },
-      // label is the node id itself ("{node_type}:{entity_id}") -- combines
-      // the type and entity id in one string and satisfies the acceptance
-      // criterion that a node's rendered label contains its node_id.
-      data: { label: n.node_id },
-      // Selection indicator only (D-05): React Flow's own `selected` flag
-      // plus a thicker border. No node-type colour coding beyond the
-      // basic differentiation already present, and no Bible Section 10.3
-      // pulse highlight -- both explicitly deferred to Phase 6.
+      // Human-readable label when the node's own properties carry one
+      // (title/name/description); otherwise the raw node_id, exactly as
+      // before -- every current fixture takes this path, so existing
+      // assertions on node_id appearing in the rendered text are
+      // unaffected (REMEDIATION-PLAN.md #5).
+      data: { label: humanReadableLabel(n) },
+      // Selection indicator (thicker border) plus a node_type-derived
+      // accent colour via `nodeAccentColor` -- one shared source of truth
+      // instead of the canvas and any future detail view each deciding
+      // independently what a node type means visually.
       selected: isSelected,
-      style: isSelected ? { borderWidth: 3 } : undefined,
+      style: {
+        borderWidth: isSelected ? 3 : 1,
+        borderColor: accent,
+        borderStyle: 'solid',
+      },
     }
   })
 }
@@ -74,6 +119,10 @@ export default function EvidenceGraphCanvas({
         nodes={flowNodes}
         edges={flowEdges}
         fitView
+        // Hides React Flow's own attribution watermark, which the MIT
+        // license permits removing via this exact prop
+        // (06.1.1-RESEARCH.md D-05: confirmed missing, one-line fix).
+        proOptions={{ hideAttribution: true }}
         onNodeClick={onNodeClick ? (_event, node) => onNodeClick(node.id) : undefined}
       >
         <Background />

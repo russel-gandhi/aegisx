@@ -50,6 +50,8 @@ or push refresh is added by this plan; the standing `/blast-radius` and
 out of scope.
 """
 
+import asyncio
+import hashlib
 import logging
 import os
 from typing import Optional
@@ -119,6 +121,37 @@ async def upload_document(
     if not await _system_exists(pool, system_id):
         raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
 
+    # (c2) idempotency guard (SYSTEM-DESIGN-DIAGNOSIS.md #6): a double-click,
+    # a client retry after a slow response, or a flaky-network resubmit must
+    # not re-run the full parse->chunk->embed->index pipeline and pay the
+    # embedding-provider cost a second time for bytes already ingested for
+    # this system. Scoped to (system_id, content hash), never the hash
+    # alone -- identical content legitimately uploaded for two different
+    # systems is not a duplicate. Checked before the Qdrant guard below so a
+    # duplicate resubmit never even needs Qdrant to be reachable.
+    content_sha256 = hashlib.sha256(raw).hexdigest()
+    existing = await pool.fetchrow(
+        "SELECT d.id, d.title, d.doc_type, d.status, "
+        "COUNT(c.chunk_id) AS chunk_count "
+        "FROM documents d LEFT JOIN document_chunks c ON c.document_id = d.id "
+        "WHERE d.system_id = $1 AND d.content_sha256 = $2 "
+        "GROUP BY d.id",
+        system_id,
+        content_sha256,
+    )
+    if existing is not None:
+        return DocumentUploadResponse(
+            document_id=existing["id"],
+            system_id=system_id,
+            title=existing["title"],
+            doc_type=existing["doc_type"],
+            chunk_count=existing["chunk_count"],
+            indexed_vector_count=existing["chunk_count"],
+            status=existing["status"],
+            failed_stage=None,
+            duplicate=True,
+        )
+
     # Qdrant unavailability degrades the same way an unreachable Postgres
     # pool does above (503, not an unhandled exception from deep inside
     # index_document's upsert call) -- `get_qdrant_client()` already
@@ -144,7 +177,7 @@ async def upload_document(
 
     await pool.execute(
         "INSERT INTO documents (id, system_id, doc_type, title, version, author, "
-        "created_date, status) VALUES ($1, $2, $3, $4, $5, $6, now(), $7)",
+        "created_date, status, content_sha256) VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8)",
         document_id,
         system_id,
         resolved_doc_type,
@@ -152,11 +185,20 @@ async def upload_document(
         None,
         identity.user_id,
         "READY",
+        content_sha256,
     )
 
     # (g) parse -> chunk -> index. Parsing runs on the in-memory bytes
     # already read above; no temp file is ever written.
-    blocks = parse_document(raw, original_filename, fmt)
+    #
+    # `parse_document` (PDF/DOCX parsing especially) is real CPU-bound work,
+    # not I/O -- calling it directly inside this `async def` would block the
+    # single-worker event loop for its entire duration, stalling every other
+    # concurrent request (other users' API calls, the copilot WebSocket,
+    # even /api/health) for as long as this one upload takes to parse.
+    # `asyncio.to_thread` moves it to the default executor so the event loop
+    # stays free (SYSTEM-DESIGN-DIAGNOSIS.md #4).
+    blocks = await asyncio.to_thread(parse_document, raw, original_filename, fmt)
 
     # A parse that yields no blocks for a non-empty, non-CSV payload is a
     # parsing failure (T-06.1-22), not an honest zero: an empty CSV (no
@@ -185,7 +227,7 @@ async def upload_document(
             failed_stage="parsing",
         )
 
-    chunks = chunk_blocks(blocks)
+    chunks = await asyncio.to_thread(chunk_blocks, blocks)
     for chunk in chunks:
         # chunk_blocks() has no access to the client filename (its own
         # frozen signature is `blocks -> List[Chunk]`) -- this route is
@@ -249,6 +291,8 @@ async def _rebuild_evidence_graph_for(pool, system_id: str) -> None:
 @router.get("/api/documents", response_model=DocumentListResponse)
 async def list_documents(
     system_id: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     identity: RequestIdentity = Depends(require_identity),
 ) -> DocumentListResponse:
     """Lists every uploaded document, optionally filtered to one
@@ -263,7 +307,15 @@ async def list_documents(
     from an indexing failure, and this route never guesses. An empty
     result set (a `system_id` filter that matches zero documents) is a
     200 with `documents: []`, never a 404 -- only an unknown `system_id`
-    itself is a 404."""
+    itself is a 404.
+
+    `limit`/`offset` (SYSTEM-DESIGN-DIAGNOSIS.md #5) bound the response to
+    at most `limit` rows (default 50, capped at 200) starting at `offset`,
+    ordered newest-first -- this endpoint had no ceiling on result-set size
+    before, which is fine at demo data volumes and a self-inflicted
+    unbounded-query risk once it isn't. `total_count` is computed in the
+    same query via `COUNT(*) OVER()` (one round trip, not two) so a caller
+    can tell whether more pages exist without a second request."""
     pool = await acquire_pool_or_none()
     if pool is None:
         raise HTTPException(status_code=503, detail="Postgres pool unavailable")
@@ -272,11 +324,15 @@ async def list_documents(
 
     rows = await pool.fetch(
         "SELECT d.id, d.system_id, d.title, d.doc_type, d.version, d.created_date, "
-        "COUNT(c.chunk_id) AS chunk_count "
+        "COUNT(c.chunk_id) AS chunk_count, "
+        "COUNT(*) OVER() AS total_count "
         "FROM documents d LEFT JOIN document_chunks c ON c.document_id = d.id "
         "WHERE ($1::varchar IS NULL OR d.system_id = $1) "
-        "GROUP BY d.id ORDER BY d.created_date DESC NULLS LAST",
+        "GROUP BY d.id ORDER BY d.created_date DESC NULLS LAST "
+        "LIMIT $2 OFFSET $3",
         system_id,
+        limit,
+        offset,
     )
 
     documents = [
@@ -293,5 +349,12 @@ async def list_documents(
         )
         for row in rows
     ]
+    total_count = rows[0]["total_count"] if rows else 0
 
-    return DocumentListResponse(system_id=system_id, documents=documents)
+    return DocumentListResponse(
+        system_id=system_id,
+        documents=documents,
+        total_count=total_count,
+        limit=limit,
+        offset=offset,
+    )

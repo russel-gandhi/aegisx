@@ -319,9 +319,9 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
     dedicated `"narration"` task key to `groq_gpt_oss`, not `"compliance"`'s
     `gemini_flash_fast` — A0/A2's judgment tasks are untouched, only this
     decoration step moved. The call is bounded by `NARRATION_CEILING_SECONDS`
-    (13.0s) TOTAL wall-clock via the outer `asyncio.wait_for`, not merely
-    `call_llm`'s own per-hop `timeout` argument (`NARRATION_PER_HOP_TIMEOUT_SECONDS`,
-    3.0s): `call_llm` now cascades through up to four providers on failure
+    TOTAL wall-clock via the outer `asyncio.wait_for`, not merely
+    `call_llm`'s own per-hop `timeout` argument (`NARRATION_PER_HOP_TIMEOUT_SECONDS`):
+    `call_llm` now cascades through up to four providers on failure
     (Deviation 18), each sharing that same per-hop budget, so the outer
     ceiling must cover the worst case of every hop, not just one. On a
     Groq TIMEOUT the outer `wait_for` fires once the total ceiling is

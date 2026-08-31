@@ -63,6 +63,9 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
+from app.http_client import get_shared_client
+from app.rate_limiter import acquire_rate_limit
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -304,12 +307,20 @@ async def _send_one(entry_key: str, prompt: str, system_instruction: str,
     else:
         request = _build_openai_compatible_request(entry, api_key, prompt, system_instruction, json_output)
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
-        )
-        response.raise_for_status()
-        data = response.json()
+    # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3): waits until
+    # this provider is back under its own declared `rpm_limit` before the
+    # request goes out, rather than only reacting to a 429 after the fact.
+    await acquire_rate_limit(entry_key, entry["rpm_limit"])
+
+    # Shared, pooled client (SYSTEM-DESIGN-DIAGNOSIS.md #1) -- see
+    # app.http_client's module docstring for why this replaced a per-call
+    # `async with httpx.AsyncClient()`.
+    client = get_shared_client()
+    response = await client.post(
+        request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
+    )
+    response.raise_for_status()
+    data = response.json()
 
     if entry["provider"] == "google":
         return _parse_google_response(entry, data)

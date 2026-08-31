@@ -263,6 +263,17 @@ async def generate_capa(
     )
 
 
+#  A deliberately generous ceiling (SYSTEM-DESIGN-DIAGNOSIS.md #5), not a
+# real pagination contract: this is a human approval queue, and silently
+# truncating it would hide a pending GxP-relevant approval from the
+# Action/Approval Centre -- a compliance risk, not just a UX one. Rows are
+# resolved (approved/rejected) rather than accumulating indefinitely, so a
+# genuinely pending queue exceeding this in the current single-operator
+# demo scope would itself be the more urgent problem. This exists only as
+# a guard against unbounded growth, not an expected limit in normal use.
+_ACTIONS_QUERY_CEILING = 500
+
+
 @router.get("/api/actions", response_model=ActionProposalsResponse)
 async def list_actions(identity: RequestIdentity = Depends(require_identity)):
     """No RBAC restriction beyond a recognised role (`require_identity`
@@ -274,7 +285,10 @@ async def list_actions(identity: RequestIdentity = Depends(require_identity)):
     if pool is None:
         raise HTTPException(status_code=503, detail="Postgres pool unavailable")
 
-    rows = await pool.fetch("SELECT * FROM action_proposals ORDER BY created_at ASC, id ASC")
+    rows = await pool.fetch(
+        "SELECT * FROM action_proposals ORDER BY created_at ASC, id ASC LIMIT $1",
+        _ACTIONS_QUERY_CEILING,
+    )
     return ActionProposalsResponse(proposals=[_row_to_record(dict(row)) for row in rows])
 
 

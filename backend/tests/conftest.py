@@ -202,3 +202,20 @@ def _zero_llm_cascade_delay(monkeypatch):
     mechanism, after this fixture has already run."""
     from app import llm_router
     monkeypatch.setattr(llm_router, "LLM_CASCADE_DELAY_SECONDS", 0.0)
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Autouse test isolation for `app.rate_limiter`'s process-global
+    limiter registry (SYSTEM-DESIGN-DIAGNOSIS.md #3, proactive per-provider
+    rate limiting added to `llm_router.call_llm` and
+    `retrieval.embeddings`). No single existing test fires anywhere near
+    even the lowest configured `rpm_limit` (30) within its own runtime, so
+    this is a correctness safeguard against call-count state leaking
+    across test boundaries -- not something expected to actually change
+    any test's timing, mirroring `_clear_narration_cache`'s own rationale
+    for why it resets state even tests that don't obviously touch it."""
+    from app.rate_limiter import reset_rate_limiters
+    reset_rate_limiters()
+    yield
+    reset_rate_limiters()

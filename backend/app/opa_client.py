@@ -50,6 +50,8 @@ from typing import Any, Dict, List
 import httpx
 from dotenv import load_dotenv
 
+from app.http_client import get_shared_client
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -108,14 +110,14 @@ async def evaluate_opa_policy(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
       answer at all, so both branches route to the same fallback.
     """
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                OPA_URL,
-                json={"input": _json_safe(payload)},
-                timeout=2.0,
-            )
-            response.raise_for_status()
-            return response.json().get("result", [])
+        client = get_shared_client()
+        response = await client.post(
+            OPA_URL,
+            json={"input": _json_safe(payload)},
+            timeout=2.0,
+        )
+        response.raise_for_status()
+        return response.json().get("result", [])
     except (httpx.RequestError, httpx.HTTPStatusError) as e:
         # Deviation 3 (backend tier): log, don't print. A server process
         # writing diagnostics to stdout loses them the moment it runs

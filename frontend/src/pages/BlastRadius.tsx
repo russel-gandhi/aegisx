@@ -82,7 +82,13 @@ export default function BlastRadius() {
       return
     }
     setSelectedNodeId(null)
-    setSearchParams({})
+    // Writes `?system=` (REMEDIATION-PLAN.md #5 / 06.1.1-RESEARCH.md D-08):
+    // this page previously only read `?system=` on initial mount and never
+    // wrote it back, so a shared/bookmarked URL went stale the moment
+    // anyone changed the system selector. `node` is dropped here
+    // deliberately -- a node id from the old system's graph doesn't exist
+    // in the new one.
+    setSearchParams({ system: systemId })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [systemId])
 
@@ -119,7 +125,11 @@ export default function BlastRadius() {
 
   function handleNodeClick(nodeId: string) {
     setSelectedNodeId(nodeId)
-    setSearchParams({ node: nodeId })
+    // Keeps `system` alongside `node` -- previously this overwrote the
+    // whole query string with just `{node}`, so a node click silently
+    // dropped `?system=` from the URL even after the fix above adds it on
+    // selector change.
+    setSearchParams({ system: systemId, node: nodeId })
   }
 
   const selectedNode = data?.nodes.find((n) => n.node_id === selectedNodeId) ?? null
