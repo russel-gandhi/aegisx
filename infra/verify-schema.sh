@@ -7,7 +7,16 @@ set -uo pipefail
 # the full Bible Section 4.1 schema is present: 27 tables, 21 foreign key
 # constraints, 8 nanosecond-epoch BIGINT columns, plus (Phase 4, plan
 # 04-02, D-03) the additive `change_affects` junction table and its one
-# foreign key, bringing the totals to 28 tables / 22 foreign keys. Runs
+# foreign key, bringing the totals to 28 tables / 22 foreign keys -- and
+# (Phase 06.1, plan 06.1-01, D-02) `004_document_chunks_structure.sql`'s
+# additive `document_chunks.parent_chunk_id` self-referential foreign key,
+# bringing the foreign key total to 23. That migration landed without this
+# gate's expected count being updated to match, which silently broke CI's
+# Schema gate on every push since (confirmed by reproducing this script's
+# checks against a live container: table count 28 as expected, but foreign
+# key count 23, not the 22 this file asserted). Fixed here, not routed
+# through SENT-7-05 -- this asserts against this repo's own migrations,
+# not a Bible literalism, so there is no deviation to reconcile. Runs
 # every assertion
 # through `docker compose exec -T postgres psql`, so no host Postgres
 # client or Python driver is required. Modelled on infra/health-check.sh's
@@ -69,13 +78,14 @@ else
   overall_status=1
 fi
 
-# 2. Total FOREIGN KEY constraint count == 22 (21 Bible FKs +
-# change_affects.change_id -> changes.id).
+# 2. Total FOREIGN KEY constraint count == 23 (21 Bible FKs +
+# change_affects.change_id -> changes.id +
+# document_chunks.parent_chunk_id -> document_chunks.chunk_id).
 fk_count="$(psql_exec "SELECT count(*) FROM information_schema.table_constraints WHERE table_schema='public' AND constraint_type='FOREIGN KEY'" | tr -d '[:space:]')"
-if [ "$fk_count" = "22" ]; then
-  printf '%-60s PASS\n' "foreign key count == 22"
+if [ "$fk_count" = "23" ]; then
+  printf '%-60s PASS\n' "foreign key count == 23"
 else
-  printf '%-60s FAIL (got: %s)\n' "foreign key count == 22" "${fk_count:-<none>}"
+  printf '%-60s FAIL (got: %s)\n' "foreign key count == 23" "${fk_count:-<none>}"
   overall_status=1
 fi
 
