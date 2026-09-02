@@ -1,4 +1,6 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import type { ComponentType, CSSProperties, ReactNode } from 'react'
+import FadeIn from './FadeIn'
+import Skeleton from './Skeleton'
 
 // Phase 6 (06-02, Task 2, D-07): shared shell for the Command Centre's 6
 // fixed mini-cards. Each card's `status` is independent of the other 5 --
@@ -10,22 +12,13 @@ export interface HealthMiniCardProps {
   children?: ReactNode
   errorText?: string
   style?: CSSProperties
+  // Optional scannability aid (dataviz skill: "status colors ship with an
+  // icon + label, never color alone"). Purely presentational -- absent for
+  // any caller that doesn't pass one, same as before this prop existed.
+  icon?: ComponentType<{ className?: string }>
 }
 
 const DEFAULT_ERROR_TEXT = "Couldn't load this signal."
-
-// 06-UI-SPEC.md Animation Contract: "Subtle fade-in + 4px slide-up ...
-// staggered ~40ms per card via inline style={{ transitionDelay }}". The
-// mount transition itself (opacity-0/translate-y-1 -> opacity-100/
-// translate-y-0) is local to this component; the caller only supplies the
-// per-card `transitionDelay` via `style`.
-function useMountTransition(): boolean {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-  return mounted
-}
 
 export default function HealthMiniCard({
   title,
@@ -33,31 +26,42 @@ export default function HealthMiniCard({
   children,
   errorText,
   style,
+  icon: Icon,
 }: HealthMiniCardProps) {
-  const mounted = useMountTransition()
+  // 06-UI-SPEC.md Animation Contract: "Subtle fade-in + 4px slide-up ...
+  // staggered ~40ms per card" -- previously a hand-rolled `useMountTransition`
+  // hook local to this file (now shared as FadeIn, motion-ui skill item 2).
+  // The caller's `style.transitionDelay` (seconds-as-ms, e.g. "40ms")
+  // becomes FadeIn's `delay` (seconds) below.
+  const rawDelay = style?.transitionDelay
+  const delaySeconds =
+    typeof rawDelay === 'string' && rawDelay.endsWith('ms')
+      ? parseFloat(rawDelay) / 1000
+      : 0
 
   return (
-    <div
+    <FadeIn
       data-testid="health-mini-card"
       data-status={status}
       style={style}
-      className={`group rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 shadow-panel transition-all duration-300 ease-out hover:border-white/[0.14] hover:bg-white/[0.045] ${
-        mounted ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
-      }`}
+      delay={delaySeconds}
+      className="group rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 shadow-panel transition-colors duration-300 ease-out hover:border-white/[0.14] hover:bg-white/[0.045]"
     >
-      <p className="text-[13px] font-semibold tracking-tight text-ink">{title}</p>
-      <div className="mt-3 text-sm">
-        {status === 'loading' && (
-          <div className="flex items-center gap-2 text-ink-faint">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-            Loading…
-          </div>
+      <div className="flex items-center gap-2">
+        {Icon && (
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-white/[0.06] text-ink-muted">
+            <Icon className="h-3.5 w-3.5" />
+          </span>
         )}
+        <p className="text-[13px] font-semibold tracking-tight text-ink">{title}</p>
+      </div>
+      <div className="mt-3 text-sm">
+        {status === 'loading' && <Skeleton className="h-4 w-3/4" />}
         {status === 'error' && (
           <p className="text-red">{errorText ?? DEFAULT_ERROR_TEXT}</p>
         )}
         {status === 'ready' && children}
       </div>
-    </div>
+    </FadeIn>
   )
 }

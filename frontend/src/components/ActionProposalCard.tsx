@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import type { ActionProposalData } from '../lib/api'
 
 // Pure presentation, per REM-03 and Bible Section 11.6: this component is a
@@ -37,6 +38,15 @@ function SectionLabel({ children }: { children: string }) {
   return <p className="text-[11px] font-bold tracking-[0.08em] text-ink-faint uppercase">{children}</p>
 }
 
+// Real spring-feel press feedback (motion-ui skill item 3) reserved for
+// this card's own approve/reject/confirm buttons specifically -- these are
+// the single most consequential clicks in the whole app (an irreversible,
+// audit-logged compliance decision), unlike the universal CSS :active
+// scale (index.css) every other button in the app gets. whileTap alone
+// (no whileHover) since :hover already has its own CSS treatment via the
+// shared .btn-* classes and doubling it would fight that transform.
+const TAP_TRANSITION = { duration: 0.15, ease: [0.4, 0, 0.2, 1] as [number, number, number, number] }
+
 export default function ActionProposalCard({
   proposal,
   onApprove,
@@ -45,11 +55,36 @@ export default function ActionProposalCard({
   error,
 }: ActionProposalCardProps) {
   const [confirmingReject, setConfirmingReject] = useState(false)
+  const confirmButtonRef = useRef<HTMLButtonElement>(null)
 
   const borderStyle = STATUS_STYLES[proposal.status] ?? 'border-l-white/20'
   const badgeStyle = STATUS_BADGE_STYLES[proposal.status] ?? 'badge-neutral'
   const isPending = proposal.status === 'PENDING_APPROVAL'
   const isBusy = busy !== null
+
+  // Modal-essentials-lite (motion-ui skill's "Modal Essentials" checklist,
+  // scoped to what applies to an inline two-step confirm rather than a
+  // portal/dialog overlay): entering the destructive confirm step moves
+  // focus onto its own primary action, and Escape backs out of it, exactly
+  // as clicking Cancel does -- previously neither existed, so a keyboard
+  // user who reached "Reject Action" had no way to back out without a
+  // mouse and no focus signal telling them a destructive step was live.
+  useEffect(() => {
+    if (confirmingReject) {
+      confirmButtonRef.current?.focus()
+    }
+  }, [confirmingReject])
+
+  useEffect(() => {
+    if (!confirmingReject) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setConfirmingReject(false)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmingReject])
 
   return (
     <div
@@ -101,9 +136,12 @@ export default function ActionProposalCard({
                 {`Reject Action: Reject this ${proposal.action_type} on ${proposal.target_system}? It will not be executed. This decision is recorded in the audit trail and cannot be undone.`}
               </p>
               <div className="mt-3 flex gap-2">
-                <button
+                <motion.button
+                  ref={confirmButtonRef}
                   type="button"
                   disabled={isBusy}
+                  whileTap={isBusy ? undefined : { scale: 0.95 }}
+                  transition={TAP_TRANSITION}
                   onClick={() => {
                     setConfirmingReject(false)
                     onReject(proposal.id)
@@ -111,36 +149,42 @@ export default function ActionProposalCard({
                   className="btn btn-danger"
                 >
                   {busy === 'rejecting' ? 'Rejecting...' : 'Confirm Reject'}
-                </button>
-                <button
+                </motion.button>
+                <motion.button
                   type="button"
                   disabled={isBusy}
+                  whileTap={isBusy ? undefined : { scale: 0.95 }}
+                  transition={TAP_TRANSITION}
                   onClick={() => setConfirmingReject(false)}
                   className="btn btn-secondary"
                 >
                   Cancel
-                </button>
+                </motion.button>
               </div>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button
+              <motion.button
                 type="button"
                 disabled={isBusy}
+                whileTap={isBusy ? undefined : { scale: 0.95 }}
+                transition={TAP_TRANSITION}
                 onClick={() => onApprove(proposal.id)}
                 data-tour="approve-action"
                 className="btn btn-success"
               >
                 {busy === 'approving' ? 'Approving...' : 'Approve Action'}
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
                 disabled={isBusy}
+                whileTap={isBusy ? undefined : { scale: 0.95 }}
+                transition={TAP_TRANSITION}
                 onClick={() => setConfirmingReject(true)}
                 className="btn btn-danger"
               >
                 {busy === 'rejecting' ? 'Rejecting...' : 'Reject Action'}
-              </button>
+              </motion.button>
             </div>
           )}
           {error && <p className="mt-2 text-sm text-red">{error}</p>}

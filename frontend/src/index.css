@@ -165,6 +165,18 @@ body {
     opacity: 0.45;
     cursor: not-allowed;
   }
+  /* Press feedback (motion-ui skill, item 3): a scale-down on :active gives
+     every button in the app real click confirmation -- previously only
+     hover had any feedback at all, so a press produced no visible response
+     until whatever async action it triggered eventually changed state.
+     CSS-only rather than converting every <button> to motion.button: this
+     rule applies universally, including GuidedTourOverlay's react-joyride
+     buttons (which spread props from the library and must not be rewrapped
+     in motion.button -- that would risk breaking the library's own ref/
+     event wiring), with zero component-level changes and zero risk. */
+  .btn:active:not(:disabled) {
+    transform: scale(0.97);
+  }
   .btn-primary {
     background: var(--color-accent);
     color: white;
@@ -325,6 +337,59 @@ body {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Skeleton loading (motion-ui skill's "Skeleton loading" pattern, item 5),
+   consumed by components/Skeleton.tsx. A slow-moving gradient sweep rather
+   than a plain opacity pulse -- reads as "content is arriving" rather than
+   "something is broken and blinking." */
+@keyframes aegisx-shimmer {
+  0% {
+    background-position: -300px 0;
+  }
+  100% {
+    background-position: 300px 0;
+  }
+}
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(255, 255, 255, 0.09) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 600px 100%;
+  animation: aegisx-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Live-state pulse (motion-ui skill, item 6): used on AgentTopologyCanvas
+   nodes with status "running" and on EvidenceGraphCanvas nodes inside the
+   current Blast Radius result -- both communicate genuine live state
+   (Bible Section 10's "pulse animation on affected downstream nodes"
+   spec), not decoration. A soft box-shadow ring rather than a scale pulse:
+   scaling a React Flow node fights its own internal transform (used for
+   pan/zoom), producing visible jitter; shadow-only avoids that entirely. */
+@keyframes aegisx-pulse-amber {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 176, 32, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(255, 176, 32, 0);
+  }
+}
+@keyframes aegisx-pulse-accent {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(56, 215, 255, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(56, 215, 255, 0);
+  }
+}
+.node-pulse-amber {
+  animation: aegisx-pulse-amber 1.8s ease-in-out infinite;
+}
+.node-pulse-accent {
+  animation: aegisx-pulse-accent 1.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

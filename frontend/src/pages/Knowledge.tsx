@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import Skeleton from '../components/Skeleton'
 import {
   ApiError,
   listDocuments,
@@ -175,6 +176,14 @@ export default function Knowledge() {
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null)
   const [failedStageByDocumentId, setFailedStageByDocumentId] = useState<Record<string, string>>({})
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // motion-ui skill item 5: previously this page had no distinct loading
+  // state at all -- `documents` simply started as `[]`, so the empty state
+  // (its own real, no-uploads-yet copy) flashed on every mount for however
+  // long the initial GET /api/documents took, indistinguishable from a
+  // genuinely empty system. Starts true, flips false whether the fetch
+  // succeeds or fails (a failure's honest fallback is still "show whatever
+  // is known" -- see the .catch comment below -- not "keep spinning").
+  const [listLoading, setListLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
@@ -188,6 +197,11 @@ export default function Knowledge() {
         // Honest empty state on a load failure -- no fabricated error
         // banner outside the Copywriting Contract; the empty state (or
         // whatever the last-known list was) simply stays as-is.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setListLoading(false)
+        }
       })
     return () => {
       cancelled = true
@@ -334,7 +348,12 @@ export default function Knowledge() {
       </div>
 
       <div className="mt-6">
-        {isEmpty ? (
+        {listLoading ? (
+          <div className="space-y-3">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        ) : isEmpty ? (
           <div
             data-testid="knowledge-empty-state"
             className="card p-8 text-center"

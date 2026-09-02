@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import ActionProposalCard from '../components/ActionProposalCard'
+import Skeleton from '../components/Skeleton'
+import { motionTokens } from '../lib/motion'
 import { useIdentity } from '../lib/identity'
 import {
   ApiError,
@@ -164,7 +167,13 @@ export default function Actions() {
       <h2 className="mt-6 text-[15px] font-semibold text-ink">{`Pending Actions (${proposals.length})`}</h2>
 
       <div className="mt-3 max-h-[36rem] space-y-4 overflow-auto">
-        {loadState === 'loading' && <p className="text-ink-muted">Loading pending actions...</p>}
+        {loadState === 'loading' && (
+          <div className="space-y-4">
+            <p className="text-ink-muted">Loading pending actions...</p>
+            <Skeleton className="h-32 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
+          </div>
+        )}
 
         {loadState === 'error' && (
           <div>
@@ -194,17 +203,28 @@ export default function Actions() {
           </div>
         )}
 
-        {loadState === 'ready' &&
-          proposals.map((proposal) => (
-            <ActionProposalCard
-              key={proposal.id}
-              proposal={proposal}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              busy={decisions[proposal.id]?.busy ?? null}
-              error={decisions[proposal.id]?.error ?? null}
-            />
-          ))}
+        {loadState === 'ready' && (
+          <AnimatePresence mode="popLayout" initial={false}>
+            {proposals.map((proposal) => (
+              <motion.div
+                key={proposal.id}
+                layout
+                initial={{ opacity: 0, y: motionTokens.distance.md }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
+              >
+                <ActionProposalCard
+                  proposal={proposal}
+                  onApprove={handleApprove}
+                  onReject={handleReject}
+                  busy={decisions[proposal.id]?.busy ?? null}
+                  error={decisions[proposal.id]?.error ?? null}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        )}
       </div>
     </div>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import Skeleton from '../components/Skeleton'
 import { fetchAssuranceCards, type AssuranceCardData } from '../lib/api'
 
 // Bible Section 11.3: "Presents a filterable matrix of all identified
@@ -146,7 +147,13 @@ export default function AuditReadiness() {
         </select>
       </div>
 
-      {status === 'loading' && <p className="mt-8 text-sm text-ink-muted">Loading findings&hellip;</p>}
+      {status === 'loading' && (
+        <div className="mt-8 space-y-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      )}
       {status === 'error' && (
         <p className="mt-8 text-sm text-red">Couldn&rsquo;t load assurance data. Refresh to retry.</p>
       )}

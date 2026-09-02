@@ -134,6 +134,18 @@ export default function BlastRadius() {
 
   const selectedNode = data?.nodes.find((n) => n.node_id === selectedNodeId) ?? null
 
+  // motion-ui skill item 6: only direct_dependencies/indirect_dependencies/
+  // source_node_id -- see EvidenceGraphCanvasProps.affectedNodeIds's own
+  // comment for why the affected_* domain-id arrays are NOT safe to mix in
+  // here (they are not guaranteed to be full "TYPE:id" node ids).
+  const affectedNodeIds = blastResult
+    ? new Set([
+        blastResult.source_node_id,
+        ...blastResult.direct_dependencies,
+        ...blastResult.indirect_dependencies,
+      ])
+    : undefined
+
   return (
     <div>
       <p className="eyebrow">Impact analysis</p>
@@ -185,6 +197,7 @@ export default function BlastRadius() {
                 edges={data.edges}
                 onNodeClick={handleNodeClick}
                 selectedNodeId={selectedNodeId}
+                affectedNodeIds={affectedNodeIds}
               />
             </div>
             <div className="space-y-4">

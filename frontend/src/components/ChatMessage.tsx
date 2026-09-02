@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
+import { motionTokens } from '../lib/motion'
 import AssuranceCard from './AssuranceCard'
 import AutoNavigateNotice from './AutoNavigateNotice'
 import EvidenceView from './EvidenceView'
+import FadeIn from './FadeIn'
 import InvestigationTrace from './InvestigationTrace'
 
 // Phase 6 (UI-04, D-01/D-04/D-05) + Phase 06.1 plan 06 (RAG-06/RAG-07,
@@ -45,37 +47,21 @@ const DESTRUCTIVE_BUBBLE_STYLE = 'border-red-500/30 bg-red-soft text-ink'
 const DEFAULT_ASSISTANT_BUBBLE_STYLE = 'border-white/[0.08] bg-white/[0.035] text-ink'
 const USER_BUBBLE_STYLE = 'border-accent/30 bg-accent-soft text-ink'
 
-// 06-UI-SPEC.md Animation Contract: "Chat message, on arrival -- Fade-in
-// ... `transition-opacity duration-200` from `opacity-0` to `opacity-100`
-// ... decorative only, must not delay content readability." Content is
-// always rendered immediately; only the opacity class lags one paint
-// behind mount, via this hook, so the animation never gates readability.
-function useFadeIn(): boolean {
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    setVisible(true)
-  }, [])
-  return visible
-}
-
 export default function ChatMessage({
   message,
   systemId,
   autoNavigateArmed,
   onNavigationCancelled,
 }: ChatMessageProps) {
-  const visible = useFadeIn()
-  const opacityClass = visible ? 'opacity-100' : 'opacity-0'
-
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div
+        <FadeIn
           data-testid="chat-message-user"
-          className={`max-w-2xl rounded-xl border px-4 py-2 text-sm transition-opacity duration-200 ${USER_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl rounded-xl border px-4 py-2 text-sm ${USER_BUBBLE_STYLE}`}
         >
           {message.text}
-        </div>
+        </FadeIn>
       </div>
     )
   }
@@ -84,10 +70,10 @@ export default function ChatMessage({
     const cards = message.cards ?? []
     return (
       <div className="flex justify-start">
-        <div
+        <FadeIn
           data-testid="chat-message-assistant"
           data-kind="cards"
-          className={`max-w-2xl space-y-4 rounded-xl border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl space-y-4 rounded-xl border px-4 py-3 text-sm ${DEFAULT_ASSISTANT_BUBBLE_STYLE}`}
         >
           {message.status === 'investigating' && cards.length === 0 && (
             <p className="text-ink-muted">Investigating…</p>
@@ -97,10 +83,26 @@ export default function ChatMessage({
               Every deterministic check currently passes -- no findings to review.
             </p>
           )}
-          {cards.map((card) => (
-            <AssuranceCard key={card.finding_id} card={card} />
-          ))}
-        </div>
+          {/* motion-ui item 4: cards stream in one at a time over SSE, so
+              each new arrival gets its own enter animation (stagger of
+              one) rather than the whole list re-popping in on every
+              update. popLayout so a future card removal (none exists
+              today) would animate correctly too, per the skill's list
+              guidance. */}
+          <AnimatePresence mode="popLayout" initial={false}>
+            {cards.map((card) => (
+              <motion.div
+                key={card.finding_id}
+                layout
+                initial={{ opacity: 0, y: motionTokens.distance.sm }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: motionTokens.duration.normal, ease: motionTokens.easing.smooth }}
+              >
+                <AssuranceCard card={card} />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </FadeIn>
       </div>
     )
   }
@@ -111,10 +113,10 @@ export default function ChatMessage({
 
     return (
       <div className="flex justify-start">
-        <div
+        <FadeIn
           data-testid="chat-message-assistant"
           data-kind="investigation"
-          className={`max-w-2xl space-y-3 rounded-xl border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl space-y-3 rounded-xl border px-4 py-3 text-sm ${DEFAULT_ASSISTANT_BUBBLE_STYLE}`}
         >
           {investigating && <p className="text-ink-muted">Investigating…</p>}
 
@@ -147,7 +149,7 @@ export default function ChatMessage({
               />
             </>
           )}
-        </div>
+        </FadeIn>
       </div>
     )
   }
@@ -159,14 +161,14 @@ export default function ChatMessage({
 
   return (
     <div className="flex justify-start">
-      <div
+      <FadeIn
         data-testid="chat-message-assistant"
         data-kind="text"
         data-variant={message.variant ?? 'default'}
-        className={`max-w-2xl whitespace-pre-wrap rounded-xl border px-4 py-2 text-sm transition-opacity duration-200 ${bubbleStyle} ${opacityClass}`}
+        className={`max-w-2xl whitespace-pre-wrap rounded-xl border px-4 py-2 text-sm ${bubbleStyle}`}
       >
         {message.text}
-      </div>
+      </FadeIn>
     </div>
   )
 }

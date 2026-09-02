@@ -10,6 +10,15 @@ export interface EvidenceGraphCanvasProps {
   // still holds none of its own.
   onNodeClick?: (nodeId: string) => void
   selectedNodeId?: string | null
+  // motion-ui skill item 6 / Bible Section 10's pulse-animation contract:
+  // node ids currently inside the selected node's live Blast Radius result
+  // (BlastRadius.tsx passes direct_dependencies + indirect_dependencies +
+  // source_node_id -- the three BlastRadiusResponse fields that are
+  // already full node_id-shaped strings, never the affected_* domain-id
+  // arrays, which are NOT guaranteed to carry the same "TYPE:id" prefix
+  // this canvas's own node ids use). Absent/empty means no pulse anywhere
+  // -- this component still performs no traversal of its own.
+  affectedNodeIds?: ReadonlySet<string>
 }
 
 // D-05 scopes this phase to basic rendering -- a deterministic index-based
@@ -60,10 +69,15 @@ function humanReadableLabel(n: EvidenceGraphNode): string {
     : n.node_id
 }
 
-function toFlowNodes(apiNodes: EvidenceGraphNode[], selectedNodeId?: string | null): Node[] {
+function toFlowNodes(
+  apiNodes: EvidenceGraphNode[],
+  selectedNodeId?: string | null,
+  affectedNodeIds?: ReadonlySet<string>,
+): Node[] {
   return apiNodes.map((n, i) => {
     const isSelected = n.node_id === selectedNodeId
     const accent = nodeAccentColor(n.node_type)
+    const isAffected = affectedNodeIds?.has(n.node_id) ?? false
     return {
       id: n.node_id,
       position: { x: (i % COLUMNS) * COLUMN_STEP, y: Math.floor(i / COLUMNS) * ROW_STEP },
@@ -78,6 +92,12 @@ function toFlowNodes(apiNodes: EvidenceGraphNode[], selectedNodeId?: string | nu
       // instead of the canvas and any future detail view each deciding
       // independently what a node type means visually.
       selected: isSelected,
+      // motion-ui skill item 6: a live "this node is inside the current
+      // Blast Radius result" signal -- the selected (source) node itself
+      // is excluded, since it already has its own thicker-border selection
+      // treatment and a pulsing ring around it would visually compete with
+      // that rather than add information.
+      className: isAffected && !isSelected ? 'node-pulse-accent' : undefined,
       style: {
         borderWidth: isSelected ? 3 : 1,
         borderColor: accent,
@@ -106,8 +126,9 @@ export default function EvidenceGraphCanvas({
   edges,
   onNodeClick,
   selectedNodeId,
+  affectedNodeIds,
 }: EvidenceGraphCanvasProps) {
-  const flowNodes = toFlowNodes(nodes, selectedNodeId)
+  const flowNodes = toFlowNodes(nodes, selectedNodeId, affectedNodeIds)
   const flowEdges = toFlowEdges(edges)
 
   return (

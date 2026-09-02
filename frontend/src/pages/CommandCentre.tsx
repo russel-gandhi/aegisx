@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
+import {
+  Layers,
+  ShieldAlert,
+  ListChecks,
+  Fingerprint,
+  FileText,
+  CalendarClock,
+  ClipboardCheck,
+  ShieldCheck,
+  UserCheck,
+  Truck,
+} from 'lucide-react'
 import ReadinessDial from '../components/ReadinessDial'
 import HealthMiniCard from '../components/HealthMiniCard'
+import Skeleton from '../components/Skeleton'
+import StatTile, { type StatTileTone } from '../components/StatTile'
+import Meter from '../components/Meter'
 import {
   fetchAssuranceCards,
   fetchSystemSignals,
@@ -219,6 +234,29 @@ export default function CommandCentre() {
 
   const cardDelays = [0, 40, 80, 120, 160, 200]
 
+  // dataviz skill: Meter is only drawn where a real denominator exists.
+  // CARD1_CHECK_NAMES has 3 members, CARD2_CHECK_NAME is 1 -- both totals
+  // scale with however many systems actually answered, never a hardcoded
+  // constant, so a partial-data run still shows an honest proportion.
+  const card1Total = 3 * assuranceFulfilled.length
+  const card2Total = 1 * assuranceFulfilled.length
+  const actionsTotal = pendingCount + approvedCount + rejectedCount
+
+  // Top-line "at a glance" KPI strip (dataviz skill: a single headline
+  // number is a stat tile, not a chart). Tone follows the same status-
+  // color discipline as ReadinessDial/HealthMiniCard -- reserved colors,
+  // never decorative.
+  const openFindingsTone: StatTileTone = failingCards.length === 0 ? 'good' : 'warning'
+  const pendingTone: StatTileTone = pendingCount === 0 ? 'neutral' : 'warning'
+  const auditTone: StatTileTone =
+    chainData?.status === 'VERIFIED' ? 'good' : chainData?.status === 'TAMPERED' ? 'critical' : 'neutral'
+  const auditValue =
+    chainState === 'fulfilled'
+      ? (chainData?.status ?? 'UNKNOWN')
+      : chainState === 'rejected'
+        ? 'Unavailable'
+        : 'Checking…'
+
   return (
     <div>
       <p className="eyebrow">Overview</p>
@@ -277,12 +315,32 @@ export default function CommandCentre() {
             </p>
           )}
 
+          <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatTile icon={Layers} label="Systems in scope" value={systemsInScope.length} delay={0} />
+            <StatTile
+              icon={ShieldAlert}
+              label="Open findings"
+              value={assuranceLoading ? '—' : failingCards.length}
+              tone={openFindingsTone}
+              delay={0.04}
+            />
+            <StatTile
+              icon={ListChecks}
+              label="Pending approvals"
+              value={actionsState === 'loading' ? '—' : pendingCount}
+              tone={pendingTone}
+              delay={0.08}
+            />
+            <StatTile icon={Fingerprint} label="Audit trail" value={auditValue} tone={auditTone} delay={0.12} />
+          </div>
+
+          <p className="eyebrow mt-10">Overall readiness</p>
           <div
-            className="relative mt-10 flex justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10"
+            className="relative mt-3 flex justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10"
             data-tour="readiness-dial"
           >
             {assuranceLoading && totalChecks === 0 ? (
-              <p className="text-ink-muted">Loading readiness…</p>
+              <Skeleton className="h-40 w-40 !rounded-full" />
             ) : totalChecks > 0 ? (
               <ReadinessDial passed={passed} total={totalChecks} />
             ) : (
@@ -292,37 +350,64 @@ export default function CommandCentre() {
             )}
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="eyebrow mt-10">Health signals</p>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <HealthMiniCard
               title="Documentation & Traceability"
               status={card1Status}
+              icon={FileText}
               style={{ transitionDelay: `${cardDelays[0]}ms` }}
             >
               <p className="text-ink">{card1Count} open</p>
+              <Meter
+                total={card1Total}
+                segments={[
+                  { value: card1Total - card1Count, className: 'bg-mint', label: 'Passing' },
+                  { value: card1Count, className: 'bg-amber', label: 'Open' },
+                ]}
+              />
             </HealthMiniCard>
 
             <HealthMiniCard
               title="Periodic Review"
               status={card2Status}
+              icon={CalendarClock}
               style={{ transitionDelay: `${cardDelays[1]}ms` }}
             >
               <p className="text-ink">{card2Count} open</p>
+              <Meter
+                total={card2Total}
+                segments={[
+                  { value: card2Total - card2Count, className: 'bg-mint', label: 'Passing' },
+                  { value: card2Count, className: 'bg-amber', label: 'Open' },
+                ]}
+              />
             </HealthMiniCard>
 
             <HealthMiniCard
               title="Remediation & Approvals"
               status={card3Status}
+              icon={ClipboardCheck}
               style={{ transitionDelay: `${cardDelays[2]}ms` }}
             >
               <p className="text-ink">{pendingCount} pending</p>
               <p className="mt-1 text-ink-muted">{approvedCount} approved</p>
               <p className="mt-1 text-ink-muted">{rejectedCount} rejected</p>
+              <Meter
+                total={actionsTotal}
+                segments={[
+                  { value: pendingCount, className: 'bg-amber', label: 'Pending' },
+                  { value: approvedCount, className: 'bg-mint', label: 'Approved' },
+                  { value: rejectedCount, className: 'bg-red', label: 'Rejected' },
+                ]}
+              />
             </HealthMiniCard>
 
             <div data-tour="mini-card-audit-integrity">
               <HealthMiniCard
                 title="Audit Trail Integrity"
                 status={card4Status}
+                icon={ShieldCheck}
                 style={{ transitionDelay: `${cardDelays[3]}ms` }}
               >
                 <p className={chainData?.status === 'TAMPERED' ? 'text-red' : 'text-mint'}>
@@ -334,6 +419,7 @@ export default function CommandCentre() {
             <HealthMiniCard
               title="Access Reviews"
               status={card5Status}
+              icon={UserCheck}
               style={{ transitionDelay: `${cardDelays[4]}ms` }}
             >
               <p className="text-ink">{overdueAccessReviews} overdue</p>
@@ -342,6 +428,7 @@ export default function CommandCentre() {
             <HealthMiniCard
               title="Supplier Qualification"
               status={card6Status}
+              icon={Truck}
               style={{ transitionDelay: `${cardDelays[5]}ms` }}
             >
               <p className="text-ink">{overdueSuppliers} overdue</p>

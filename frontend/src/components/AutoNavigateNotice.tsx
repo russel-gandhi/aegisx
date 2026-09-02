@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { NavigationTarget } from '../lib/api'
 import { navigationHref, DESTINATION_LABELS } from '../lib/navigation'
+import FadeIn from './FadeIn'
 
 /**
  * D-13's cancellable auto-navigate notice (Phase 06.1, plan 06.1-08,
@@ -31,19 +32,8 @@ export interface AutoNavigateNoticeProps {
   onCancelled: () => void
 }
 
-// Reused from ChatMessage.tsx's own technique (06-UI-SPEC.md Animation
-// Contract): fade-in only, decorative, never gates readability.
-function useFadeIn(): boolean {
-  const [visible, setVisible] = useState(false)
-  useEffect(() => {
-    setVisible(true)
-  }, [])
-  return visible
-}
-
 export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoNavigateNoticeProps) {
   const navigate = useNavigate()
-  const visible = useFadeIn()
   const [cancelled, setCancelled] = useState(false)
 
   const href = target !== null ? navigationHref(target) : null
@@ -96,18 +86,16 @@ export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoN
     onCancelled()
   }
 
-  const opacityClass = visible ? 'opacity-100' : 'opacity-0'
-
   if (cancelled) {
     return (
-      <div
+      <FadeIn
         role="status"
         aria-live="polite"
         data-testid="auto-navigate-notice-cancelled"
-        className={`glass rounded-lg px-3 py-2 text-xs text-ink-muted transition-opacity duration-200 ${opacityClass}`}
+        className="glass rounded-lg px-3 py-2 text-xs text-ink-muted"
       >
         {CANCELLED_COPY}
-      </div>
+      </FadeIn>
     )
   }
 
@@ -117,11 +105,11 @@ export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoN
   const label = (target as NavigationTarget).label
 
   return (
-    <div
+    <FadeIn
       role="status"
       aria-live="polite"
       data-testid="auto-navigate-notice"
-      className={`glass flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs text-ink-muted transition-opacity duration-200 ${opacityClass}`}
+      className="glass flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs text-ink-muted"
     >
       <span>{autoNavigateCopy(destination, label)}</span>
       <button
@@ -132,6 +120,6 @@ export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoN
       >
         {STAY_HERE_LABEL}
       </button>
-    </div>
+    </FadeIn>
   )
 }

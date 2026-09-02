@@ -65,6 +65,16 @@ function buildNodes(nodeStatus: Record<string, NodeStatusValue>): Node[] {
   return NODE_IDS.map((id) => {
     const status = nodeStatus[id] ?? 'waiting'
     const classNames = [STATUS_CLASSES[status], 'transition-colors', 'duration-300']
+    // motion-ui skill item 6: a live "this agent is actually running right
+    // now" signal, not decoration -- the one animation this component had
+    // an explicit spec for (Bible Section 10 pulse-animation contract)
+    // that was never implemented. Skipped for a dimmed node: A1/A3-A6/C2/
+    // A7/C3 never reach 'running' in v1 (module docstring above), so this
+    // only ever fires on the two live nodes today, but the check stays
+    // correct if that changes.
+    if (status === 'running' && !DIMMED_NODE_IDS.has(id)) {
+      classNames.push('node-pulse-amber')
+    }
     if (DIMMED_NODE_IDS.has(id)) {
       classNames.push('opacity-40')
     }
