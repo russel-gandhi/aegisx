@@ -66,8 +66,7 @@ def test_get_does_not_recompute_a_cache_mutated_behind_its_back(client):
     # cache directly, reading through the endpoint, and asserting the
     # mutation survived the read (a recomputing endpoint would silently
     # restore the deleted edge). Deleting the one edge sourced from
-    # REQUIREMENT:URS-042 (VERIFIED_BY) leaves 8 of the full 9 edges behind
-    # (plan 04-02: the graph now has 9 edges total, not 1).
+    # REQUIREMENT:URS-042 (VERIFIED_BY) leaves 8 of the full 9 edges behind.
     _rebuild(client, "GXP-MFG-DEMO-01")
     try:
         async def _delete_one_edge():

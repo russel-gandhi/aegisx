@@ -37,11 +37,12 @@ from app.retrieval import hybrid_search
 from app.schemas import ALCOAScore
 
 SYSTEM_ID = "GXP-MFG-DEMO-01"
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-3.6-flash:generateContent"
-)
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+# 2026-09-01: `risk_assessment` (was deepseek_r1) and `orchestrator` (was
+# gemini_flash_thinking) both now route to the same local `ollama_qwen`
+# entry -- see llm_router.py's own PROVIDER_CONFIG comment for why
+# (Gemini/DeepSeek both structurally broken: a confirmed free-tier quota
+# and an inactive billing account, not a provisional choice).
+OLLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -249,21 +250,28 @@ def test_run_a1_degrades_to_abstain_when_retrieval_raises_unexpectedly(monkeypat
     assert result["retrieval_trace"] == []
 
 
-def test_a3_deepseek_timeout_downgrades_to_gemini_and_narrates(monkeypatch):
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+def test_a3_ollama_timeout_cascades_to_groq_and_narrates(monkeypatch):
+    """A3's own docstring-level "downgrade to gemini_flash_thinking, retry
+    once" behavior (`_narrate_a3`'s outer retry via `task="orchestrator"`)
+    is now, mechanically, a retry against the SAME provider entry that
+    `task="risk_assessment"` already uses -- `ollama_qwen` covers both
+    tasks post-2026-09-01 (see this file's own OLLAMA_URL comment). The
+    behavior worth proving is therefore one level down: `call_llm`'s own
+    internal cascade (ollama_qwen -> groq_gpt_oss -> openrouter_fallback)
+    absorbing a timeout on the very first attempt, before `_narrate_a3`'s
+    own retry logic is ever needed."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
 
     async def _run():
         with respx.mock:
-            respx.post(DEEPSEEK_URL).mock(side_effect=httpx.TimeoutException("timed out"))
-            respx.post(GEMINI_URL).mock(
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.TimeoutException("timed out"))
+            respx.post(GROQ_URL).mock(
                 return_value=httpx.Response(
                     200,
                     json={
-                        "candidates": [
-                            {"content": {"parts": [{"text": "Risk RSK-2024-11 is overdue for review."}]}}
-                        ]
+                        "choices": [{"message": {"content": "Risk RSK-2024-11 is overdue for review."}}],
+                        "model": "openai/gpt-oss-120b",
                     },
                 )
             )
@@ -273,7 +281,7 @@ def test_a3_deepseek_timeout_downgrades_to_gemini_and_narrates(monkeypatch):
     findings = [f for f in result["findings"] if f["finding_id"].startswith("A3-")]
     assert len(findings) == 1
     finding = findings[0]
-    assert finding["model_attribution"] == "gemini-3.6-flash"
+    assert finding["model_attribution"] == "openai/gpt-oss-120b"
     assert finding["claim"] == "Risk RSK-2024-11 is overdue for review."
     assert finding["regulatory_citations"] == ["ICH-Q9-RSK-001"]
     assert finding["evidence_ids"] == ["RSK-2024-11"]
@@ -314,12 +322,18 @@ def test_a5_provider_failure_still_emits_rule_only_overdue_rca_finding(monkeypat
 
 
 def test_a6_429_cascades_to_openrouter_before_abstain(monkeypatch):
+    """`FALLBACK_CASCADE` is now (ollama_qwen, groq_gpt_oss,
+    openrouter_fallback) -- on Groq's 429, the next untried hop is Ollama
+    (local, needs no key), not OpenRouter directly. Mocked unreachable
+    here so the cascade proceeds on to OpenRouter, matching this test's
+    original "429 -> eventually reaches OpenRouter" intent."""
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
     async def _run():
         with respx.mock:
             respx.post(GROQ_URL).mock(return_value=httpx.Response(429, json={"error": "rate limited"}))
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             openrouter_route = respx.post(OPENROUTER_URL).mock(
                 return_value=_openai_body("Access review AR-2026-05 is overdue.", "openrouter/auto")
             )

@@ -250,24 +250,31 @@ A2_CHECKS: Tuple[Callable[[Any, str], Awaitable[Dict[str, Any]]], ...] = (
     verify_no_stale_documents,
 )
 
-# Deviation 18 (2026-08-29): `app.llm_router.call_llm` now cascades through
-# up to four providers on failure, not one. `NARRATION_PER_HOP_TIMEOUT_SECONDS`
-# is the budget for EACH individual provider attempt; `NARRATION_CEILING_SECONDS`
-# is the TOTAL wall-clock budget across every hop. The old single-hop design
-# reused one 3.0s value for both, which correctly bounded a 1-primary +
-# 1-fallback cascade at ~6s worst case but silently truncated the new
-# multi-hop cascade before it could reach a working provider (observed live
-# 2026-08-29: Groq 429 -> OpenRouter cascade cut off mid-flight by the old
-# outer 3.0s ceiling, landing on deterministic-fallback despite a valid
-# OpenRouter key). The ceiling must sit ABOVE the worst-case sum of every hop
-# (4 hops x 3.0s = 12.0s) PLUS the inter-hop cascade delay call_llm now
-# sleeps between failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s,
-# applied 3 times across a 4-hop cascade = 3.0s), not below it — an outer
-# ceiling tighter than the cascade's own worst case reintroduces the exact
-# bug this deviation fixes. 17.0s gives ~2s of margin above that 15.0s
-# worst case (12.0s hops + 3.0s of inter-hop delay).
-NARRATION_PER_HOP_TIMEOUT_SECONDS = 3.0
-NARRATION_CEILING_SECONDS = 17.0
+# Deviation 18 (2026-08-29): `app.llm_router.call_llm` cascades through
+# every entry in `FALLBACK_CASCADE` on failure (3 providers as of the
+# 2026-09-01 Ollama migration: `ollama_qwen`, `groq_gpt_oss`,
+# `openrouter_fallback`). `NARRATION_PER_HOP_TIMEOUT_SECONDS` is the
+# budget for EACH individual provider attempt; `NARRATION_CEILING_SECONDS`
+# is the TOTAL wall-clock budget across every hop.
+#
+# 2026-09-01: widened from 3.0s/17.0s. `ollama_qwen` now leads the
+# cascade, and a cold Ollama call (model evicted from GPU VRAM by its own
+# idle keep_alive) measured ~6-8s just to reload before it can answer at
+# all -- comfortably exceeding the old 3.0s hop budget that was tuned for
+# hosted APIs alone, which silently forced every cold-Ollama narration
+# straight to deterministic-fallback (observed live this session: the
+# process-level `OLLAMA_KEEP_ALIVE` fix keeps the model resident in the
+# common case, but this budget must not itself require that fix to hold
+# for correctness). 10.0s gives a cold Ollama hop room to finish; the
+# ceiling must sit ABOVE the worst-case sum of every hop (3 hops x 10.0s =
+# 30.0s) PLUS the inter-hop cascade delay call_llm sleeps between failed
+# hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s, applied 2 times across a
+# 3-hop cascade = 2.0s) — an outer ceiling tighter than the cascade's own
+# worst case reintroduces the exact bug Deviation 18 fixed (the wait_for
+# firing mid-cascade before a later, working provider gets its turn).
+# 35.0s gives ~3s of margin above that 32.0s worst case.
+NARRATION_PER_HOP_TIMEOUT_SECONDS = 10.0
+NARRATION_CEILING_SECONDS = 35.0
 
 # check name -> short human-readable description of what failed, used only
 # to build the deterministic-fallback narration sentence and the LLM

@@ -86,50 +86,40 @@ LLM_CASCADE_DELAY_SECONDS = float(os.getenv("LLM_CASCADE_DELAY_SECONDS", "1.0"))
 
 # Bible Section 8.1, transcribed with the corrections documented in this
 # module's docstring and in backend/README.md Deviations 4-6, 10-13.
+#
+# 2026-09-01: `gemini_flash_thinking`, `gemini_flash_fast`, and
+# `deepseek_r1` removed, not merely deprioritized. Live evidence, not
+# speculation: Gemini's real 429 response body named the exact quota --
+# `embed_content_free_tier_requests`, `EmbedContentRequestsPerMinutePerUserPerProjectPerModel-FreeTier`
+# -- and the AI Studio rate-limits console showed `gemini-3.6-flash` at
+# 8/5 RPM (peak usage already over its own free-tier limit). Billing on
+# this Google Cloud project reads "inactive or unsupported" directly in
+# its own billing page, not merely unconfigured. DeepSeek returned a
+# live `402 Payment Required`. Both are structurally broken until
+# someone adds real billing, not transiently rate-limited. `ollama_qwen`
+# (local, `qwen2.5:7b-instruct`, GPU-verified at 1.74s warm / 7.6s cold)
+# replaces all seven tasks these three entries used to serve.
+# `groq_gpt_oss` and `openrouter_fallback` are UNCHANGED below -- Groq
+# had zero failures all session and OpenRouter is the designed
+# last-resort; scrapping providers with no evidence against them would
+# throw away real resilience for no reason (see LOCAL-MODELS-BUILD-MAP.md).
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
-    "gemini_flash_thinking": {
-        "provider": "google",
-        # Deviation 10: retired Gemini 2.5 flash id corrected.
-        "model": "gemini-3.6-flash",
-        "thinking_budget": 512,
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-        # Deviation 6: GEMINI_API_KEY checked first, GOOGLE_API_KEY accepted
-        # as a documented alias when the first is unset.
-        "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-        "rpm_limit": 60,
-        "use_for": ["orchestrator", "synthesis"],
-    },
-    "gemini_flash_fast": {
-        "provider": "google",
-        # Deviation 10: retired Gemini 2.5 flash id corrected.
-        "model": "gemini-3.6-flash",
-        # Deviation 11: Bible's 0 is now rejected with HTTP 400; 1 is the
-        # smallest accepted value.
-        "thinking_budget": 1,
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-        "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-        "rpm_limit": 60,
-        # Deviation 17 (backend/README.md Deviation 12): "rerank" added
-        # here rather than routed through a local cross-encoder. This
-        # entry already serves A1's own "knowledge" task, and its
-        # thinking_budget=1 is the fastest Google configuration in this
-        # table -- reranking sits on the interactive Copilot path.
-        # Bible Section 15.3 itself allows this: "if the selected
-        # reranking model/provider depends on configuration, follow the
-        # existing LLM routing architecture." Not a Section 1.3
-        # violation (D-08): reranking scores retrieval relevance, it does
-        # not evaluate a compliance threshold, an RBAC decision, or an
-        # injection judgment.
-        "use_for": ["compliance", "knowledge", "change", "rerank"],
-    },
-    "deepseek_r1": {
-        "provider": "deepseek",
-        # Deviation 4: Bible's "deepseek-reasoner" is retired.
-        "model": "deepseek-v4-pro",
-        "base_url": "https://api.deepseek.com/v1",
-        "api_key_env": ("DEEPSEEK_API_KEY",),
-        "rpm_limit": 30,
-        "use_for": ["risk_assessment"],
+    "ollama_qwen": {
+        "provider": "ollama",
+        "model": "qwen2.5:7b-instruct",
+        "base_url": "http://127.0.0.1:11434/v1",
+        # Local HTTP API, no auth -- see `_send_one`'s own handling of an
+        # empty `api_key_env` tuple as "no key required".
+        "api_key_env": (),
+        # No remote quota to pace against; a generous, effectively-inert
+        # guard rather than a calibrated ceiling, mirroring
+        # `embeddings.EMBEDDING_PROVIDER_CONFIG["ollama_embedding"]`.
+        "rpm_limit": 6000,
+        "use_for": [
+            "orchestrator", "synthesis",  # was gemini_flash_thinking
+            "compliance", "knowledge", "change", "rerank",  # was gemini_flash_fast
+            "risk_assessment",  # was deepseek_r1
+        ],
     },
     "groq_gpt_oss": {
         "provider": "groq",
@@ -159,15 +149,18 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 # with GEMINI/DEEPSEEK/OPENROUTER keys all genuinely configured and idle)
 # changed this to a full multi-provider cascade: on failure, walk this list
 # in order, skipping any entry whose underlying `provider` was already
-# attempted (so a Google-family retry never fires twice against the same
-# quota), ending at `openrouter_fallback` as the guaranteed last resort.
-# `gemini_flash_fast` represents the whole "google" provider here (lower
-# thinking_budget than `gemini_flash_thinking`, so it is also the faster of
-# the two to fail if Google itself is down) -- trying both Google entries
-# would just retry the same API key/quota twice for no benefit.
+# attempted, ending at `openrouter_fallback` as the guaranteed last resort.
+#
+# 2026-09-01: reordered local-first. `ollama_qwen` now covers every task
+# `gemini_flash_fast`/`gemini_flash_thinking`/`deepseek_r1` used to (see
+# PROVIDER_CONFIG's own comment for why those three were removed, not
+# just reordered), so it leads the cascade the same way the fastest,
+# most-likely-to-succeed hop always has. Groq and OpenRouter are
+# unchanged and keep their same relative order -- both proven working
+# this session, both still the cascade's hosted safety net if the local
+# server is ever down.
 FALLBACK_CASCADE: tuple[str, ...] = (
-    "gemini_flash_fast",
-    "deepseek_r1",
+    "ollama_qwen",
     "groq_gpt_oss",
     "openrouter_fallback",
 )
@@ -298,9 +291,17 @@ async def _send_one(entry_key: str, prompt: str, system_instruction: str,
     environment variable holds a key for this provider.
     """
     entry = PROVIDER_CONFIG[entry_key]
-    api_key = _resolve_api_key(entry)
-    if api_key is None:
-        raise _MissingKeyError(entry_key)
+    # An empty `api_key_env` tuple (Ollama, local, no auth) means "no key
+    # required", not "key missing" -- mirrors the same fix in
+    # `retrieval.embeddings._resolve_entry`. A non-empty tuple with no
+    # value set in the environment still raises `_MissingKeyError` exactly
+    # as before.
+    if entry["api_key_env"]:
+        api_key = _resolve_api_key(entry)
+        if api_key is None:
+            raise _MissingKeyError(entry_key)
+    else:
+        api_key = "not-required"
 
     if entry["provider"] == "google":
         request = _build_google_request(entry, api_key, prompt, system_instruction, json_output)
@@ -357,11 +358,20 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
     """Classify an exception raised by `_send_one`.
 
     Returns `(reason, cascadable)`. `reason` is `None` only when `exc` is
-    not one of the three failure types `call_llm` handles (unreachable in
-    practice, since `_send_one` only ever raises `_MissingKeyError`,
-    `httpx.TimeoutException`, or `httpx.HTTPStatusError` — kept explicit
-    rather than assumed so a future new exception type fails loudly
-    instead of silently mis-classifying as cascadable).
+    not one of the failure types `call_llm` handles.
+
+    `httpx.RequestError` (checked after the more specific
+    `TimeoutException`, since that's a `RequestError` subclass and needs
+    its own "timeout:" label, not the generic one) covers connection-level
+    failures -- `ConnectError`, `ReadError`, DNS failure, and the like.
+    Added 2026-09-01 alongside the local Ollama provider: a hosted
+    provider being fully unreachable at the TCP level was rare enough
+    that this path had never been exercised, but "the local Ollama
+    process isn't running" is a real, likely failure mode for the
+    provider now listed FIRST in the cascade -- without this, that
+    exact scenario would propagate as an unhandled exception out of
+    `call_llm()`, breaking its own documented "never raises" contract at
+    the moment it matters most.
     """
     if isinstance(exc, _MissingKeyError):
         return f"missing_key:{exc.entry_key}", True
@@ -372,6 +382,8 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
         if status == 429 or status >= 500 or status in _ACCOUNT_SPECIFIC_CASCADABLE_STATUSES:
             return f"http_{status}:{entry_key}", True
         return f"http_{status}:{entry_key}", False
+    if isinstance(exc, httpx.RequestError):
+        return f"connection_error:{entry_key}:{type(exc).__name__}", True
     return None, False
 
 
@@ -386,10 +398,13 @@ async def call_llm(
     typed `LLMResponse`.
 
     Never raises to its caller. On a missing API key, `httpx.TimeoutException`,
-    an `httpx.HTTPStatusError` with status 429, any 5xx status, or an
-    account-specific 401/402/403 (see `_ACCOUNT_SPECIFIC_CASCADABLE_STATUSES`
-    — one provider's bad key or billing issue must not take the others off
-    the table), cascades through `FALLBACK_CASCADE` in order — skipping
+    a connection-level `httpx.RequestError` (DNS failure, refused
+    connection — the local Ollama process not running is the concrete
+    case this exists for), an `httpx.HTTPStatusError` with status 429, any
+    5xx status, or an account-specific 401/402/403 (see
+    `_ACCOUNT_SPECIFIC_CASCADABLE_STATUSES` — one provider's bad key or
+    billing issue must not take the others off the table), cascades
+    through `FALLBACK_CASCADE` in order — skipping
     any entry whose underlying `provider` was already attempted (Deviation
     18: this is a genuine multi-hop cascade, not the Bible's original
     single hop to `openrouter_fallback`) — until one succeeds or every
@@ -420,7 +435,7 @@ async def call_llm(
     while True:
         try:
             return await _send_one(current_key, prompt, system_instruction, timeout, json_output)
-        except (_MissingKeyError, httpx.TimeoutException, httpx.HTTPStatusError) as exc:
+        except (_MissingKeyError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
             reason, cascadable = _classify_failure(current_key, exc)
             if not cascadable:
                 logger.warning(

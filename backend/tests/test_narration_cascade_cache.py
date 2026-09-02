@@ -50,11 +50,15 @@ from app.agents.a2_compliance import (
 )
 from app.llm_router import FALLBACK_CASCADE, PROVIDER_CONFIG
 
-GEMINI_ENDPOINT = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-3.6-flash:generateContent"
-)
-DEEPSEEK_ENDPOINT = "https://api.deepseek.com/v1/chat/completions"
+# 2026-09-01: `gemini_flash_thinking`/`deepseek_r1` removed from
+# PROVIDER_CONFIG entirely (see llm_router.py's own comment for the live
+# evidence). `FALLBACK_CASCADE` is now 3 hops, not 4:
+# (ollama_qwen, groq_gpt_oss, openrouter_fallback). "narration"'s primary
+# provider is still `groq_gpt_oss` (unchanged) -- a cold cascade from
+# narration's primary now walks AT MOST 3 distinct providers total
+# (groq as primary, then ollama and openrouter in FALLBACK_CASCADE order,
+# skipping groq since it's already been tried), not 4.
+OLLAMA_ENDPOINT = "http://127.0.0.1:11434/v1/chat/completions"
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -62,9 +66,9 @@ GROQ_SUCCESS_BODY = {
     "choices": [{"message": {"content": "Groq narration text."}}],
     "model": "openai/gpt-oss-120b",
 }
-DEEPSEEK_SUCCESS_BODY = {
-    "choices": [{"message": {"content": "DeepSeek narration text."}}],
-    "model": "deepseek-v4-pro",
+OLLAMA_SUCCESS_BODY = {
+    "choices": [{"message": {"content": "Ollama narration text."}}],
+    "model": "qwen2.5:7b-instruct",
 }
 OPENROUTER_SUCCESS_BODY = {
     "choices": [{"message": {"content": "OpenRouter narration text."}}],
@@ -103,8 +107,8 @@ def _prompt_for(check_result):
 
 
 def _all_keys_present(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-deepseek-key")
+    """Ollama needs no key -- only the two hosted providers left in the
+    cascade (Groq, OpenRouter) do."""
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
 
@@ -235,18 +239,23 @@ def test_successful_narration_reaches_narration_cache_put(monkeypatch):
 
 
 def test_fully_degraded_response_is_not_cached_and_next_success_still_hits_provider(monkeypatch):
-    """First call: every provider fails on a missing key -> deterministic
-    fallback, NOT cached. Second call (same finding, key now present,
-    provider now healthy): must still make a REAL provider call — if the
-    degraded result had been wrongly cached, this would incorrectly
+    """First call: Groq fails on a missing key, Ollama (needs none) is
+    reached but mocked unreachable, OpenRouter fails on a missing key too
+    -> deterministic fallback, NOT cached. Second call (same finding, Groq
+    key now present, Groq healthy): must still make a REAL provider call —
+    if the degraded result had been wrongly cached, this would incorrectly
     return the cached deterministic-fallback text/attribution forever."""
     check_result = _check_result(record_id="URS-DEGRADE-THEN-RECOVER")
 
-    # No monkeypatch.setenv at all -- conftest's autouse fixture has
-    # already deleted every provider key, so every cascade hop fails on
-    # a missing key with zero outbound HTTP attempted.
+    # No monkeypatch.setenv for Groq/OpenRouter -- conftest's autouse
+    # fixture has already deleted their keys, so both fail on a missing
+    # key with zero outbound HTTP attempted. Ollama needs no key at all,
+    # so it's genuinely reached -- mocked unreachable here to complete the
+    # cascade's exhaustion realistically (a local server that isn't
+    # running, not a missing credential).
     async def _run_degraded():
         with respx.mock:
+            respx.post(OLLAMA_ENDPOINT).mock(side_effect=httpx.ConnectError("connection refused"))
             return await narrate_gap(check_result)
 
     degraded_text, degraded_model = asyncio.run(_run_degraded())
@@ -282,11 +291,10 @@ def test_fully_degraded_response_is_not_cached_and_next_success_still_hits_provi
 
 
 def test_cascade_falls_all_the_way_through_to_openrouter_as_true_last_resort(monkeypatch):
-    """Groq (primary), Gemini, and DeepSeek all fail -> OpenRouter, the
-    guaranteed last resort, succeeds. Distinct from the multi-hop test
-    below (which stops early at DeepSeek) -- this proves the FULL cascade
-    order (`FALLBACK_CASCADE`'s literal sequence) is honoured end to end,
-    not just "some fallback eventually works"."""
+    """Groq (primary) and Ollama both fail -> OpenRouter, the guaranteed
+    last resort, succeeds. This proves the FULL cascade order
+    (`FALLBACK_CASCADE`'s literal sequence, now 3 hops deep) is honoured
+    end to end, not just "some fallback eventually works"."""
     _all_keys_present(monkeypatch)
     check_result = _check_result(record_id="URS-FULL-CASCADE")
 
@@ -295,36 +303,36 @@ def test_cascade_falls_all_the_way_through_to_openrouter_as_true_last_resort(mon
             groq_route = respx.post(GROQ_ENDPOINT).mock(
                 return_value=httpx.Response(429, json={"error": "rate_limited"})
             )
-            gemini_route = respx.post(GEMINI_ENDPOINT).mock(
+            ollama_route = respx.post(OLLAMA_ENDPOINT).mock(
                 return_value=httpx.Response(500, json={"error": "internal"})
-            )
-            deepseek_route = respx.post(DEEPSEEK_ENDPOINT).mock(
-                return_value=httpx.Response(503, json={"error": "unavailable"})
             )
             openrouter_route = respx.post(OPENROUTER_ENDPOINT).mock(
                 return_value=httpx.Response(200, json=OPENROUTER_SUCCESS_BODY)
             )
             result = await narrate_gap(check_result)
-            return result, groq_route, gemini_route, deepseek_route, openrouter_route
+            return result, groq_route, ollama_route, openrouter_route
 
     (
-        (text, model_id), groq_route, gemini_route, deepseek_route, openrouter_route,
+        (text, model_id), groq_route, ollama_route, openrouter_route,
     ) = asyncio.run(_run())
 
     assert groq_route.call_count == 1
-    assert gemini_route.call_count == 1
-    assert deepseek_route.call_count == 1
+    assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 1
     assert model_id == "openrouter/auto"
     assert text == OPENROUTER_SUCCESS_BODY["choices"][0]["message"]["content"]
 
 
-def test_genuine_multi_hop_cascade_groq_and_gemini_fail_deepseek_succeeds(monkeypatch):
-    """The critical case NO prior test exercises: TWO providers fail in
-    sequence before a THIRD succeeds, and the fourth (openrouter) must
+def test_genuine_multi_hop_cascade_groq_fails_ollama_succeeds(monkeypatch):
+    """The critical case NO prior test exercises: the PRIMARY provider
+    fails before a SECOND one succeeds, and the third (openrouter) must
     never be called at all. This is the actual shape of Deviation 18 —
-    a real chain, not a single fallback hop — and it must complete
-    within NARRATION_CEILING_SECONDS."""
+    a real cascade hop, not just narration's primary succeeding outright
+    — and it must complete within NARRATION_CEILING_SECONDS. (With only
+    3 providers left in the cascade -- see this file's own top-of-module
+    comment -- this is now the deepest cascade that can stop short of the
+    guaranteed last resort; `test_cascade_falls_all_the_way_through_...`
+    above covers the full 3-hop case.)"""
     _all_keys_present(monkeypatch)
     check_result = _check_result(record_id="URS-MULTI-HOP")
 
@@ -333,11 +341,8 @@ def test_genuine_multi_hop_cascade_groq_and_gemini_fail_deepseek_succeeds(monkey
             groq_route = respx.post(GROQ_ENDPOINT).mock(
                 return_value=httpx.Response(429, json={"error": "rate_limited"})
             )
-            gemini_route = respx.post(GEMINI_ENDPOINT).mock(
-                return_value=httpx.Response(500, json={"error": "internal"})
-            )
-            deepseek_route = respx.post(DEEPSEEK_ENDPOINT).mock(
-                return_value=httpx.Response(200, json=DEEPSEEK_SUCCESS_BODY)
+            ollama_route = respx.post(OLLAMA_ENDPOINT).mock(
+                return_value=httpx.Response(200, json=OLLAMA_SUCCESS_BODY)
             )
             openrouter_route = respx.post(OPENROUTER_ENDPOINT).mock(
                 return_value=httpx.Response(200, json=OPENROUTER_SUCCESS_BODY)
@@ -345,26 +350,24 @@ def test_genuine_multi_hop_cascade_groq_and_gemini_fail_deepseek_succeeds(monkey
             start = time.monotonic()
             result = await narrate_gap(check_result)
             elapsed = time.monotonic() - start
-            return result, elapsed, groq_route, gemini_route, deepseek_route, openrouter_route
+            return result, elapsed, groq_route, ollama_route, openrouter_route
 
     (
-        (text, model_id), elapsed, groq_route, gemini_route,
-        deepseek_route, openrouter_route,
+        (text, model_id), elapsed, groq_route, ollama_route, openrouter_route,
     ) = asyncio.run(_run())
 
-    # Exactly the three attempted hops, in cascade order; openrouter is
-    # never reached because deepseek already succeeded.
+    # Exactly the two attempted hops, in cascade order; openrouter is
+    # never reached because ollama already succeeded.
     assert groq_route.call_count == 1
-    assert gemini_route.call_count == 1
-    assert deepseek_route.call_count == 1
+    assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 0
 
-    assert model_id == "deepseek-v4-pro"
-    assert text == DEEPSEEK_SUCCESS_BODY["choices"][0]["message"]["content"]
+    assert model_id == "qwen2.5:7b-instruct"
+    assert text == OLLAMA_SUCCESS_BODY["choices"][0]["message"]["content"]
 
-    # Proves the outer ceiling did NOT cancel a real 3-hop cascade.
+    # Proves the outer ceiling did NOT cancel a real multi-hop cascade.
     assert elapsed < NARRATION_CEILING_SECONDS, (
-        f"a real 3-hop cascade took {elapsed:.2f}s, at or beyond the "
+        f"a real multi-hop cascade took {elapsed:.2f}s, at or beyond the "
         f"{NARRATION_CEILING_SECONDS}s ceiling — the outer wait_for would "
         "cancel this exact scenario mid-flight in production"
     )
@@ -390,26 +393,27 @@ def test_genuine_per_hop_timeout_exception_cascades_not_just_http_error_status(m
             groq_route = respx.post(GROQ_ENDPOINT).mock(
                 side_effect=httpx.TimeoutException("primary hop hung past its per-hop budget")
             )
-            gemini_route = respx.post(GEMINI_ENDPOINT).mock(
-                return_value=httpx.Response(200, json={
-                    "candidates": [{"content": {"parts": [{"text": "Gemini rescued this."}]}}]
-                })
+            ollama_route = respx.post(OLLAMA_ENDPOINT).mock(
+                return_value=httpx.Response(
+                    200,
+                    json={"choices": [{"message": {"content": "Ollama rescued this."}}], "model": "qwen2.5:7b-instruct"},
+                )
             )
             start = time.monotonic()
             result = await narrate_gap(check_result)
             elapsed = time.monotonic() - start
-            return result, elapsed, groq_route, gemini_route
+            return result, elapsed, groq_route, ollama_route
 
-    (text, model_id), elapsed, groq_route, gemini_route = asyncio.run(_run())
+    (text, model_id), elapsed, groq_route, ollama_route = asyncio.run(_run())
 
     assert groq_route.call_count == 1
-    assert gemini_route.call_count == 1
-    assert model_id == "gemini-3.6-flash"
-    assert text == "Gemini rescued this."
+    assert ollama_route.call_count == 1
+    assert model_id == "qwen2.5:7b-instruct"
+    assert text == "Ollama rescued this."
     assert elapsed < NARRATION_CEILING_SECONDS
 
 
-def test_all_four_providers_exhausted_degrades_without_raising(monkeypatch):
+def test_all_three_providers_exhausted_degrades_without_raising(monkeypatch):
     """The true worst case: every single provider fails. Must degrade
     cleanly (never raise), and must attempt every distinct provider
     exactly once -- proving the cascade terminates rather than looping."""
@@ -421,25 +425,21 @@ def test_all_four_providers_exhausted_degrades_without_raising(monkeypatch):
             groq_route = respx.post(GROQ_ENDPOINT).mock(
                 return_value=httpx.Response(429, json={"error": "rate_limited"})
             )
-            gemini_route = respx.post(GEMINI_ENDPOINT).mock(
+            ollama_route = respx.post(OLLAMA_ENDPOINT).mock(
                 return_value=httpx.Response(500, json={"error": "internal"})
-            )
-            deepseek_route = respx.post(DEEPSEEK_ENDPOINT).mock(
-                return_value=httpx.Response(503, json={"error": "unavailable"})
             )
             openrouter_route = respx.post(OPENROUTER_ENDPOINT).mock(
                 return_value=httpx.Response(429, json={"error": "rate_limited"})
             )
             result = await narrate_gap(check_result)
-            return result, groq_route, gemini_route, deepseek_route, openrouter_route
+            return result, groq_route, ollama_route, openrouter_route
 
     (
-        (text, model_id), groq_route, gemini_route, deepseek_route, openrouter_route,
+        (text, model_id), groq_route, ollama_route, openrouter_route,
     ) = asyncio.run(_run())
 
     assert groq_route.call_count == 1
-    assert gemini_route.call_count == 1
-    assert deepseek_route.call_count == 1
+    assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 1  # cascade reaches and stops at the true last resort
 
     assert model_id == "deterministic-fallback"

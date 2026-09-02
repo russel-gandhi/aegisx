@@ -266,6 +266,11 @@ def parse_pdf(raw: bytes, filename: str) -> List[ParsedBlock]:
     return blocks
 
 
+_DOCX_BODY_TAG_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_DOCX_PARAGRAPH_TAG = _DOCX_BODY_TAG_NS + "p"
+_DOCX_TABLE_TAG = _DOCX_BODY_TAG_NS + "tbl"
+
+
 def parse_docx(raw: bytes, filename: str) -> List[ParsedBlock]:
     """Extracts text from an in-memory DOCX (`io.BytesIO(raw)` -- no temp
     file is ever written) using `python-docx`. `section` is set from
@@ -273,9 +278,22 @@ def parse_docx(raw: bytes, filename: str) -> List[ParsedBlock]:
     heading's own text as the section title; `page` is always `None`
     (DOCX carries no reliable page model at the byte level). Table cell
     text is emitted as its own body block, joining each row's cells with
-    `" | "` and rows with `"\\n"`, under the last heading seen in the
-    document -- so a validation protocol's tables are never silently
-    dropped.
+    `" | "` and rows with `"\\n"`.
+
+    2026-09-01: walks `document.element.body`'s XML children directly
+    (`<w:p>` and `<w:tbl>` elements, in true document order) instead of
+    python-docx's separate `document.paragraphs`/`document.tables`
+    collections. Those two collections are NOT interleaved -- iterating
+    them one after the other (the previous approach) meant `current_section`
+    had already advanced through every heading in the document by the time
+    the tables loop ran, so every single table in the document silently
+    got attached to whichever heading happened to be LAST in the file,
+    regardless of which heading actually preceded that table. Confirmed
+    live against the Dummy_data GxP corpus: a document's 3.1 role-matrix
+    table and an unrelated training-curriculum table both came back tagged
+    with the document's final section ("G3 Quality gate") instead of their
+    real, structurally-correct sections. Walking the body in source order
+    keeps `current_section` accurate for both paragraphs and tables alike.
 
     Never raises to its caller: a corrupt or non-OOXML payload is logged
     and returns `[]` (T-06.1-22), mirroring `parse_pdf`'s contract.
@@ -300,31 +318,34 @@ def parse_docx(raw: bytes, filename: str) -> List[ParsedBlock]:
             blocks.append(ParsedBlock(text=content, section=current_section, page=None))
 
     try:
-        for paragraph in document.paragraphs:
-            style_name = paragraph.style.name if paragraph.style is not None else ""
-            if style_name.startswith("Heading"):
+        # `Paragraph`/`Table` only need `parent` to resolve `.part` (for
+        # relationship lookups like hyperlinks/images) -- `document` itself
+        # satisfies that, so it's used uniformly for every child rather than
+        # fishing a parent out of `document.paragraphs`/`document.tables`
+        # (both fragile for a document that happens to have zero of either).
+        for child in document.element.body.iterchildren():
+            if child.tag == _DOCX_PARAGRAPH_TAG:
+                paragraph = docx.text.paragraph.Paragraph(child, document)
+                style_name = paragraph.style.name if paragraph.style is not None else ""
+                if style_name.startswith("Heading"):
+                    _flush()
+                    current_lines = []
+                    current_section = paragraph.text.strip()
+                else:
+                    text = paragraph.text.strip()
+                    if text:
+                        current_lines.append(text)
+            elif child.tag == _DOCX_TABLE_TAG:
                 _flush()
                 current_lines = []
-                current_section = paragraph.text.strip()
-            else:
-                text = paragraph.text.strip()
-                if text:
-                    current_lines.append(text)
+                table = docx.table.Table(child, document)
+                row_lines = [
+                    " | ".join(cell.text.strip() for cell in row.cells) for row in table.rows
+                ]
+                table_text = "\n".join(row_lines).strip()
+                if table_text:
+                    blocks.append(ParsedBlock(text=table_text, section=current_section, page=None))
         _flush()
-        current_lines = []
-
-        # Tables are not interleaved with `document.paragraphs` by this
-        # simple traversal -- every table is attached to the last section
-        # seen across the whole document (06.1-04-PLAN.md Task 1 <action>
-        # item 3), not necessarily the heading immediately preceding that
-        # specific table in the source document.
-        for table in document.tables:
-            row_lines = [
-                " | ".join(cell.text.strip() for cell in row.cells) for row in table.rows
-            ]
-            table_text = "\n".join(row_lines).strip()
-            if table_text:
-                blocks.append(ParsedBlock(text=table_text, section=current_section, page=None))
     except Exception:
         logger.warning("parse_docx: unexpected error parsing %s", filename, exc_info=True)
         return []

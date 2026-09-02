@@ -59,6 +59,8 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
+from app.agents.c2_gateway import detect_injection
+from app.audit_trail import log_event
 from app.db import acquire_pool_or_none
 from app.graph.evidence_graph import build_graph, persist_graph
 from app.identity import RequestIdentity, require_identity
@@ -149,6 +151,19 @@ async def upload_document(
             indexed_vector_count=existing["chunk_count"],
             status=existing["status"],
             failed_stage=None,
+            # A duplicate resubmit of content that was quarantined on its
+            # first upload must keep reporting that honestly -- re-running
+            # the scan is unnecessary (the decision cannot have changed for
+            # byte-identical content) but silently dropping back to
+            # `quarantined=False` here would misreport a caught attack as
+            # a clean, ordinary duplicate.
+            quarantined=existing["status"] == "QUARANTINED",
+            quarantine_reason=(
+                "Previously quarantined by C2's deterministic injection detector "
+                "(see the original upload's audit_events row for the exact match)."
+                if existing["status"] == "QUARANTINED"
+                else None
+            ),
             duplicate=True,
         )
 
@@ -234,6 +249,56 @@ async def upload_document(
         # the one caller that has it, so it attaches source_filename here,
         # before the write phase.
         chunk.metadata["source_filename"] = title
+
+    # (h) deterministic, zero-LLM injection scan (Bible Section 11.7,
+    # Assurance Lab) -- reuses C2's own `detect_injection` (regex +
+    # Shannon-entropy legs, the identical check every copilot query
+    # already passes through) against each parsed chunk's text. A
+    # document whose content itself carries jailbreak phrasing or a
+    # high-entropy smuggled payload is quarantined here, before any
+    # embedding call: it is never written to `document_chunks`, never
+    # upserted into Qdrant, and therefore can never surface as retrieved
+    # "knowledge" a later query could be grounded against. A real
+    # audit_events row is written for the quarantine decision itself.
+    quarantine_reason: Optional[str] = None
+    for chunk in chunks:
+        reason = detect_injection(chunk.content)
+        if reason is not None:
+            quarantine_reason = reason
+            break
+
+    if quarantine_reason is not None:
+        await pool.execute(
+            "UPDATE documents SET status = 'QUARANTINED' WHERE id = $1", document_id
+        )
+        await log_event(
+            pool,
+            {
+                "user_id": identity.user_id,
+                "user_role": identity.role,
+                "agent_id": "C2",
+                "action_type": "DOCUMENT_QUARANTINED",
+                "target_system_id": system_id,
+                "target_record_id": document_id,
+                "input_hash": content_sha256,
+                "output_summary": (
+                    f"Upload {title!r} quarantined by C2's deterministic injection "
+                    f"detector before indexing: {quarantine_reason}"
+                ),
+            },
+        )
+        return DocumentUploadResponse(
+            document_id=document_id,
+            system_id=system_id,
+            title=title,
+            doc_type=resolved_doc_type,
+            chunk_count=0,
+            indexed_vector_count=0,
+            status="QUARANTINED",
+            failed_stage=None,
+            quarantined=True,
+            quarantine_reason=quarantine_reason,
+        )
 
     result = await index_document(pool, qdrant_client, document_id, system_id, chunks)
 
@@ -324,6 +389,7 @@ async def list_documents(
 
     rows = await pool.fetch(
         "SELECT d.id, d.system_id, d.title, d.doc_type, d.version, d.created_date, "
+        "d.status, "
         "COUNT(c.chunk_id) AS chunk_count, "
         "COUNT(*) OVER() AS total_count "
         "FROM documents d LEFT JOIN document_chunks c ON c.document_id = d.id "
@@ -344,7 +410,17 @@ async def list_documents(
             system_id=row["system_id"],
             created_date=row["created_date"].isoformat() if row["created_date"] else None,
             chunk_count=row["chunk_count"],
-            ingestion_status="READY" if row["chunk_count"] > 0 else "FAILED",
+            # QUARANTINED is a deliberate, permanent write-time decision
+            # (C2's injection scan) -- unlike FAILED, it must never be
+            # inferred purely from `chunk_count == 0` (a legitimate
+            # zero-chunk state a quarantined row also happens to have), or
+            # it would misreport a caught attack as an ordinary parse
+            # failure.
+            ingestion_status=(
+                "QUARANTINED"
+                if row["status"] == "QUARANTINED"
+                else "READY" if row["chunk_count"] > 0 else "FAILED"
+            ),
             failed_stage=None,
         )
         for row in rows

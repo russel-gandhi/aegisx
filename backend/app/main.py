@@ -93,8 +93,10 @@ from app.routes.documents import router as documents_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
 from app.routes.opa import router as opa_router
+from app.routes.suppliers import router as suppliers_router
 from app.routes.system_signals import router as system_signals_router
 from app.routes.systems import router as systems_router
+from app.routes.trust_centre import router as trust_centre_router
 from app.ws.copilot import router as copilot_ws_router
 
 
@@ -152,6 +154,8 @@ app.include_router(documents_router)
 app.include_router(system_signals_router)
 app.include_router(systems_router)
 app.include_router(opa_router)
+app.include_router(suppliers_router)
+app.include_router(trust_centre_router)
 
 
 @app.get("/api/health")

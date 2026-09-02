@@ -39,6 +39,7 @@ actual wired graph, not just in `run_a7` called directly.
 
 import asyncio
 
+import httpx
 import respx
 from langchain_core.messages import HumanMessage
 from langgraph.graph import END, START
@@ -88,6 +89,18 @@ ALL_PROVIDER_KEYS = (
 def _delete_all_provider_keys(monkeypatch):
     for env_name in ALL_PROVIDER_KEYS:
         monkeypatch.delenv(env_name, raising=False)
+
+
+def _mock_ollama_unreachable():
+    """Ollama needs no key -- unlike the hosted providers
+    `_delete_all_provider_keys` already handles, it's genuinely reached
+    whenever narration/classification is attempted with no other mocks
+    registered. Mocked unreachable here (the realistic local-provider
+    failure mode) so those calls degrade the same way the hosted ones do.
+    Call inside an active `with respx.mock:` block."""
+    respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+        side_effect=httpx.ConnectError("connection refused")
+    )
 
 
 def _state(query: str = BENIGN_QUERY, **overrides):
@@ -216,10 +229,11 @@ def test_run_a7_synthesizes_when_remediation_requested_and_finding_eligible(monk
 
     async def _run():
         with respx.mock:
-            # No provider key configured (deleted above): call_llm degrades
-            # before any HTTP attempt, so no route needs registering here --
-            # `respx.mock` with zero routes is only the safety net that
-            # makes an unexpected escaped call fail loudly.
+            # Groq (remediation's primary) degrades on its own missing key
+            # before any HTTP attempt. Ollama (the next cascade hop) needs
+            # no key at all, so it's genuinely reached -- mocked
+            # unreachable here.
+            _mock_ollama_unreachable()
             return await run_a7(state)
 
     result = asyncio.run(_run())
@@ -345,6 +359,12 @@ def test_auditor_role_cannot_fan_out_beyond_a1_a2(monkeypatch):
     async def _run():
         with respx.mock:
             respx.route(host="127.0.0.1", port=8181).pass_through()
+            _mock_ollama_unreachable()
+            # A1 (in the active agent set here) also makes a real
+            # embedding call against Ollama -- same treatment.
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
             return await compiled_graph.ainvoke(state)
 
     result = asyncio.run(_run())
@@ -393,9 +413,10 @@ def test_a7_does_not_synthesize_without_an_explicit_request(monkeypatch):
     async def _run(remediation_requested):
         state = _state(user_role="IT System Manager", remediation_requested=remediation_requested)
         with respx.mock:
-            # A2's narration call degrades cleanly with no provider key
-            # configured in this test environment (module docstring); C1
-            # is faked above, so no OPA route needs registering either.
+            # A2's narration call (Groq, then Ollama on Groq's missing
+            # key) is mocked to degrade cleanly; C1 is faked above, so no
+            # OPA route needs registering either.
+            _mock_ollama_unreachable()
             return await compiled_graph.ainvoke(state)
 
     without_request = asyncio.run(_run(False))

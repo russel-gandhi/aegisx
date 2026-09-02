@@ -13,14 +13,18 @@ is unreachable -- verified once during this plan's own execution by
 running this file with the Qdrant container stopped.
 
 See the "Mock embedding oracle" section below for why this suite mocks
-the embedding/reranking transport rather than degrading to a skip on a
-missing GEMINI_API_KEY/GOOGLE_API_KEY: this repository has no live key
-configured (06.1-01-SUMMARY.md through 06.1-05-SUMMARY.md all document the
-same limitation), and every "live"/"integration" test elsewhere in this
-phase's own suite (test_hybrid_search.py, test_routes_documents.py)
-already resolves that exact situation the same way -- a monkeypatched
-fake key plus a respx-mocked transport, against real Postgres and real
-Qdrant. This suite follows that established convention.
+the embedding/reranking transport rather than trusting the real model's
+semantic quality: local Ollama embeddings/reranking are deterministic
+but not meaning-aware in the specific, controllable way this plan's own
+discriminating-power assertions need (identifier-lookup cases must score
+higher under lexical_only, paraphrase cases higher under dense_only), so
+every "live"/"integration" test elsewhere in this phase's own suite
+(test_hybrid_search.py, test_routes_documents.py) already resolves that
+exact situation the same way -- a respx-mocked embedding transport
+against real Postgres and real Qdrant. This suite follows that
+established convention. (2026-09-01: retargeted from the Gemini
+embedContent/batchEmbedContents endpoints to Ollama's single `/api/embed`
+endpoint -- see llm_router.py's own comment for why Gemini was dropped.)
 """
 
 import asyncio
@@ -68,12 +72,7 @@ CORPUS_FILES = [
     ("urs_traceability.csv", "text/csv"),
 ]
 
-EMBED_SINGLE_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
-)
-EMBED_BATCH_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
-)
+OLLAMA_EMBED_URL = "http://127.0.0.1:11434/api/embed"
 
 
 # ---------------------------------------------------------------------------
@@ -298,25 +297,24 @@ def _mock_vector(text: str) -> List[float]:
     return [component / norm for component in vector] if norm else vector
 
 
-def _embed_single_side_effect(request: httpx.Request) -> httpx.Response:
+def _embed_side_effect(request: httpx.Request) -> httpx.Response:
+    # Ollama's `/api/embed` takes one shape for both single and batch
+    # calls: `input` is either a bare string or a list of strings, and the
+    # response is always `{"embeddings": [[...], ...]}` -- one vector per
+    # input, in order, even for a single string (embeddings.py's own
+    # comment on this).
     body = json.loads(request.content)
-    text = body["content"]["parts"][0]["text"]
-    return httpx.Response(200, json={"embedding": {"values": _mock_vector(text)}})
-
-
-def _embed_batch_side_effect(request: httpx.Request) -> httpx.Response:
-    body = json.loads(request.content)
-    texts = [item["content"]["parts"][0]["text"] for item in body["requests"]]
-    return httpx.Response(200, json={"embeddings": [{"values": _mock_vector(t)} for t in texts]})
+    raw_input = body["input"]
+    texts = [raw_input] if isinstance(raw_input, str) else raw_input
+    return httpx.Response(200, json={"embeddings": [_mock_vector(t) for t in texts]})
 
 
 def _mock_embedding_routes() -> None:
-    # Live Qdrant traffic must pass through untouched -- only the Gemini
-    # embedding endpoints are intercepted (mirrors test_routes_documents.py's
+    # Live Qdrant traffic must pass through untouched -- only the Ollama
+    # embedding endpoint is intercepted (mirrors test_routes_documents.py's
     # own `_mocked_embedding_route`).
     respx.route(url__startswith=QDRANT_URL).pass_through()
-    respx.post(EMBED_SINGLE_URL).mock(side_effect=_embed_single_side_effect)
-    respx.post(EMBED_BATCH_URL).mock(side_effect=_embed_batch_side_effect)
+    respx.post(OLLAMA_EMBED_URL).mock(side_effect=_embed_side_effect)
 
 
 _RERANK_CHUNK_ID_RE = re.compile(r"chunk_id=(\S+)")
@@ -407,9 +405,6 @@ def eval_corpus():
             "Task 2 <behavior>)."
         )
 
-    prior_key = os.environ.get("GEMINI_API_KEY")
-    os.environ["GEMINI_API_KEY"] = "test-gemini-key"
-
     client = TestClient(fastapi_app)
     document_ids: List[str] = []
 
@@ -470,11 +465,6 @@ def eval_corpus():
 
     asyncio.run(_cleanup())
 
-    if prior_key is None:
-        os.environ.pop("GEMINI_API_KEY", None)
-    else:
-        os.environ["GEMINI_API_KEY"] = prior_key
-
 
 @pytest.fixture(scope="module")
 def live_eval_report(eval_corpus):
@@ -485,7 +475,6 @@ def live_eval_report(eval_corpus):
     from _pytest.monkeypatch import MonkeyPatch
 
     monkeypatch = MonkeyPatch()
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     cases = load_cases(LABELLED_QUERIES_PATH)
 
     async def _run() -> EvalReport:

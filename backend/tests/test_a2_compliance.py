@@ -396,7 +396,13 @@ def test_run_a2_narration_mocked_vs_degraded_same_two_checks_fail(monkeypatch):
 
     async def _run_degraded():
         with respx.mock:
-            # No routes registered — an accidental outbound call fails loudly.
+            # Groq fails on its own missing key, zero HTTP attempted.
+            # Ollama (the next cascade hop) needs no key at all, so it's
+            # genuinely reached -- mocked unreachable here (the realistic
+            # local-provider failure mode).
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
             return await run_a2({"system_id": GXP_SYSTEM})
 
     degraded_result = asyncio.run(_run_degraded())

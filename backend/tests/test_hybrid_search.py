@@ -44,19 +44,26 @@ from app.schemas import RetrievalEvidenceItem
 DEMO_SYSTEM = "GXP-MFG-DEMO-01"
 DEMO_DOCUMENT_ID = "DOC-2026-OM-99"  # seeded row, infra/postgres/seed/001_seed.sql
 DEMO_DOCUMENT_TITLE = "NovaSynth Operations Manual"
-GEMINI_EMBED_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
-)
-# The "rerank" task resolves to gemini_flash_fast (Deviation 12/17), model
-# "gemini-3.6-flash" -- a distinct endpoint from the embedding URL above.
-GEMINI_RERANK_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
-)
+# 2026-09-01: both retargeted from Gemini to the local Ollama server --
+# both "embed_document"/"embed_query" and "rerank" now route to
+# `ollama_embedding`/`ollama_qwen` respectively (see llm_router.py's and
+# embeddings.py's own PROVIDER_CONFIG comments for why: live evidence of
+# a free-tier quota and an inactive billing account, not a provisional
+# choice). Kept as two separate constants even though they're the same
+# host, matching the original file's intent of naming the embedding and
+# rerank endpoints independently -- Ollama happens to serve them from the
+# same base URL, but that's incidental, not a reason to collapse the names.
+GEMINI_EMBED_URL = "http://127.0.0.1:11434/api/embed"
+GEMINI_RERANK_URL = "http://127.0.0.1:11434/v1/chat/completions"
 
 
 def _rerank_response(scores: List[Dict[str, Any]]) -> httpx.Response:
     text = json.dumps({"scores": scores})
-    return httpx.Response(200, json={"candidates": [{"content": {"parts": [{"text": text}]}}]})
+    return httpx.Response(200, json={"choices": [{"message": {"content": text}}], "model": "qwen2.5:7b-instruct"})
+
+
+def _embed_response(vector: List[float]) -> httpx.Response:
+    return httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [vector]})
 
 
 class FakePool:
@@ -114,11 +121,14 @@ def _hit(chunk_id: str, score: float, document_id: str = DEMO_DOCUMENT_ID) -> De
 
 
 def _mock_embedding_env(monkeypatch, degrade: bool = False) -> None:
-    if degrade:
-        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-        monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-    else:
-        monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+    """2026-09-01: Ollama needs no API key, so this is now a deliberate
+    no-op kept only so the ~15 call sites below don't all need editing --
+    setting an irrelevant env var is harmless. `degrade=True` callers have
+    each been updated to mock a connection error at the embed URL
+    directly instead of relying on "no key configured" -- the realistic
+    failure mode for a local provider is the server being unreachable,
+    not a missing credential."""
+    return
 
 
 def _install_fake_qdrant(monkeypatch, hits: List[DenseHit], client_unavailable: bool = False) -> None:
@@ -164,7 +174,7 @@ def test_evidence_items_carry_full_section_15_7_provenance(monkeypatch):
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "what does section 4.2 require?", DEMO_SYSTEM)
 
@@ -200,7 +210,7 @@ def test_evidence_truncated_to_max_items_ordered_by_descending_score(monkeypatch
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool(rows), "query", DEMO_SYSTEM)
 
@@ -224,7 +234,7 @@ def test_evidence_read_from_postgres_row_not_qdrant_payload(monkeypatch):
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool(rows), "query", DEMO_SYSTEM)
 
@@ -243,7 +253,7 @@ def test_all_candidates_below_threshold_returns_insufficient_evidence(monkeypatc
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
 
@@ -259,7 +269,7 @@ def test_zero_qdrant_candidates_returns_insufficient_evidence_no_exception(monke
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([]), "query", DEMO_SYSTEM)
 
@@ -269,26 +279,26 @@ def test_zero_qdrant_candidates_returns_insufficient_evidence_no_exception(monke
 
 
 def test_degraded_embedding_no_api_key_returns_insufficient_evidence_named_reason(monkeypatch):
-    _mock_embedding_env(monkeypatch, degrade=True)
+    """Ollama needs no key -- the realistic degrade scenario for a local
+    provider is the server being unreachable, not a missing credential.
+    Mocking a connection error at the embed URL exercises the same
+    `hybrid_retrieve` degrade path the old no-key trick did."""
 
     async def _go():
         with respx.mock:
-            # No route registered for the embedding endpoint -- a degraded
-            # (no-key) call_embedding returns before any HTTP request is
-            # issued, so respx's own assert_all_mocked default never trips.
+            respx.post(GEMINI_EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await hybrid_retrieve(FakePool([]), "query", DEMO_SYSTEM)
 
     outcome = _run(_go())
     assert outcome.insufficient_evidence is True
     assert outcome.evidence == []
-    assert "no API key configured" in outcome.model_attribution
+    assert "ollama_embedding" in outcome.model_attribution
 
 
 def test_trace_always_marks_evaluating_complete_even_when_insufficient(monkeypatch):
-    _mock_embedding_env(monkeypatch, degrade=True)
-
     async def _go():
         with respx.mock:
+            respx.post(GEMINI_EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await hybrid_retrieve(FakePool([]), "query", DEMO_SYSTEM)
 
     outcome = _run(_go())
@@ -307,7 +317,7 @@ def test_trace_marks_combining_complete_and_reranking_still_skipped(monkeypatch)
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
 
@@ -423,7 +433,7 @@ def test_bm25_only_chunk_appears_with_bm25_score_and_dense_score_none(monkeypatc
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(
                 FakePool([_row(chunk_id)], bm25_rows=bm25_rows), "URS-042 traceability", DEMO_SYSTEM
@@ -447,7 +457,7 @@ def test_dense_only_chunk_appears_with_dense_score_and_bm25_score_none(monkeypat
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([_row(chunk_id)], bm25_rows=[]), "query", DEMO_SYSTEM)
 
@@ -467,7 +477,7 @@ def test_hybrid_chunk_found_by_both_carries_both_scores_and_hybrid_method(monkey
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(
                 FakePool([_row(chunk_id)], bm25_rows=bm25_rows), "URS-042 traceability", DEMO_SYSTEM
@@ -495,14 +505,12 @@ def test_degraded_embedding_with_bm25_evidence_returns_lexical_only_not_insuffic
     """Task 1's degraded-half-pipeline behavior: a degraded embedding no
     longer forces insufficient evidence on its own when the lexical leg
     still finds real evidence."""
-    _mock_embedding_env(monkeypatch, degrade=True)
     chunk_id = "99999999-9999-9999-9999-999999999999"
     bm25_rows = _bm25_rows_with_distractor(chunk_id, "URS-042 traceability requirement text.")
 
     async def _go():
         with respx.mock:
-            # No route registered for the embedding endpoint -- a degraded
-            # (no-key) call_embedding returns before any HTTP request.
+            respx.post(GEMINI_EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await hybrid_retrieve(
                 FakePool([_row(chunk_id)], bm25_rows=bm25_rows), "URS-042 traceability", DEMO_SYSTEM
             )
@@ -525,7 +533,7 @@ def test_qdrant_unavailable_with_bm25_evidence_returns_lexical_only_not_insuffic
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(
                 FakePool([_row(chunk_id)], bm25_rows=bm25_rows), "URS-042 traceability", DEMO_SYSTEM
@@ -537,10 +545,9 @@ def test_qdrant_unavailable_with_bm25_evidence_returns_lexical_only_not_insuffic
 
 
 def test_both_legs_empty_still_returns_insufficient_evidence(monkeypatch):
-    _mock_embedding_env(monkeypatch, degrade=True)
-
     async def _go():
         with respx.mock:
+            respx.post(GEMINI_EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await hybrid_retrieve(FakePool([], bm25_rows=[]), "query", DEMO_SYSTEM)
 
     outcome = _run(_go())
@@ -555,7 +562,7 @@ def test_qdrant_unavailable_returns_insufficient_evidence_no_exception(monkeypat
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([]), "query", DEMO_SYSTEM)
 
@@ -607,7 +614,7 @@ def test_rerank_batch_issues_exactly_one_http_request_for_40_candidates(monkeypa
 
     scores, model_id = _run(_go())
     assert len(scores) == 40
-    assert model_id == "gemini-3.6-flash"
+    assert model_id == "qwen2.5:7b-instruct"
 
 
 def test_rerank_batch_truncates_to_rerank_max_candidates_before_prompting(monkeypatch):
@@ -628,7 +635,7 @@ def test_rerank_batch_truncates_to_rerank_max_candidates_before_prompting(monkey
             return await rerank_batch("query", candidates)
 
     _run(_go())
-    prompt_text = captured["body"]["contents"][0]["parts"][0]["text"]
+    prompt_text = captured["body"]["messages"][-1]["content"]
     assert f"chunk_id=chunk-{RERANK_MAX_CANDIDATES - 1} |" in prompt_text
     assert f"chunk_id=chunk-{RERANK_MAX_CANDIDATES} |" not in prompt_text
 
@@ -673,13 +680,11 @@ def test_rerank_batch_degraded_no_api_key_returns_empty_dict_and_fallback_label(
 
 
 def test_rerank_batch_unparseable_response_returns_fallback_and_raises_nothing(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-
     async def _go():
         with respx.mock:
             respx.post(GEMINI_RERANK_URL).mock(
                 return_value=httpx.Response(
-                    200, json={"candidates": [{"content": {"parts": [{"text": "not json at all"}]}}]}
+                    200, json={"choices": [{"message": {"content": "not json at all"}}], "model": "qwen2.5:7b-instruct"}
                 )
             )
             return await rerank_batch("query", [{"chunk_id": "a", "content": "c", "section": "s"}])
@@ -719,7 +724,7 @@ def test_hybrid_retrieve_gates_on_reranker_score_when_available(monkeypatch):
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             respx.post(GEMINI_RERANK_URL).mock(return_value=_rerank_response(payload))
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
@@ -740,7 +745,7 @@ def test_hybrid_retrieve_reranker_below_threshold_excludes_despite_high_dense_sc
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             respx.post(GEMINI_RERANK_URL).mock(return_value=_rerank_response(payload))
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
@@ -764,7 +769,7 @@ def test_hybrid_retrieve_reranking_degraded_falls_back_to_dense_threshold_gate(m
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
 
@@ -787,7 +792,7 @@ def test_hybrid_retrieve_all_candidates_below_rerank_threshold_yields_insufficie
     async def _go():
         with respx.mock:
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": [0.1] * EMBEDDING_DIMENSIONS}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * EMBEDDING_DIMENSIONS]})
             )
             respx.post(GEMINI_RERANK_URL).mock(return_value=_rerank_response(payload))
             return await hybrid_retrieve(FakePool([_row(chunk_id)]), "query", DEMO_SYSTEM)
@@ -1024,7 +1029,7 @@ def test_integration_retrieval_evidence_items_validate_against_schema_for_real_q
         with respx.mock:
             respx.route(url__startswith=QDRANT_URL).pass_through()
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": vector}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [vector]})
             )
             # No rerank route registered -- degrades to the Task 1 fallback
             # gate, exercising real Postgres + real Qdrant + real (degraded)
@@ -1109,7 +1114,7 @@ def test_integration_hybrid_retrieve_against_live_postgres_and_qdrant(monkeypatc
         with respx.mock:
             respx.route(url__startswith=QDRANT_URL).pass_through()
             respx.post(GEMINI_EMBED_URL).mock(
-                return_value=httpx.Response(200, json={"embedding": {"values": vector}})
+                return_value=httpx.Response(200, json={"model": "nomic-embed-text", "embeddings": [vector]})
             )
             outcome = await hybrid_retrieve(pool, "integration test query", DEMO_SYSTEM)
         return outcome

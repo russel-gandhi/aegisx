@@ -435,6 +435,9 @@ export interface DocumentUploadResult {
   indexed_vector_count: number
   status: string
   failed_stage: string | null
+  duplicate: boolean
+  quarantined: boolean
+  quarantine_reason: string | null
 }
 
 export interface DocumentSummary {
@@ -545,4 +548,44 @@ export async function listDocuments(systemId?: string): Promise<DocumentListResu
 
 export async function investigateCopilot(query: string, systemId: string): Promise<CopilotInvestigateResult> {
   return apiPost<CopilotInvestigateResult>('/api/copilot/investigate', { query, system_id: systemId })
+}
+
+// Mirrors `backend/app/routes/suppliers.py`'s `SupplierRecord`/`SuppliersResponse`.
+export interface SupplierRecord {
+  supplier_id: string
+  name: string
+  status: string | null
+  reassessment_due_date_ns: number | null
+  is_overdue: boolean
+  latest_assessment_result: string | null
+  latest_assessment_date_ns: number | null
+}
+
+export interface SuppliersResponse {
+  system_id: string
+  suppliers: SupplierRecord[]
+}
+
+export function fetchSuppliers(systemId: string): Promise<SuppliersResponse> {
+  return apiGet<SuppliersResponse>(`/api/systems/${encodeURIComponent(systemId)}/suppliers`)
+}
+
+// Mirrors `backend/app/routes/trust_centre.py`'s `LLMProviderInfo`/`TrustCentreResponse`.
+export interface LLMProviderInfo {
+  provider_key: string
+  provider: string
+  model: string
+  use_for: string[]
+  requires_api_key: boolean
+}
+
+export interface TrustCentreResponse {
+  llm_cascade: LLMProviderInfo[]
+  embedding_provider: LLMProviderInfo
+  opa_policy_files: string[]
+  opa_policy_count: number
+}
+
+export function fetchTrustCentre(): Promise<TrustCentreResponse> {
+  return apiGet<TrustCentreResponse>('/api/trust-centre')
 }

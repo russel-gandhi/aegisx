@@ -38,6 +38,11 @@ GEMINI_ENDPOINT = (
 # Narration now routes to Groq (quick task 260826-p1q); GEMINI_ENDPOINT above
 # remains for any test exercising a different task (e.g. A0 classification).
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+# 2026-09-01: local-first cascade -- narration's primary is still Groq,
+# but the next untried hop on failure is now Ollama (local), not a hosted
+# Google/DeepSeek entry (both removed from PROVIDER_CONFIG entirely; see
+# llm_router.py's own comment for the live evidence behind that).
+OLLAMA_ENDPOINT = "http://127.0.0.1:11434/v1/chat/completions"
 
 
 def _no_provider_keys(monkeypatch):
@@ -128,7 +133,12 @@ def test_negative_degraded_narration_is_not_cached(monkeypatch):
 
     async def _run():
         with respx.mock:
-            # No routes registered — an accidental outbound call fails loudly.
+            # Groq and OpenRouter fail on their own missing keys with zero
+            # outbound HTTP attempted; Ollama needs no key at all, so it's
+            # genuinely reached -- mocked unreachable here (the realistic
+            # local-provider failure mode) to complete the cascade's
+            # exhaustion.
+            respx.post(OLLAMA_ENDPOINT).mock(side_effect=httpx.ConnectError("connection refused"))
             return await narrate_gap(check_result)
 
     claim, model_id = asyncio.run(_run())
@@ -362,7 +372,7 @@ def test_integration_outage_never_latches_into_cache(monkeypatch):
 
     async def _run_degraded():
         with respx.mock:
-            # No routes registered — an accidental outbound call fails loudly.
+            respx.post(OLLAMA_ENDPOINT).mock(side_effect=httpx.ConnectError("connection refused"))
             return await narrate_gap(check_result)
 
     degraded_claim, degraded_model = asyncio.run(_run_degraded())

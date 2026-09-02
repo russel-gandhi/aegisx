@@ -27,6 +27,7 @@ chunk this test itself indexes.
 import asyncio
 import inspect
 
+import httpx
 import respx
 
 from app.db import get_pool
@@ -324,14 +325,22 @@ def test_integration_injection_blocked_returns_c2_real_reason_and_no_graph_side_
 
 def test_integration_insufficient_evidence_path_makes_zero_synthesis_calls(client, monkeypatch):
     _delete_all_keys(monkeypatch)
-    # Every provider call (A0/A2-A6 narration, A1's embedding call, this
-    # route's own synthesis call) degrades before any network attempt when
-    # every provider key is absent -- the only real outbound call left in
-    # the whole pipeline is C1's own OPA evaluation, which is never mocked
-    # anywhere in this suite (test_hero_loop.py's own established
-    # convention) and is explicitly passed through here.
+    # Every HOSTED provider call (A0/A2-A6 narration, this route's own
+    # synthesis call) degrades before any network attempt when every
+    # provider key is absent. Ollama (orchestrator/compliance/knowledge/
+    # change/rerank/risk_assessment, all local, no key required) is
+    # genuinely reached, though -- mocked unreachable here so it degrades
+    # the same way the hosted providers do via the missing-key path,
+    # keeping this test's "everything degrades, zero real completions"
+    # intent intact. The only real outbound call left in the whole
+    # pipeline is C1's own OPA evaluation, which is never mocked anywhere
+    # in this suite (test_hero_loop.py's own established convention) and
+    # is explicitly passed through here.
     with respx.mock:
         respx.route(host="127.0.0.1", port=8181).pass_through()
+        respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+            side_effect=httpx.ConnectError("connection refused")
+        )
         resp = client.post(
             "/api/copilot/investigate",
             json={"query": "a benign question with no matching indexed content", "system_id": DEMO_SYSTEM},
@@ -407,6 +416,15 @@ def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monke
         with respx.mock:
             respx.route(host="127.0.0.1", port=8181).pass_through()
             respx.route(url__startswith=QDRANT_URL).pass_through()
+            # Ollama needs no key (unlike the hosted providers _delete_all_keys
+            # already handles), so it's genuinely reached for
+            # orchestrator/rerank/synthesis -- mocked unreachable so those
+            # calls degrade the same way the hosted ones do, keeping this
+            # test's "route's own synthesis call degrades to the
+            # deterministic fallback" assertion below accurate.
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
             resp = client.post(
                 "/api/copilot/investigate",
                 json={"query": "route integration test question", "system_id": DEMO_SYSTEM},

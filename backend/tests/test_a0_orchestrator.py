@@ -23,10 +23,12 @@ from app.agents.a0_orchestrator import (
     run_a0,
 )
 
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-3.6-flash:generateContent"
-)
+# 2026-09-01: "orchestrator" now routes to the local `ollama_qwen` entry,
+# not `gemini_flash_thinking` (removed from PROVIDER_CONFIG entirely --
+# see llm_router.py's own comment for the live evidence). Ollama shares
+# the OpenAI-compatible request/response shape with Groq/OpenRouter, not
+# Gemini's `generationConfig`/`candidates` shape.
+OLLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions"
 SYSTEM_ID = "GXP-MFG-DEMO-01"
 QUERY = "Is GXP-MFG-DEMO-01 audit ready?"
 
@@ -44,20 +46,18 @@ def _state(query: str = QUERY, system_id: str = SYSTEM_ID):
     }
 
 
-def _mock_gemini_json(text: str):
-    return respx.post(GEMINI_URL).mock(
+def _mock_ollama_json(text: str):
+    return respx.post(OLLAMA_URL).mock(
         return_value=httpx.Response(
-            200, json={"candidates": [{"content": {"parts": [{"text": text}]}}]}
+            200, json={"choices": [{"message": {"content": text}}], "model": "qwen2.5:7b-instruct"}
         )
     )
 
 
 def test_mocked_classification_narrows_active_agents(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-
     async def _run():
         with respx.mock:
-            _mock_gemini_json(
+            _mock_ollama_json(
                 '{"active_agents": ["A1", "A2"], "intent_category": "audit_readiness"}'
             )
             return await run_a0(_state())
@@ -67,12 +67,14 @@ def test_mocked_classification_narrows_active_agents(monkeypatch):
     assert result["user_intent"] == "audit_readiness"
 
 
-def test_request_targets_gemini_thinking_budget_and_json_mime(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
+def test_request_targets_ollama_model_and_json_mode(monkeypatch):
+    """Ollama has no per-request thinking-budget concept (that was
+    Gemini-specific) -- the equivalent wire-contract proof for the
+    OpenAI-compatible shape is the model id and JSON mode field."""
 
     async def _run():
         with respx.mock:
-            route = _mock_gemini_json(
+            route = _mock_ollama_json(
                 '{"active_agents": ["A2"], "intent_category": "audit_readiness"}'
             )
             await run_a0(_state())
@@ -83,8 +85,8 @@ def test_request_targets_gemini_thinking_budget_and_json_mime(monkeypatch):
     import json as _json
 
     sent = _json.loads(route.calls.last.request.content)
-    assert sent["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 512
-    assert sent["generationConfig"]["responseMimeType"] == "application/json"
+    assert sent["model"] == "qwen2.5:7b-instruct"
+    assert sent["response_format"] == {"type": "json_object"}
 
 
 def test_timeout_over_2000ms_falls_back_to_full_set_within_2500ms(monkeypatch):
@@ -107,16 +109,16 @@ def test_timeout_over_2000ms_falls_back_to_full_set_within_2500ms(monkeypatch):
 
 
 def test_mocked_read_timeout_produces_full_set_fallback_no_exception(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     # A real OPENROUTER_API_KEY is configured in this repo's root .env
     # (D-01 follow-up) — deleted here so call_llm()'s own cascade-on-timeout
     # hits a clean missing-key degrade instead of attempting a real,
     # unmocked HTTP request to openrouter.ai under respx.mock.
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
 
     async def _run():
         with respx.mock:
-            respx.post(GEMINI_URL).mock(side_effect=httpx.TimeoutException("timed out"))
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.TimeoutException("timed out"))
             return await run_a0(_state())
 
     result = asyncio.run(_run())
@@ -125,11 +127,9 @@ def test_mocked_read_timeout_produces_full_set_fallback_no_exception(monkeypatch
 
 
 def test_invalid_json_candidate_text_falls_back(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-
     async def _run():
         with respx.mock:
-            _mock_gemini_json("This is not JSON at all.")
+            _mock_ollama_json("This is not JSON at all.")
             return await run_a0(_state())
 
     result = asyncio.run(_run())
@@ -138,11 +138,9 @@ def test_invalid_json_candidate_text_falls_back(monkeypatch):
 
 
 def test_unknown_agent_id_in_classification_falls_back(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-
     async def _run():
         with respx.mock:
-            _mock_gemini_json(
+            _mock_ollama_json(
                 '{"active_agents": ["A1", "A9"], "intent_category": "audit_readiness"}'
             )
             return await run_a0(_state())
@@ -153,11 +151,9 @@ def test_unknown_agent_id_in_classification_falls_back(monkeypatch):
 
 
 def test_empty_active_agents_list_falls_back(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
-
     async def _run():
         with respx.mock:
-            _mock_gemini_json('{"active_agents": [], "intent_category": "audit_readiness"}')
+            _mock_ollama_json('{"active_agents": [], "intent_category": "audit_readiness"}')
             return await run_a0(_state())
 
     result = asyncio.run(_run())
@@ -177,9 +173,12 @@ def test_no_provider_key_falls_back_no_outbound_request_no_exception(monkeypatch
 
     async def _run():
         with respx.mock:
-            # No routes registered at all: any accidental outbound request
-            # raises respx's own "no matching route" error, making a
-            # regression here fail loudly rather than silently pass.
+            # Groq/OpenRouter fail on their own missing keys, zero HTTP
+            # attempted. Ollama needs no key at all, so it's genuinely
+            # reached -- mocked unreachable here (the realistic
+            # local-provider failure mode) rather than relying on a
+            # missing credential that doesn't apply to it.
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await run_a0(_state())
 
     result = asyncio.run(_run())
@@ -188,11 +187,12 @@ def test_no_provider_key_falls_back_no_outbound_request_no_exception(monkeypatch
 
 
 def test_every_fallback_returns_bible_ordered_full_set(monkeypatch):
-    for env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"):
+    for env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY"):
         monkeypatch.delenv(env_name, raising=False)
 
     async def _run():
         with respx.mock:
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             return await run_a0(_state())
 
     result = asyncio.run(_run())
@@ -200,11 +200,12 @@ def test_every_fallback_returns_bible_ordered_full_set(monkeypatch):
 
 
 def test_classify_intent_directly_raises_valueerror_on_degraded_response(monkeypatch):
-    for env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY"):
+    for env_name in ("GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENROUTER_API_KEY", "GROQ_API_KEY"):
         monkeypatch.delenv(env_name, raising=False)
 
     async def _run():
         with respx.mock:
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("connection refused"))
             try:
                 await classify_intent(QUERY, SYSTEM_ID)
                 return False

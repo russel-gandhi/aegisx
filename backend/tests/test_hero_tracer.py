@@ -85,29 +85,24 @@ EXPECTED_TRC_FINDING_ID = "A2-ANNEX11-S4-TRC-001-URS-042"
 # came from the live row, not a fixture.
 SEEDED_DUE_DATE_NS = 1704067200000000000
 
-GEMINI_SUCCESS_BODY = {
-    "candidates": [
-        {
-            "content": {
-                "parts": [
-                    {
-                        "text": (
-                            "Periodic evaluation PE-2024-01 is overdue under "
-                            "EU GMP Annex 11 Section 11 and requires immediate "
-                            "review to restore audit readiness."
-                        )
-                    }
-                ]
-            }
-        }
-    ]
+_NARRATION_PROSE = (
+    "Periodic evaluation PE-2024-01 is overdue under "
+    "EU GMP Annex 11 Section 11 and requires immediate "
+    "review to restore audit readiness."
+)
+
+# 2026-09-01: A0's classification now goes to the local Ollama entry, not
+# Gemini (see llm_router.py's own PROVIDER_CONFIG comment for why). Mocked
+# with the same prose as before, which deliberately fails
+# classify_intent()'s strict JSON parse and falls back to the full agent
+# set — see module docstring's Deviation note. Narration still routes to
+# Groq (quick task 260826-p1q), so both mocks must be present alongside
+# each other, not one replacing the other.
+OLLAMA_SUCCESS_BODY = {
+    "choices": [{"message": {"content": _NARRATION_PROSE}}],
+    "model": "qwen2.5:7b-instruct",
 }
 
-# A0's classification still goes to Gemini (mocked with prose above, which
-# deliberately fails classify_intent()'s strict JSON parse and falls back to
-# the full agent set — see module docstring's Deviation note). Narration now
-# routes to Groq (quick task 260826-p1q), so both mocks must be present
-# alongside each other, not one replacing the other.
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_SUCCESS_BODY = {
     "choices": [
@@ -159,16 +154,21 @@ def _finding_by_id(result, finding_id):
 
 
 def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
             respx.route(host="127.0.0.1", port=8181).pass_through()
-            respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-3.6-flash:generateContent"
-            ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
+            # orchestrator/compliance/knowledge/change/rerank/risk_assessment
+            # all resolve to the local Ollama entry now (needs no key).
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json=OLLAMA_SUCCESS_BODY)
+            )
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                return_value=httpx.Response(
+                    200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * 768]}
+                )
+            )
             respx.post(GROQ_ENDPOINT).mock(
                 return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
             )
@@ -220,10 +220,17 @@ def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
 
     async def _run():
         with respx.mock:
-            # Only the OPA passthrough is registered — no LLM provider route
-            # exists at all, so any accidental outbound HTTP call to a
-            # provider fails loudly via respx's own "no matching route"
-            # error, rather than silently succeeding.
+            # Groq/OpenRouter fail on their own missing keys, zero HTTP
+            # attempted. Ollama needs no key at all, so it's genuinely
+            # reached for both narration/classification and A1's embedding
+            # call -- mocked unreachable (the realistic local-provider
+            # failure mode) so the whole pipeline still degrades cleanly.
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
             respx.route(host="127.0.0.1", port=8181).pass_through()
             return await compiled_graph.ainvoke(_initial_state())
 
@@ -247,16 +254,19 @@ def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
 
 
 def test_evidence_provenance_reads_live_seeded_row(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
             respx.route(host="127.0.0.1", port=8181).pass_through()
-            respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                "gemini-3.6-flash:generateContent"
-            ).mock(return_value=httpx.Response(200, json=GEMINI_SUCCESS_BODY))
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json=OLLAMA_SUCCESS_BODY)
+            )
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                return_value=httpx.Response(
+                    200, json={"model": "nomic-embed-text", "embeddings": [[0.1] * 768]}
+                )
+            )
             respx.post(GROQ_ENDPOINT).mock(
                 return_value=httpx.Response(200, json=GROQ_SUCCESS_BODY)
             )

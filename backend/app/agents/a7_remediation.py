@@ -40,22 +40,34 @@ logger = logging.getLogger(__name__)
 # Per-hop budget (Deviation 18, 2026-08-29) for EACH individual provider
 # attempt inside `synthesize_capa`'s call_llm invocation -- passed as
 # call_llm's own `timeout` argument, NOT the total ceiling below.
-A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 4.0
+#
+# 2026-09-01: widened from 4.0s. `app.llm_router.FALLBACK_CASCADE` now
+# leads with `ollama_qwen` (the 2026-09-01 Ollama migration), and a cold
+# Ollama call (model evicted from GPU VRAM by its own idle keep_alive)
+# measured ~6-8s just to reload before it can answer at all -- CAPA
+# synthesis's structured multi-field output is also the most
+# generation-heavy prompt of any task this router serves, so 12.0s gives
+# a cold hop room to both reload and generate (the process-level
+# `OLLAMA_KEEP_ALIVE` fix keeps the model resident in the common case, but
+# this budget must not itself require that fix to hold for correctness).
+A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 12.0
 
-# Total wall-clock ceiling (260826-rsw; widened 2026-08-29 for Deviation 18)
-# for `synthesize_capa`'s call_llm invocation, enforced by `asyncio.wait_for`
+# Total wall-clock ceiling (260826-rsw; widened 2026-08-29 for Deviation 18,
+# widened again 2026-09-01 alongside the per-hop budget above) for
+# `synthesize_capa`'s call_llm invocation, enforced by `asyncio.wait_for`
 # -- NOT the same as call_llm's own per-hop `timeout` argument above.
-# `call_llm` now cascades through up to four providers on failure
-# (`app.llm_router.FALLBACK_CASCADE`), each sharing the per-hop budget above,
-# so the outer ceiling must sit ABOVE the worst-case sum of every hop
-# (4 hops x 4.0s = 16.0s) PLUS the inter-hop cascade delay call_llm now
-# sleeps between failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s,
-# applied 3 times across a 4-hop cascade = 3.0s), not below it -- an outer
-# ceiling tighter than the cascade's own worst case reintroduces the exact
-# bug this deviation fixes (the outer wait_for firing mid-cascade before a
-# later, working provider gets its turn). 21.0s gives ~2s of margin above
-# that 19.0s worst case (16.0s hops + 3.0s of inter-hop delay).
-A7_REMEDIATION_CEILING_SECONDS = 21.0
+# `call_llm` cascades through every entry in `FALLBACK_CASCADE` on failure
+# (3 providers as of the Ollama migration: `ollama_qwen`, `groq_gpt_oss`,
+# `openrouter_fallback`), each sharing the per-hop budget above, so the
+# outer ceiling must sit ABOVE the worst-case sum of every hop (3 hops x
+# 12.0s = 36.0s) PLUS the inter-hop cascade delay call_llm sleeps between
+# failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s, applied 2 times
+# across a 3-hop cascade = 2.0s), not below it -- an outer ceiling tighter
+# than the cascade's own worst case reintroduces the exact bug this
+# deviation fixes (the outer wait_for firing mid-cascade before a later,
+# working provider gets its turn). 40.0s gives ~2s of margin above that
+# 38.0s worst case.
+A7_REMEDIATION_CEILING_SECONDS = 40.0
 
 # Bible Section 6, "A7: Remediation Agent Prompt", transcribed verbatim.
 A7_SYSTEM_PROMPT = (

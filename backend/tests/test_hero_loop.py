@@ -89,14 +89,13 @@ REQUIRED_VERIFICATION_KEYS = {
     "confidence", "db_record_found", "opa_corroborated", "opa_rule_ids", "evidence_ids",
 }
 
-# Same three URLs test_a0_orchestrator.py / test_minimal_specialists.py
-# already establish — every provider entry in llm_router.PROVIDER_CONFIG
-# resolves to exactly one of these four.
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-3.6-flash:generateContent"
-)
-DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+# 2026-09-01: `gemini_flash_thinking`/`gemini_flash_fast`/`deepseek_r1`
+# removed from PROVIDER_CONFIG entirely (see llm_router.py's own comment
+# for the live evidence). `ollama_qwen` (local) now covers every task
+# those three used to -- orchestrator, synthesis, compliance, knowledge,
+# change, rerank, risk_assessment all resolve to it. Only three provider
+# entries remain: ollama_qwen, groq_gpt_oss, openrouter_fallback.
+OLLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions"
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -127,27 +126,30 @@ def _delete_all_provider_keys(monkeypatch):
         monkeypatch.delenv(env_name, raising=False)
 
 
-def _gemini_side_effect(active_agents_named):
-    """Routes A0's classification prompt vs. every other Gemini caller's
-    narration prompt by inspecting the outgoing request body's
-    `systemInstruction` text — see module docstring."""
+def _ollama_side_effect(active_agents_named):
+    """Routes A0's classification prompt vs. every other Ollama caller's
+    narration/rerank prompt by inspecting the outgoing request body's
+    system message content -- the OpenAI-compatible shape Ollama shares
+    with Groq/OpenRouter (a `messages` list with an optional
+    `role: "system"` entry), not Gemini's old `systemInstruction` field."""
 
     def _side_effect(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        system_instruction_text = (
-            body.get("systemInstruction", {}).get("parts", [{}])[0].get("text", "")
+        system_message = next(
+            (m["content"] for m in body.get("messages", []) if m.get("role") == "system"), ""
         )
-        if A0_SYSTEM_PROMPT[:20] in system_instruction_text:
+        if A0_SYSTEM_PROMPT[:20] in system_message:
             text = json.dumps(
                 {"active_agents": active_agents_named, "intent_category": "audit_readiness"}
             )
         else:
             text = (
                 "A deterministic compliance gap was narrated for this "
-                "hero-loop test by a mocked Gemini response."
+                "hero-loop test by a mocked Ollama response."
             )
         return httpx.Response(
-            200, json={"candidates": [{"content": {"parts": [{"text": text}]}}]}
+            200,
+            json={"choices": [{"message": {"content": text}}], "model": "qwen2.5:7b-instruct"},
         )
 
     return _side_effect
@@ -158,15 +160,13 @@ def _openai_body(text: str, model: str) -> httpx.Response:
 
 
 def _mock_all_four_providers(active_agents_named):
-    """Installs all four provider routes plus the real-OPA passthrough.
-    Nothing else is mocked — the graph, the database, and the policy
-    engine stay live (EVID-01, D-04)."""
-    respx.post(GEMINI_URL).mock(side_effect=_gemini_side_effect(active_agents_named))
-    respx.post(DEEPSEEK_URL).mock(
-        return_value=_openai_body(
-            "Risk assessment gap narrated by a mocked DeepSeek response.", "deepseek-v4-pro"
-        )
-    )
+    """Installs all three remaining provider routes (ollama_qwen,
+    groq_gpt_oss, openrouter_fallback -- named `_mock_all_four_providers`
+    for historical continuity with earlier call sites, kept rather than
+    renamed everywhere purely to limit this diff's blast radius) plus the
+    real-OPA passthrough. Nothing else is mocked — the graph, the
+    database, and the policy engine stay live (EVID-01, D-04)."""
+    respx.post(OLLAMA_URL).mock(side_effect=_ollama_side_effect(active_agents_named))
     respx.post(GROQ_URL).mock(
         return_value=_openai_body(
             "Gap narrated by a mocked Groq response.", "openai/gpt-oss-120b"
@@ -304,18 +304,17 @@ def test_hero_fully_mocked_run_model_attribution_names_real_provider(monkeypatch
 
 def test_hero_discrimination_control_healthy_system_grades_insufficient_evidence(monkeypatch):
     _delete_all_provider_keys(monkeypatch)
-    monkeypatch.setenv("GEMINI_API_KEY", "test-gemini-key")
     # A2's two NO-RECORD checks against BUS-IT-DEMO-02 still narrate via the
-    # dedicated "narration" task (now routed to Groq, quick task
-    # 260826-p1q), independent of A0's classification provider — both mocks
-    # must be present alongside each other.
+    # dedicated "narration" task (routed to Groq, quick task 260826-p1q),
+    # independent of A0's classification provider (Ollama, needs no key) —
+    # both mocks must be present alongside each other.
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
         with respx.mock:
             # BUS-IT-DEMO-02 is healthy — the classification only needs to
             # name A2 to exercise the discrimination control.
-            respx.post(GEMINI_URL).mock(side_effect=_gemini_side_effect(["A2"]))
+            respx.post(OLLAMA_URL).mock(side_effect=_ollama_side_effect(["A2"]))
             respx.post(GROQ_URL).mock(
                 return_value=_openai_body(
                     "Gap narrated by a mocked Groq response.", "openai/gpt-oss-120b"
@@ -352,13 +351,18 @@ def test_hero_keyless_run_falls_back_to_full_agent_set_and_deterministic_fallbac
 
     async def _run():
         with respx.mock:
-            # Only the OPA passthrough is registered — no LLM provider
-            # route exists at all, so any accidental outbound HTTP call to
-            # a provider fails loudly via respx's own "no matching route"
-            # error rather than silently succeeding. In practice no such
-            # call is even attempted: with no key configured for any
-            # provider, `_send_one` raises `_MissingKeyError` before
-            # constructing an `httpx.AsyncClient` at all.
+            # Groq and OpenRouter fail on their own missing keys with zero
+            # outbound HTTP attempted, exactly as before. Ollama needs no
+            # key at all, so it's genuinely reached -- mocked unreachable
+            # here (the realistic local-provider failure mode) so the
+            # cascade still exhausts cleanly instead of respx raising on
+            # an unmocked live request.
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("connection refused"))
+            # A1's embedding call (also Ollama, also needs no key) is
+            # genuinely reached too -- same treatment.
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
             respx.route(host="127.0.0.1", port=8181).pass_through()
             return await compiled_graph.ainvoke(_initial_state(SYSTEM_ID))
 

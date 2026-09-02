@@ -74,11 +74,15 @@ def _embedding_success_body(dimensions: int) -> dict:
 
 
 def _batch_success_body(count: int, dimensions: int) -> dict:
+    # 2026-09-01: Ollama's /api/embed shape (raw vectors, not Gemini's
+    # {"values": [...]} objects) -- see embeddings.py's own
+    # EMBEDDING_PROVIDER_CONFIG comment for why Gemini was replaced.
     return {
+        "model": "nomic-embed-text",
         "embeddings": [
-            {"values": [((i + j + 1) % 23) / 7.0 - 1.5 for i in range(dimensions)]}
+            [((i + j + 1) % 23) / 7.0 - 1.5 for i in range(dimensions)]
             for j in range(count)
-        ]
+        ],
     }
 
 
@@ -257,6 +261,26 @@ def test_unit_parse_docx_includes_table_cells_under_preceding_section():
     assert "Test Step | Expected Result | Actual Result" in table_block.text
 
 
+def test_unit_parse_docx_tables_use_their_own_preceding_heading_not_the_last_one():
+    # Regression: `document.paragraphs` and `document.tables` are two
+    # separate, non-interleaved python-docx collections. Iterating them
+    # one after the other -- rather than walking `document.element.body`
+    # in true source order -- silently attaches EVERY table in the
+    # document to whichever heading is LAST in the file, regardless of
+    # which heading actually precedes that specific table. This fixture
+    # has two headings each immediately followed by their own table, so a
+    # regression to the old two-pass approach would report both tables
+    # under "Operational Qualification" (the last heading) instead of the
+    # first table correctly landing on "Installation Qualification".
+    raw = open(os.path.join(FIXTURES_DIR, "interleaved_headings_tables.docx"), "rb").read()
+    blocks = parse_docx(raw, "interleaved_headings_tables.docx")
+
+    iq_table = next(b for b in blocks if "Power-on self-test" in b.text)
+    oq_table = next(b for b in blocks if "Load calibration weight" in b.text)
+    assert iq_table.section == "Installation Qualification"
+    assert oq_table.section == "Operational Qualification"
+
+
 def test_unit_parse_docx_corrupt_payload_returns_empty_list_no_exception():
     assert parse_docx(b"not a docx at all", "garbage.docx") == []
 
@@ -389,9 +413,7 @@ def test_integration_index_document_writes_postgres_and_qdrant_on_success(monkey
         # reproducing directly, not assumed.
         with respx.mock:
             respx.route(url__startswith=QDRANT_URL_FOR_TESTS).pass_through()
-            respx.post(
-                "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents"
-            ).mock(
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
                 return_value=httpx.Response(200, json=_batch_success_body(len(chunks), EMBEDDING_DIMENSIONS))
             )
             result = await index_document(pool, client, DEMO_DOCUMENT_ID, DEMO_SYSTEM, chunks)
@@ -431,9 +453,9 @@ def test_integration_index_document_writes_postgres_and_qdrant_on_success(monkey
 
 
 def test_integration_index_document_degraded_embedding_writes_nothing(monkeypatch):
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
-
+    """Ollama needs no key -- mocked unreachable instead of relying on a
+    missing credential, the realistic degrade scenario for a local
+    provider."""
     chunk = Chunk(
         chunk_id="33333333-3333-3333-3333-333333333333",
         content="This embedding call has no key configured.",
@@ -447,7 +469,12 @@ def test_integration_index_document_degraded_embedding_writes_nothing(monkeypatc
     async def _run():
         pool = await get_pool()
         client = await get_qdrant_client()
-        result = await index_document(pool, client, DEMO_DOCUMENT_ID, DEMO_SYSTEM, [chunk])
+        with respx.mock:
+            respx.route(url__startswith=QDRANT_URL_FOR_TESTS).pass_through()
+            respx.post("http://127.0.0.1:11434/api/embed").mock(
+                side_effect=httpx.ConnectError("connection refused")
+            )
+            result = await index_document(pool, client, DEMO_DOCUMENT_ID, DEMO_SYSTEM, [chunk])
         row = await pool.fetchrow(
             "SELECT chunk_id FROM document_chunks WHERE chunk_id = $1::uuid", chunk.chunk_id
         )

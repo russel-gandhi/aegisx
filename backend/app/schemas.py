@@ -334,6 +334,47 @@ class SystemSignalsResponse(BaseModel):
     overdue_supplier_names: List[str]
 
 
+# Supplier Intelligence (Bible Section 11.5) full registry -- distinct from
+# SystemSignalsResponse above, which is only the Command Centre's
+# overdue-count aggregate. `latest_assessment_result`/`latest_assessment_date`
+# are `None` when a supplier has no `supplier_assessments` row at all (an
+# honest gap, not a guessed "N/A" string).
+class SupplierRecord(BaseModel):
+    supplier_id: str
+    name: str
+    status: Optional[str]
+    reassessment_due_date_ns: Optional[int]
+    is_overdue: bool
+    latest_assessment_result: Optional[str]
+    latest_assessment_date_ns: Optional[int]
+
+
+class SuppliersResponse(BaseModel):
+    system_id: str
+    suppliers: List[SupplierRecord]
+
+
+# Trust Centre (Bible Section 11.8): active LLM provider cascade and OPA
+# policy bundle, exposed read-only and system-agnostic (both are process-wide
+# configuration, not per-system state). Never includes an API key or any
+# `api_key_env` value -- only the provider/model/task-routing shape itself,
+# which is exactly what Bible Section 11.8 calls "current LLM provider
+# configurations" (a transparency artifact, not a secret).
+class LLMProviderInfo(BaseModel):
+    provider_key: str
+    provider: str
+    model: str
+    use_for: List[str]
+    requires_api_key: bool
+
+
+class TrustCentreResponse(BaseModel):
+    llm_cascade: List[LLMProviderInfo]
+    embedding_provider: LLMProviderInfo
+    opa_policy_files: List[str]
+    opa_policy_count: int
+
+
 # Phase 06.1 (06.1-01, RAG-01/RAG-02/RAG-05/RAG-06/RAG-07, D-05): hybrid
 # retrieval / real Copilot response contracts. Frozen in this plan so no
 # later plan in this phase has to guess a field name -- plans 06.1-02/03
@@ -466,6 +507,14 @@ class DocumentUploadResponse(BaseModel):
     # document, and no parse/embed/index work ran for this request
     # (SYSTEM-DESIGN-DIAGNOSIS.md #6: upload idempotency).
     duplicate: bool = False
+    # True when C2's deterministic injection detector (zero-LLM, same
+    # regex+entropy check the copilot query path uses) flagged at least
+    # one parsed chunk's text. A quarantined document is never embedded or
+    # indexed into Qdrant -- its content never becomes retrievable
+    # knowledge -- and a real audit_events row is written for it (Bible
+    # Section 11.7, Assurance Lab).
+    quarantined: bool = False
+    quarantine_reason: Optional[str] = None
 
 
 class DocumentSummary(BaseModel):

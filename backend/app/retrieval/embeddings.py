@@ -1,5 +1,12 @@
 """
-Hosted embedding provider router extension (Phase 06.1, plan 06.1-01, D-03).
+Embedding provider router extension (Phase 06.1, plan 06.1-01, D-03).
+
+2026-09-01: default provider switched from hosted (Gemini) to local
+(Ollama's `nomic-embed-text`) -- see `EMBEDDING_PROVIDER_CONFIG`'s own
+comment for why. The Gemini-shaped request/response code paths remain in
+`call_embedding()`/`_call_batch_group()`, branched on `entry["provider"]`,
+so re-adding a hosted entry later (as a fallback tier, or if the local
+server is ever unavailable) is a config-table change, not a rewrite.
 
 Ticket: n/a (roadmap phase 06.1) | Requirements: RAG-01, RAG-02
 Source: AegisX-AI-Project-Bible-v6.md's Qdrant schema comment (line 1260,
@@ -93,13 +100,33 @@ def _retry_delay_seconds(attempt: int, response: httpx.Response) -> float:
 # Mirrors `llm_router.PROVIDER_CONFIG`'s key structure exactly (provider,
 # model, base_url, api_key_env tuple, rpm_limit, use_for) so this module
 # reads as an extension of the same pattern, not a new one.
+#
+# 2026-09-01: replaced the hosted Gemini entry with a local Ollama one.
+# Not a fallback addition -- a replacement, following the same reasoning
+# already applied to the LLM router's `gemini_flash_thinking`/
+# `gemini_flash_fast`/`deepseek_r1` tasks (see llm_router.py's
+# PROVIDER_CONFIG comment): live testing proved this project's Gemini
+# quota for embeddings is free-tier (100 RPM, confirmed via the real
+# 429 response body: `embed_content_free_tier_requests`), and billing on
+# this Google Cloud project is inactive, not merely unconfigured. Ollama
+# has no per-minute quota to exhaust -- it's bounded by local hardware,
+# not a remote account's billing state. `nomic-embed-text`'s default
+# output is 768-dim, matching `EMBEDDING_DIMENSIONS` exactly (verified
+# live: `curl .../api/embed` returns a 768-element vector), so no
+# dimension-mismatch handling is needed. `api_key_env: ()` is
+# deliberately empty -- Ollama's local HTTP API has no auth, and
+# `_resolve_entry()` below treats an empty tuple as "no key required",
+# not "key missing".
 EMBEDDING_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
-    "google_gemini_embedding": {
-        "provider": "google",
-        "model": "gemini-embedding-001",
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-        "api_key_env": ("GEMINI_API_KEY", "GOOGLE_API_KEY"),
-        "rpm_limit": 100,
+    "ollama_embedding": {
+        "provider": "ollama",
+        "model": "nomic-embed-text",
+        "base_url": "http://127.0.0.1:11434",
+        "api_key_env": (),
+        # No real per-minute ceiling exists for a local server; this is a
+        # generous, effectively-inert guard against a runaway loop, not a
+        # calibrated quota the way the hosted rpm_limits are.
+        "rpm_limit": 6000,
         "use_for": ["embed_document", "embed_query"],
     }
 }
@@ -165,9 +192,13 @@ def _resolve_entry(task_type: str) -> "tuple[Optional[str], Optional[Dict[str, A
         return None, None, _degraded(str(exc))
 
     entry = EMBEDDING_PROVIDER_CONFIG[entry_key]
-    api_key = _resolve_api_key(entry)
-    if api_key is None:
-        return None, None, _degraded("no API key configured")
+    # An empty `api_key_env` tuple (Ollama) means "no key required", not
+    # "key missing" -- only run the resolve-or-degrade check for entries
+    # that actually declare a key source.
+    if entry["api_key_env"]:
+        api_key = _resolve_api_key(entry)
+        if api_key is None:
+            return None, None, _degraded("no API key configured")
     return entry_key, entry, None
 
 
@@ -190,13 +221,20 @@ async def call_embedding(
         return failure
     assert entry_key is not None and entry is not None  # narrows for type checkers
 
-    api_key = _resolve_api_key(entry)
-    url = f"{entry['base_url']}/models/{entry['model']}:embedContent"
-    body = {
-        "taskType": task_type,
-        "content": {"parts": [{"text": text}]},
-        "output_dimensionality": EMBEDDING_DIMENSIONS,
-    }
+    is_ollama = entry["provider"] == "ollama"
+    if is_ollama:
+        url = f"{entry['base_url']}/api/embed"
+        params: Optional[Dict[str, str]] = None
+        body: Dict[str, Any] = {"model": entry["model"], "input": text}
+    else:
+        api_key = _resolve_api_key(entry)
+        url = f"{entry['base_url']}/models/{entry['model']}:embedContent"
+        params = {"key": api_key}
+        body = {
+            "taskType": task_type,
+            "content": {"parts": [{"text": text}]},
+            "output_dimensionality": EMBEDDING_DIMENSIONS,
+        }
 
     attempt = 1
     try:
@@ -206,10 +244,13 @@ async def call_embedding(
                 # re-acquired on every retry attempt too -- a 429-triggered
                 # retry should still respect the provider's own declared
                 # ceiling, not just the backoff delay already applied.
+                # Practically inert for Ollama: a local server has no
+                # remote quota to pace against, but the same call keeps
+                # this code path identical for both providers.
                 await acquire_rate_limit(entry_key, entry["rpm_limit"])
                 client = get_shared_client()
                 response = await client.post(
-                    url, params={"key": api_key}, json=body, timeout=timeout
+                    url, params=params, json=body, timeout=timeout
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -246,14 +287,24 @@ async def call_embedding(
         logger.warning("Embedding response was not valid JSON (provider=%s).", entry_key)
         return _degraded(f"invalid_json_response:{entry_key}")
 
-    try:
-        values = data["embedding"]["values"]
-    except (KeyError, TypeError):
+    if is_ollama:
+        # Ollama's `/api/embed`: {"model": ..., "embeddings": [[...]]} --
+        # always a list of vectors, even for a single input, unlike
+        # Gemini's two singular/list shapes below.
         try:
-            values = data["embeddings"][0]["values"]
+            values = data["embeddings"][0]
         except (KeyError, IndexError, TypeError):
             logger.warning("Embedding response missing expected shape (provider=%s).", entry_key)
             return _degraded(f"unexpected_response_shape:{entry_key}")
+    else:
+        try:
+            values = data["embedding"]["values"]
+        except (KeyError, TypeError):
+            try:
+                values = data["embeddings"][0]["values"]
+            except (KeyError, IndexError, TypeError):
+                logger.warning("Embedding response missing expected shape (provider=%s).", entry_key)
+                return _degraded(f"unexpected_response_shape:{entry_key}")
 
     return EmbeddingResponse(
         vector=_l2_normalize(values),
@@ -296,19 +347,29 @@ async def _call_batch_group(
         return [failure for _ in texts]
     assert entry_key is not None and entry is not None
 
-    api_key = _resolve_api_key(entry)
-    url = f"{entry['base_url']}/models/{entry['model']}:batchEmbedContents"
-    body = {
-        "requests": [
-            {
-                "model": f"models/{entry['model']}",
-                "content": {"parts": [{"text": text}]},
-                "taskType": task_type,
-                "output_dimensionality": EMBEDDING_DIMENSIONS,
-            }
-            for text in texts
-        ]
-    }
+    is_ollama = entry["provider"] == "ollama"
+    if is_ollama:
+        # Ollama's `/api/embed` natively accepts a list `input` and
+        # returns one vector per element, in order -- no per-request
+        # wrapper shape to build the way Gemini's batch endpoint needs.
+        url = f"{entry['base_url']}/api/embed"
+        params: Optional[Dict[str, str]] = None
+        body: Dict[str, Any] = {"model": entry["model"], "input": texts}
+    else:
+        api_key = _resolve_api_key(entry)
+        url = f"{entry['base_url']}/models/{entry['model']}:batchEmbedContents"
+        params = {"key": api_key}
+        body = {
+            "requests": [
+                {
+                    "model": f"models/{entry['model']}",
+                    "content": {"parts": [{"text": text}]},
+                    "taskType": task_type,
+                    "output_dimensionality": EMBEDDING_DIMENSIONS,
+                }
+                for text in texts
+            ]
+        }
 
     for batch_attempt in range(1, EMBEDDING_BATCH_RETRY_ATTEMPTS + 1):
         try:
@@ -319,7 +380,7 @@ async def _call_batch_group(
                     await acquire_rate_limit(entry_key, entry["rpm_limit"])
                     client = get_shared_client()
                     response = await client.post(
-                        url, params={"key": api_key}, json=body, timeout=timeout
+                        url, params=params, json=body, timeout=timeout
                     )
                     response.raise_for_status()
                     data = response.json()
@@ -341,7 +402,10 @@ async def _call_batch_group(
                 raise ValueError("batch response length does not match request length")
             return [
                 EmbeddingResponse(
-                    vector=_l2_normalize(item["values"]),
+                    # Ollama's items are raw vectors; Gemini's are
+                    # {"values": [...]} objects -- the one shape
+                    # difference this branch needs.
+                    vector=_l2_normalize(item if is_ollama else item["values"]),
                     model_id=entry["model"],
                     provider=entry["provider"],
                     degraded=False,
