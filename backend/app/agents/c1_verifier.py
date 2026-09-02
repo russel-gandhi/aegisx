@@ -32,10 +32,12 @@ each table is resolved (see its docstring below); this stays data-driven
 — no per-rule branching was added to `build_opa_payload()` itself.
 """
 
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.db import acquire_pool_or_none
 from app.opa_client import evaluate_opa_policy
+from app.schemas import ALCOAScore
 
 # D-06 (03-CONTEXT.md Open Question 2): the Bible's calculate_confidence()
 # hardcodes the literal 8 as its ALCOA dimension count (Section 2). Two
@@ -224,12 +226,137 @@ async def build_opa_payload(pool, finding: dict) -> dict:
     return payload
 
 
+# SENT-9-01: Bible Section 16.12's own per-dimension table, implemented
+# against the real columns `RULE_EVIDENCE_TABLES`' ten tables actually
+# have (checked directly against infra/postgres/initdb/001_schema.sql --
+# nothing here is invented). Replaces the fixed `ALCOAScore()` default
+# every finding previously carried regardless of its actual evidence
+# quality (Design Note: that default made C1's own confidence score sum a
+# constant every time, silently capping every finding at the same
+# ceiling no matter what the real record looked like -- the one place
+# this architecture is supposed to be most rigorous was faking it).
+#
+# Not every table has every relevant column (e.g. only `documents` has
+# `author`; `requirements` has no timestamp column at all) -- per the
+# Bible's own "where the seeded demo data supports it" scoping, a
+# dimension with no real column to check on a given table degrades to
+# the same conservative default `ALCOAScore` already used (True for the
+# six dimensions that default True, False for the three that default
+# False), rather than fabricating a signal that isn't there.
+_ATTRIBUTION_COLUMNS: Tuple[str, ...] = ("author", "owner", "reviewer", "system_owner", "tester")
+_TIMESTAMP_COLUMNS: Tuple[str, ...] = (
+    "created_date", "effective_date", "scheduled_date_ns", "last_review_date_ns",
+    "opened_date_ns", "reassessment_due_date_ns", "due_date_ns", "qa_approval_date",
+    "assessment_date_ns", "execution_date_ns",
+)
+_TEXT_CONTENT_COLUMNS: Tuple[str, ...] = ("description", "title", "req_text", "risk_summary")
+_STATUS_COLUMNS: Tuple[str, ...] = ("status", "pass_fail")
+
+
+def _timestamp_is_in_the_future(value: Any) -> bool:
+    """`value` is either a nanosecond-epoch int (this schema's `*_date_ns`
+    columns) or a `datetime` (its plain `TIMESTAMP` columns) -- normalise
+    both to a comparison against the current time rather than assuming
+    one shape."""
+    if isinstance(value, (int, float)):
+        return value > time.time_ns()
+    if hasattr(value, "timestamp"):
+        try:
+            return value.timestamp() > time.time()
+        except (OverflowError, OSError, ValueError):
+            return False
+    return False
+
+
+def calculate_alcoa_score(db_record: dict, finding: dict) -> ALCOAScore:
+    """Compute a real, per-record ALCOA+ score from `db_record`'s actual
+    column values -- never a fixed default. `db_record` is the same real
+    Postgres row `verify_finding` already fetched (EVID-01); this
+    function reads it, it never queries anything itself (Bible Section
+    1.3: no I/O beyond what C1 already does).
+    """
+    attributable = any(db_record.get(col) for col in _ATTRIBUTION_COLUMNS)
+
+    text_columns_present = [col for col in _TEXT_CONTENT_COLUMNS if col in db_record]
+    legible = (
+        all(bool(db_record.get(col)) for col in text_columns_present)
+        if text_columns_present
+        else True
+    )
+
+    timestamp_columns_present = [col for col in _TIMESTAMP_COLUMNS if col in db_record]
+    contemporaneous = (
+        any(
+            db_record.get(col) is not None and not _timestamp_is_in_the_future(db_record[col])
+            for col in timestamp_columns_present
+        )
+        if timestamp_columns_present
+        else False
+    )
+
+    # "version" is the one explicit controlled-copy/revision indicator
+    # this schema has (on `documents` only) -- its presence is a real,
+    # checkable signal; its absence on every other table isn't evidence
+    # of anything (those tables have no versioning concept at all), so
+    # only `documents` rows are actually scored on this dimension.
+    original = db_record.get("version") not in (None, "") if "version" in db_record else True
+
+    status_columns_present = [col for col in _STATUS_COLUMNS if col in db_record]
+    accurate = (
+        all(db_record.get(col) is not None for col in status_columns_present)
+        if status_columns_present
+        else True
+    )
+
+    # Complete: every column this row actually has is populated -- a
+    # real, generic completeness check across any of the ten tables, not
+    # specific to one shape. `id`/`system_id` are excluded: their
+    # presence is guaranteed by the SQL that fetched this row at all and
+    # checking them adds no signal.
+    checkable_fields = {k: v for k, v in db_record.items() if k not in ("id", "system_id")}
+    complete = all(v is not None and v != "" for v in checkable_fields.values())
+
+    # Consistent: the fetched record's own id is genuinely one of the
+    # finding's own claimed evidence ids -- proves the record verifying
+    # this finding is actually the evidence the finding cites, not a
+    # mismatched fetch (Bible: "identifiers... do not contradict the
+    # available records").
+    evidence_ids = finding.get("evidence_ids") or []
+    consistent = db_record.get("id") in evidence_ids if evidence_ids else True
+
+    # Enduring/Available: true by construction, not assumed -- by the time
+    # this function runs, `db_record` was already successfully retrieved
+    # from Postgres's durable store via the same read path any authorized
+    # user's own query would use (verify_finding already returned
+    # INSUFFICIENT_EVIDENCE before ever reaching here if that read had
+    # failed). This is a real guarantee this specific call already
+    # proved, not a hardcoded default standing in for one.
+    enduring = True
+    available = True
+
+    return ALCOAScore(
+        attributable=attributable,
+        legible=legible,
+        contemporaneous=contemporaneous,
+        original=original,
+        accurate=accurate,
+        complete=complete,
+        consistent=consistent,
+        enduring=enduring,
+        available=available,
+    )
+
+
 async def verify_finding(pool, finding: dict) -> Dict[str, Any]:
     """Fetch the real evidence record; when absent, skip the policy call
     entirely and return `INSUFFICIENT_EVIDENCE` (no policy call is needed
     to know the evidence is absent). Otherwise call the real OPA sidecar
-    (never a mock, never a second Python copy of the rule logic) and score
-    the result via `calculate_confidence()`."""
+    (never a mock, never a second Python copy of the rule logic), compute
+    a real per-record ALCOA+ score from that same fetched record (SENT-9-01
+    -- overwrites whatever placeholder `alcoa_score` the originating agent
+    attached, in place, so the AssuranceCard the caller already holds a
+    reference to reflects the real score with no further plumbing), and
+    score the result via `calculate_confidence()`."""
     rule_ids: List[str] = finding.get("regulatory_citations") or []
     evidence_ids: List[str] = finding.get("evidence_ids") or []
 
@@ -242,6 +369,8 @@ async def verify_finding(pool, finding: dict) -> Dict[str, Any]:
             "opa_rule_ids": rule_ids,
             "evidence_ids": evidence_ids,
         }
+
+    finding["alcoa_score"] = calculate_alcoa_score(db_record, finding).model_dump()
 
     payload = await build_opa_payload(pool, finding)
     violations = await evaluate_opa_policy(payload)

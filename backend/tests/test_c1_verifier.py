@@ -45,6 +45,7 @@ from app.agents.c1_verifier import (
     RULE_EVIDENCE_TABLES,
     RULE_OPA_INPUT,
     build_opa_payload,
+    calculate_alcoa_score,
     calculate_confidence,
     fetch_evidence_record,
     run_c1,
@@ -121,6 +122,140 @@ class _PoisonPool:
 
     async def fetch(self, *args, **kwargs):
         raise AssertionError("fetch must not be called on this path")
+
+
+# ---------------------------------------------------------------------------
+# UNIT -- calculate_alcoa_score() (SENT-9-01): each of the nine dimensions
+# checked independently against synthetic record shapes matching this
+# schema's real column names, so each assertion pins one dimension's real
+# behavior rather than an end-to-end grade that could pass for the wrong
+# reason.
+# ---------------------------------------------------------------------------
+
+
+def test_unit_attributable_true_when_a_recognised_who_column_is_populated():
+    record = {"id": "DOC-1", "author": "jsmith"}
+    assert calculate_alcoa_score(record, {}).attributable is True
+
+
+def test_unit_attributable_false_when_no_who_column_present_or_populated():
+    assert calculate_alcoa_score({"id": "REQ-1"}, {}).attributable is False
+    assert calculate_alcoa_score({"id": "DOC-1", "author": None}, {}).attributable is False
+
+
+def test_unit_legible_true_when_no_text_column_exists_on_this_table():
+    # e.g. `periodic_evaluations` has no description/title/req_text/
+    # risk_summary column at all -- nothing to check, so this dimension
+    # defaults True rather than being fabricated as False.
+    record = {"id": "PE-1", "due_date_ns": 123, "status": "DUE"}
+    assert calculate_alcoa_score(record, {}).legible is True
+
+
+def test_unit_legible_false_when_present_text_column_is_empty():
+    record = {"id": "REQ-1", "req_text": ""}
+    assert calculate_alcoa_score(record, {}).legible is False
+
+
+def test_unit_legible_true_when_present_text_column_is_populated():
+    record = {"id": "REQ-1", "req_text": "The system shall log all access attempts."}
+    assert calculate_alcoa_score(record, {}).legible is True
+
+
+def test_unit_contemporaneous_true_for_a_real_past_timestamp():
+    record = {"id": "PE-1", "due_date_ns": 1000}  # far in the past
+    assert calculate_alcoa_score(record, {}).contemporaneous is True
+
+
+def test_unit_contemporaneous_false_when_no_timestamp_column_present():
+    # e.g. `requirements` has no timestamp column at all in this schema.
+    record = {"id": "REQ-1", "req_text": "some text"}
+    assert calculate_alcoa_score(record, {}).contemporaneous is False
+
+
+def test_unit_contemporaneous_false_for_a_future_dated_anomaly():
+    far_future_ns = int(1e19)  # comfortably past any real epoch
+    record = {"id": "PE-1", "due_date_ns": far_future_ns}
+    assert calculate_alcoa_score(record, {}).contemporaneous is False
+
+
+def test_unit_original_true_when_documents_version_is_populated():
+    record = {"id": "DOC-1", "version": "1.0"}
+    assert calculate_alcoa_score(record, {}).original is True
+
+
+def test_unit_original_false_when_documents_version_is_missing():
+    record = {"id": "DOC-1", "version": None}
+    assert calculate_alcoa_score(record, {}).original is False
+
+
+def test_unit_original_true_by_default_when_table_has_no_version_concept():
+    # e.g. `risks` has no `version` column at all -- nothing to check.
+    record = {"id": "RSK-1", "severity": "HIGH"}
+    assert calculate_alcoa_score(record, {}).original is True
+
+
+def test_unit_accurate_false_when_a_present_status_column_is_null():
+    record = {"id": "CHG-1", "status": None}
+    assert calculate_alcoa_score(record, {}).accurate is False
+
+
+def test_unit_accurate_true_when_status_column_is_populated():
+    record = {"id": "CHG-1", "status": "CLOSED"}
+    assert calculate_alcoa_score(record, {}).accurate is True
+
+
+def test_unit_complete_false_when_any_non_id_field_is_null_or_empty():
+    record = {"id": "PE-1", "system_id": "SYS-1", "due_date_ns": 123, "status": None}
+    assert calculate_alcoa_score(record, {}).complete is False
+
+
+def test_unit_complete_true_when_every_non_id_field_is_populated():
+    record = {"id": "PE-1", "system_id": "SYS-1", "due_date_ns": 123, "status": "DUE"}
+    assert calculate_alcoa_score(record, {}).complete is True
+
+
+def test_unit_consistent_true_when_record_id_is_among_findings_evidence_ids():
+    record = {"id": "PE-2024-01"}
+    finding = {"evidence_ids": ["PE-2024-01"]}
+    assert calculate_alcoa_score(record, finding).consistent is True
+
+
+def test_unit_consistent_false_when_record_id_does_not_match_evidence_ids():
+    # Proves this is a real check, not a tautology -- a fetched record
+    # whose id doesn't match what the finding claims as its own evidence
+    # must be caught, even though `verify_finding`'s own fetch path in
+    # practice always fetches by the finding's first evidence_id (this
+    # unit test exercises the function directly, independent of that
+    # caller's own guarantee).
+    record = {"id": "PE-OTHER"}
+    finding = {"evidence_ids": ["PE-2024-01"]}
+    assert calculate_alcoa_score(record, finding).consistent is False
+
+
+def test_unit_enduring_and_available_are_true_for_any_fetched_record():
+    # Both are true by construction: this function only ever runs on a
+    # record that was already successfully, durably fetched from Postgres.
+    score = calculate_alcoa_score({"id": "ANYTHING"}, {})
+    assert score.enduring is True
+    assert score.available is True
+
+
+def test_unit_real_score_differs_between_two_different_real_record_shapes():
+    # The whole point of SENT-9-01: two different records must NOT produce
+    # the same score just because both are "some record" -- a complete,
+    # attributable, contemporaneous document scores higher than a bare
+    # partial record with none of that.
+    rich_record = {
+        "id": "DOC-1", "system_id": "SYS-1", "author": "jsmith",
+        "created_date": 1000, "version": "2.0", "status": "APPROVED",
+        "title": "SOP-001",
+    }
+    sparse_record = {"id": "REQ-1", "system_id": "SYS-1"}
+
+    rich_score = calculate_alcoa_score(rich_record, {"evidence_ids": ["DOC-1"]})
+    sparse_score = calculate_alcoa_score(sparse_record, {"evidence_ids": ["REQ-1"]})
+
+    assert sum(rich_score.model_dump().values()) > sum(sparse_score.model_dump().values())
 
 
 # ---------------------------------------------------------------------------
@@ -271,11 +406,22 @@ def test_negative_evid02_fabricated_evidence_short_circuits_before_opa_call(monk
     assert calls["n"] == 0
 
 
-def test_negative_positive_control_truthful_claim_against_real_row_scores_medium():
+def test_negative_positive_control_truthful_claim_against_real_row_scores_high():
     # In the same module as the two negative fixtures above: a truthful
     # claim against the real, genuinely overdue PE-2024-01 row must still
-    # corroborate and score MEDIUM -- proving the negative results above
-    # are discrimination, not a mechanism that always refuses.
+    # corroborate -- proving the negative results above are discrimination,
+    # not a mechanism that always refuses.
+    #
+    # SENT-9-01: this graded MEDIUM before real per-record ALCOA+ scoring
+    # replaced the fixed `ALCOAScore()` default every finding used to carry
+    # regardless of its actual record. `_agent_finding`'s fixture default is
+    # now irrelevant to the grade -- `verify_finding` overwrites it with a
+    # real score computed from `periodic_evaluations`' actual columns
+    # (`due_date_ns`, `status`), and PE-2024-01 genuinely has both
+    # populated, non-future, internally consistent (its own `id` matches
+    # the finding's `evidence_ids`) -- 8 of 9 real dimensions true (only
+    # `attributable` is false: `periodic_evaluations` has no author/owner
+    # column at all), grading HIGH rather than the old constant MEDIUM.
     finding = _agent_finding(
         "TEST-POSITIVE-PE-2024-01",
         "ANNEX11-S11-PE-001",
@@ -291,7 +437,7 @@ def test_negative_positive_control_truthful_claim_against_real_row_scores_medium
     result = asyncio.run(_run())
     assert result["db_record_found"] is True
     assert result["opa_corroborated"] is True
-    assert result["confidence"] == "MEDIUM"
+    assert result["confidence"] == "HIGH"
 
 
 # ---------------------------------------------------------------------------
@@ -366,7 +512,10 @@ def test_integration_run_c1_mixed_list_returns_three_distinct_graded_entries():
     result = asyncio.run(_run())
     verification = result["verification_results"]
     assert set(verification.keys()) == {"MIX-PE-2024-01", "MIX-DOC-2026-URS-01", "MIX-PE-9999-FAKE"}
-    assert verification["MIX-PE-2024-01"]["confidence"] == "MEDIUM"
+    # SENT-9-01: see test_negative_positive_control_truthful_claim_against_
+    # real_row_scores_high's comment -- PE-2024-01's real ALCOA+ dimensions
+    # (8 of 9 true) now grade HIGH, not the old fixed-default MEDIUM.
+    assert verification["MIX-PE-2024-01"]["confidence"] == "HIGH"
     assert verification["MIX-DOC-2026-URS-01"]["confidence"] == "INSUFFICIENT_EVIDENCE"
     assert verification["MIX-PE-9999-FAKE"]["confidence"] == "INSUFFICIENT_EVIDENCE"
 

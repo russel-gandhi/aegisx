@@ -51,8 +51,11 @@ import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
 
+import networkx as nx
+
 from app.agents.a0_orchestrator import extract_user_query
 from app.db import acquire_pool_or_none
+from app.graph.evidence_graph import blast_radius, load_graph, make_node_id
 from app.llm_router import LLMResponse, call_llm
 from app.retrieval.hybrid_search import hybrid_retrieve
 from app.schemas import ALCOAScore
@@ -130,6 +133,24 @@ A6_SYSTEM_PROMPT = (
     "to a departed user, flag this as a critical violation of EU GMP "
     "Annex 11 Section 12.\n\n"
     "Output your response in the precise AgentFinding JSON schema."
+)
+
+# SENT-8-05: found live 2026-09-02, mirrors `a2_compliance.py`'s identical
+# fix and identical rationale -- every one of A3/A4/A5/A6's system prompts
+# above ends with "Output your response in the precise AgentFinding JSON
+# schema," directly contradicting `_narrate_gap`'s/`_narrate_a3`'s own
+# user-prompt instruction ("Write one compliance finding sentence"). The
+# model correctly followed its system prompt and returned JSON; the
+# `_is_json_shaped` guard then correctly rejected it -- meaning the system
+# prompts' own wording, not any cascade/rate-limit failure, was silently
+# forcing fallback on most narration calls. Appended only to the
+# system_instruction actually sent for this one narrow, one-sentence
+# narration call -- the four constants above stay bible-literal/unedited
+# for whatever future full-AgentFinding-JSON call path may still want them.
+_NARRATION_ONLY_OVERRIDE = (
+    "\n\nFor THIS specific response only: output plain prose text, exactly "
+    "one sentence, not JSON, not the AgentFinding schema -- the instruction "
+    "above about JSON output does not apply to this particular request."
 )
 
 
@@ -216,22 +237,81 @@ def _narration_prompt(rule_id: str, record: Dict[str, Any]) -> str:
 
 # --- A3: risk assessment (rule ICH-Q9-RSK-001) ----------------------------
 
+# SENT-9-02: Bible Section 2's A3 entry names `calculate_risk_score(severity,
+# probability) -> int` as a required deterministic check and its own system
+# prompt (A3_SYSTEM_PROMPT) is explicit -- "Never invent a black-box score.
+# Always multiply Severity by Probability as defined in the rubric." -- but
+# no code anywhere ever computed one; A3 was a bare overdue-date check with
+# no severity/probability math at all. The Bible names a `demo_risk_rubric.
+# yaml` but never publishes its actual band definitions anywhere in the
+# document, so the two four-level ICH Q9(R1)-standard scales and the
+# resulting classification bands below are this implementation's own
+# documented choice, not a bible transcription -- built from `risks`'
+# real `severity`/`probability` columns (confirmed live against the seeded
+# RSK-2024-11 row: `severity='HIGH'`, `probability='OCCASIONAL'`), never
+# invented per-record.
+_SEVERITY_SCALE: Dict[str, int] = {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+_PROBABILITY_SCALE: Dict[str, int] = {"REMOTE": 1, "OCCASIONAL": 2, "PROBABLE": 3, "FREQUENT": 4}
+
+
+def calculate_risk_score(severity: Optional[str], probability: Optional[str]) -> Optional[int]:
+    """Bible Section 2's own named deterministic check for A3, literal
+    signature. Returns `None` (never a guessed number) when either input
+    isn't one of this rubric's recognised levels -- an unrecognised or
+    missing severity/probability value is an honest "cannot score this,"
+    not a silent default."""
+    severity_score = _SEVERITY_SCALE.get((severity or "").upper())
+    probability_score = _PROBABILITY_SCALE.get((probability or "").upper())
+    if severity_score is None or probability_score is None:
+        return None
+    return severity_score * probability_score
+
+
+def classify_risk_score(score: Optional[int]) -> str:
+    """Maps `calculate_risk_score`'s 1-16 product onto a four-band risk
+    classification (this implementation's own documented bands -- see
+    `_SEVERITY_SCALE`'s comment for why no bible-given thresholds exist to
+    transcribe instead). `None` in, `"UNSCORABLE"` out -- never silently
+    coerced to a middling class."""
+    if score is None:
+        return "UNSCORABLE"
+    if score <= 4:
+        return "LOW"
+    if score <= 8:
+        return "MEDIUM"
+    if score <= 12:
+        return "HIGH"
+    return "CRITICAL"
+
+
 def _sentence_a3(record: Dict[str, Any]) -> str:
-    return (
+    base = (
         f"Risk assessment {record['id']} exceeds the ICH Q9(R1) 12-month "
         f"review cycle (last_review_date_ns={record['last_review_date_ns']!r}) "
         "and requires reassessment of patient safety and business "
         "continuity impact."
     )
+    risk_score = record.get("risk_score")
+    if risk_score is not None:
+        base += (
+            f" Deterministic risk score (severity {record.get('severity')} x "
+            f"probability {record.get('probability')}): {risk_score}/16, "
+            f"classified {record.get('risk_class')}."
+        )
+    return base
 
 
 async def _check_a3(pool: Any, system_id: str) -> Dict[str, Any]:
     row = await pool.fetchrow(
-        "SELECT id, last_review_date_ns FROM risks WHERE system_id = $1 "
-        "ORDER BY last_review_date_ns ASC LIMIT 1",
+        "SELECT id, last_review_date_ns, severity, probability FROM risks "
+        "WHERE system_id = $1 ORDER BY last_review_date_ns ASC LIMIT 1",
         system_id,
     )
     record = dict(row) if row is not None else None
+    if record is not None:
+        risk_score = calculate_risk_score(record.get("severity"), record.get("probability"))
+        record["risk_score"] = risk_score
+        record["risk_class"] = classify_risk_score(risk_score)
     gap = record is not None and _days_elapsed(record["last_review_date_ns"]) > 365
     return {
         "rule_id": "ICH-Q9-RSK-001",
@@ -278,32 +358,100 @@ def _strip_markdown_code_fence(text: str) -> str:
 async def _narrate_a3(rule_id: str, record: Dict[str, Any], sentence_fn: Callable) -> (str, str):
     """A3's Bible failure behavior: "Downgrades to gemini_flash_thinking
     if DeepSeek API times out (>10s)." - one retry via the `orchestrator`
-    task (the thinking-on Gemini entry the Bible names), then the
-    deterministic sentence if that also fails."""
+    task, then the deterministic sentence if that also fails.
+
+    SENT-9-05: the Bible's "downgrades to gemini_flash_thinking" no longer
+    describes what actually happens -- neither Gemini nor DeepSeek are
+    wired anywhere in `llm_router.PROVIDER_CONFIG` any more, and both
+    `task="risk_assessment"` (primary) and `task="orchestrator"` (this
+    retry) resolve to the same `ollama_qwen` entry today. The retry still
+    has real value, just via a different mechanism than the Bible
+    describes: if the primary attempt tripped `ollama_qwen`'s circuit
+    breaker (SENT-8-02), this second `call_llm` invocation starts its own
+    fresh cascade and skips the now-open breaker straight to
+    `groq_gpt_oss`/`openrouter_fallback` -- a real second chance, not a
+    no-op retry against the identical failure."""
     prompt = _narration_prompt(rule_id, record)
+    system_instruction = A3_SYSTEM_PROMPT + _NARRATION_ONLY_OVERRIDE
     response = await _safe_call_llm(
-        task="risk_assessment", prompt=prompt, system_instruction=A3_SYSTEM_PROMPT
+        task="risk_assessment", prompt=prompt, system_instruction=system_instruction
     )
     if response is None or response.degraded:
         logger.warning(
-            "A3 primary provider unavailable; downgrading to gemini_flash_thinking and retrying once."
+            "A3 primary provider unavailable; retrying once via a fresh cascade attempt."
         )
         response = await _safe_call_llm(
-            task="orchestrator", prompt=prompt, system_instruction=A3_SYSTEM_PROMPT
+            task="orchestrator", prompt=prompt, system_instruction=system_instruction
         )
     if response is not None and not response.degraded and not _is_json_shaped(response.text):
         return response.text, response.model_id
+    # SENT-8-05: see _narrate_gap's identical comment -- this final
+    # fallback (after both the primary attempt and the one retry above)
+    # was previously silent.
+    if response is None:
+        logger.warning("A3 narration: call_llm raised unexpectedly; using deterministic sentence.")
+    elif response.degraded:
+        logger.warning(
+            "A3 narration degraded on both attempts (%s); using deterministic sentence.",
+            response.failure_reason,
+        )
+    else:
+        logger.warning(
+            "A3 narration rejected: model echoed JSON-shaped text instead of prose; "
+            "using deterministic sentence. Raw text: %r",
+            response.text[:200],
+        )
     return sentence_fn(record), "deterministic-fallback"
 
 
 # --- A4: change record completeness (rule ANNEX11-S10-CHG-001) -----------
 
 def _sentence_a4(record: Dict[str, Any]) -> str:
-    return (
+    base = (
         f"Change {record['change_id']} is CLOSED but linked action "
         f"{record['action_id']} remains OPEN, a violation of EU GMP Annex "
         "11 Section 10 change-control completeness."
     )
+    # SENT-9-03: when the graph traversal below found real downstream
+    # nodes, say so in the deterministic sentence too -- not just in
+    # decorative LLM narration -- so "trace their impact through the
+    # evidence graph" (A4_SYSTEM_PROMPT's own claim) is true even on the
+    # fallback path.
+    downstream_count = record.get("downstream_node_count")
+    if downstream_count:
+        impact = record.get("potential_gxp_impact") or "UNKNOWN"
+        base += (
+            f" Blast radius: {downstream_count} downstream node(s) affected, "
+            f"potential GxP impact {impact}."
+        )
+    return base
+
+
+async def _change_impact_summary(pool: Any, system_id: str, change_id: str) -> Optional[Dict[str, Any]]:
+    """Real graph traversal for A4 (SENT-9-03) -- reuses the identical
+    `blast_radius`/`load_graph` machinery Blast Radius's own HTTP route
+    already uses (`routes/evidence_graph.py`), never a second copy of the
+    traversal logic. Reads the cached graph only (`load_graph`, never
+    `build_graph`) -- A4 must not pay a full graph rebuild on every
+    fan-out call, matching the same cost tradeoff the HTTP route itself
+    already made.
+
+    Returns `None` (never raises) when the graph cache has no matching
+    node yet -- a change whose graph entry hasn't been rebuilt since
+    creation is an honest, expected gap, not a server error; A4's finding
+    still reports the deterministic gap itself either way, just without
+    the impact enrichment."""
+    try:
+        graph = await load_graph(pool, system_id)
+        radius = blast_radius(graph, make_node_id("CHANGE", change_id))
+    except (nx.NetworkXError, KeyError):
+        return None
+    downstream_count = len(radius["direct_dependencies"]) + len(radius["indirect_dependencies"])
+    return {
+        "downstream_node_count": downstream_count,
+        "potential_gxp_impact": radius["potential_gxp_impact"],
+        "affected_systems": radius["affected_systems"],
+    }
 
 
 async def _check_a4(pool: Any, system_id: str) -> Dict[str, Any]:
@@ -315,6 +463,10 @@ async def _check_a4(pool: Any, system_id: str) -> Dict[str, Any]:
         system_id,
     )
     record = dict(row) if row is not None else None
+    if record is not None:
+        impact = await _change_impact_summary(pool, system_id, record["change_id"])
+        if impact is not None:
+            record.update(impact)
     return {
         "rule_id": "ANNEX11-S10-CHG-001",
         "record": record,
@@ -518,9 +670,33 @@ async def _narrate_gap(
     both of A6's checks (mirrors `app.agents.a2_compliance.narrate_gap`).
     A3 uses `_narrate_a3` instead, for its extra downgrade-and-retry step."""
     prompt = _narration_prompt(rule_id, record)
-    response = await _safe_call_llm(task=task, prompt=prompt, system_instruction=system_prompt)
+    response = await _safe_call_llm(
+        task=task, prompt=prompt, system_instruction=system_prompt + _NARRATION_ONLY_OVERRIDE
+    )
     if response is not None and not response.degraded and not _is_json_shaped(response.text):
         return response.text, response.model_id
+    # SENT-8-05: this fallback was previously silent -- no log line
+    # distinguished "the LLM cascade genuinely failed" (response.degraded,
+    # whose own reason already logged inside call_llm's cascade loop) from
+    # "the LLM answered but this function rejected the shape" (a real,
+    # separate failure mode: `_is_json_shaped` true means the model echoed
+    # JSON instead of prose, which happens more than expected on a local
+    # 7B model even with `json_output=False`). Logging which branch fired
+    # is the only way to tell those apart without re-deriving it live
+    # again the next time fallback rate looks wrong.
+    if response is None:
+        logger.warning("%s narration: call_llm raised unexpectedly; using deterministic sentence.", task)
+    elif response.degraded:
+        logger.warning(
+            "%s narration degraded (%s); using deterministic sentence.",
+            task, response.failure_reason,
+        )
+    else:
+        logger.warning(
+            "%s narration rejected: model echoed JSON-shaped text instead of prose; "
+            "using deterministic sentence. Raw text: %r",
+            task, response.text[:200],
+        )
     return sentence_fn(record), "deterministic-fallback"
 
 

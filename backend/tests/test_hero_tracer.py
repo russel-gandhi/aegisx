@@ -153,7 +153,7 @@ def _finding_by_id(result, finding_id):
     return matches[0]
 
 
-def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
+def test_success_path_real_finding_verified_high_confidence(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
@@ -195,7 +195,11 @@ def test_success_path_real_finding_verified_medium_confidence(monkeypatch):
     entry = verification[EXPECTED_FINDING_ID]
     assert entry["db_record_found"] is True
     assert entry["opa_corroborated"] is True
-    assert entry["confidence"] == "MEDIUM"
+    # SENT-9-01: PE-2024-01's real per-record ALCOA+ score (8 of 9
+    # dimensions true against `periodic_evaluations`' actual columns) now
+    # grades HIGH, not the old fixed-`ALCOAScore()`-default MEDIUM -- see
+    # test_c1_verifier.py's identical fix for the full derivation.
+    assert entry["confidence"] == "HIGH"
 
     # Plan 03-05 fixed build_opa_payload()'s multi-input-key resolution
     # (see module docstring): rule 5's test_cases input is now correctly
@@ -245,7 +249,10 @@ def test_degraded_path_no_provider_key_same_finding_and_score(monkeypatch):
     assert trc_finding["claim"]  # non-empty
 
     entry = result["verification_results"][EXPECTED_FINDING_ID]
-    assert entry["confidence"] == "MEDIUM"
+    # SENT-9-01: see test_success_path's identical comment -- grades HIGH
+    # now, same real per-record ALCOA+ reasoning, independent of narration
+    # provider health (this is the degraded/no-key path).
+    assert entry["confidence"] == "HIGH"
     # See test_success_path's comment: plan 03-05 fixed build_opa_payload(),
     # so this now corroborates and scores MEDIUM in the degraded path too —
     # narration provider degradation is orthogonal to C1's own verification.

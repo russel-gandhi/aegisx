@@ -26,7 +26,10 @@ from app.agents.minimal_specialists import (
     SPECIALIST_CONFIG,
     _a1_abstain_finding,
     _is_json_shaped,
+    _sentence_a3,
     _strip_markdown_code_fence,
+    calculate_risk_score,
+    classify_risk_score,
     run_a1,
     run_a3,
     run_a4,
@@ -301,6 +304,158 @@ def test_a4_emits_finding_from_direct_change_metadata_only(monkeypatch):
     assert finding["finding_id"] == "A4-ANNEX11-S10-CHG-001-CR-2026-089"
     assert finding["evidence_ids"] == ["CR-2026-089"]
     assert finding["model_attribution"] == "deterministic-fallback"
+
+
+def test_a4_deterministic_sentence_includes_real_blast_radius_when_graph_cache_has_it(monkeypatch):
+    # SENT-9-03: A4 now traces impact through the real evidence graph
+    # (`app.graph.evidence_graph.blast_radius`), reusing the identical
+    # cached-graph read Blast Radius's own HTTP route uses -- never a
+    # second copy of the traversal. Against the live seeded
+    # GXP-MFG-DEMO-01 graph cache, CHANGE:CR-2026-089 has real downstream
+    # nodes (confirmed directly this session: CHANGE_ACTION, DESIGN_ELEMENT,
+    # DOCUMENT, REQUIREMENT direct; SYSTEM, TEST_CASE indirect), so the
+    # deterministic sentence itself -- not just decorative LLM narration --
+    # must report a non-zero blast radius, proving this is a real
+    # traversal against real cached state, not a hardcoded string.
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            return await run_a4(_state())
+
+    result = asyncio.run(_run())
+    finding = result["findings"][0]
+    assert "Blast radius:" in finding["claim"]
+    assert "downstream node(s) affected" in finding["claim"]
+
+
+async def _rebuild_gxp_demo_graph_cache() -> None:
+    """Shared setup for the two tests below: ensures GXP-MFG-DEMO-01's
+    graph_nodes/graph_edges cache reflects live domain-table state before
+    each asserts against it -- mirrors test_routes_evidence_graph.py's own
+    `_rebuild` convention rather than assuming a prior test left the cache
+    in the right state."""
+    from app.db import get_pool
+    from app.graph.evidence_graph import build_graph, persist_graph
+
+    pool = await get_pool()
+    graph = await build_graph(pool, SYSTEM_ID)
+    await persist_graph(pool, SYSTEM_ID, graph)
+
+
+def test_change_impact_summary_returns_real_downstream_counts_for_seeded_change():
+    from app.agents.minimal_specialists import _change_impact_summary
+    from app.db import get_pool
+
+    async def _run():
+        await _rebuild_gxp_demo_graph_cache()
+        pool = await get_pool()
+        return await _change_impact_summary(pool, SYSTEM_ID, "CR-2026-089")
+
+    summary = asyncio.run(_run())
+    assert summary is not None
+    assert summary["downstream_node_count"] > 0
+    assert summary["potential_gxp_impact"] in {"NONE", "LOW", "MEDIUM", "HIGH", "CRITICAL"}
+
+
+def test_change_impact_summary_returns_none_for_a_change_not_in_the_graph_cache():
+    from app.agents.minimal_specialists import _change_impact_summary
+    from app.db import get_pool
+
+    async def _run():
+        await _rebuild_gxp_demo_graph_cache()
+        pool = await get_pool()
+        return await _change_impact_summary(pool, SYSTEM_ID, "CHG-DOES-NOT-EXIST-999")
+
+    assert asyncio.run(_run()) is None
+
+
+# ---------------------------------------------------------------------------
+# SENT-9-02: A3 real risk scoring -- calculate_risk_score/classify_risk_score
+# ---------------------------------------------------------------------------
+
+
+def test_calculate_risk_score_multiplies_severity_by_probability():
+    # Bible's A3_SYSTEM_PROMPT, verbatim: "Always multiply Severity by
+    # Probability as defined in the rubric." Confirmed live against the
+    # seeded RSK-2024-11 row's real values.
+    assert calculate_risk_score("HIGH", "OCCASIONAL") == 3 * 2
+
+
+def test_calculate_risk_score_covers_full_scale_range():
+    assert calculate_risk_score("LOW", "REMOTE") == 1
+    assert calculate_risk_score("CRITICAL", "FREQUENT") == 16
+
+
+def test_calculate_risk_score_is_case_insensitive():
+    assert calculate_risk_score("high", "occasional") == calculate_risk_score("HIGH", "OCCASIONAL")
+
+
+def test_calculate_risk_score_returns_none_for_unrecognised_severity():
+    assert calculate_risk_score("EXTREME", "OCCASIONAL") is None
+
+
+def test_calculate_risk_score_returns_none_for_unrecognised_probability():
+    assert calculate_risk_score("HIGH", "ALWAYS") is None
+
+
+def test_calculate_risk_score_returns_none_for_missing_values():
+    assert calculate_risk_score(None, "OCCASIONAL") is None
+    assert calculate_risk_score("HIGH", None) is None
+
+
+def test_classify_risk_score_bands():
+    assert classify_risk_score(1) == "LOW"
+    assert classify_risk_score(4) == "LOW"
+    assert classify_risk_score(5) == "MEDIUM"
+    assert classify_risk_score(8) == "MEDIUM"
+    assert classify_risk_score(9) == "HIGH"
+    assert classify_risk_score(12) == "HIGH"
+    assert classify_risk_score(13) == "CRITICAL"
+    assert classify_risk_score(16) == "CRITICAL"
+
+
+def test_classify_risk_score_unscorable_for_none():
+    assert classify_risk_score(None) == "UNSCORABLE"
+
+
+def test_sentence_a3_includes_real_score_when_present():
+    record = {
+        "id": "RSK-2024-11", "last_review_date_ns": 1723718400000000000,
+        "severity": "HIGH", "probability": "OCCASIONAL",
+        "risk_score": 6, "risk_class": "MEDIUM",
+    }
+    sentence = _sentence_a3(record)
+    assert "6/16" in sentence
+    assert "MEDIUM" in sentence
+    assert "HIGH" in sentence
+    assert "OCCASIONAL" in sentence
+
+
+def test_sentence_a3_omits_score_clause_when_absent():
+    # A record with an unrecognised severity/probability combination
+    # (risk_score is None) must not silently print "None/16" -- the
+    # clause is omitted entirely rather than showing a fake number.
+    record = {"id": "RSK-X", "last_review_date_ns": 123, "risk_score": None}
+    sentence = _sentence_a3(record)
+    assert "/16" not in sentence
+
+
+def test_a3_deterministic_check_attaches_real_score_for_seeded_risk(monkeypatch):
+    # Integration: run_a3's own deterministic check (not the unit-level
+    # helpers above) against the live seeded RSK-2024-11 row, proving the
+    # score is actually wired into the real check path, not just callable
+    # in isolation.
+    _delete_all_keys(monkeypatch)
+
+    async def _run():
+        with respx.mock:
+            return await run_a3(_state())
+
+    result = asyncio.run(_run())
+    finding = result["findings"][0]
+    assert "6/16" in finding["claim"]
+    assert "MEDIUM" in finding["claim"]
 
 
 def test_a5_provider_failure_still_emits_rule_only_overdue_rca_finding(monkeypatch):

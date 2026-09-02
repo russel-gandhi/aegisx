@@ -50,14 +50,16 @@ REMEDIATION-PLAN.md #6 registers a ninth and tenth router: `GET
 /api/systems` and `GET /api/systems/{id}/readiness` from
 `app.routes.systems`, and `POST /api/opa/evaluate` (Bible lists this as
 GET; see `app.routes.opa`'s own docstring for why that's a deliberate
-deviation) from `app.routes.opa` -- closing two of the four remaining
-gaps against the Bible's original ten-endpoint list this docstring's
-opening paragraph names. `POST /api/reports/evidence-pack` remains
-unbuilt: it requires WeasyPrint, which needs native GTK/Pango/Cairo
-libraries this project has no provisioning path for yet (no backend
-Dockerfile exists anywhere in this repo to install them into, and they
-don't install via pip alone on Windows) -- implementing it without a way
-to verify it actually runs would be shipping untested code, not a fix.
+deviation) from `app.routes.opa`.
+
+SENT-9-04 registers an eleventh router: `POST /api/reports/evidence-pack`
+from `app.routes.reports` -- closing the last gap against the Bible's
+original ten-endpoint list this docstring's opening paragraph names.
+WeasyPrint (the Bible's named generator) still cannot import on this
+Windows dev machine (missing native GTK/Pango/Cairo, no provisioning
+path); `app.routes.reports` uses `reportlab` instead -- a pure-Python PDF
+library with no native dependency -- documented as a deliberate deviation
+in that module's own docstring rather than left unbuilt indefinitely.
 
 Quick task 260826-p1q (Task 3) adds a `lifespan` context manager: on
 startup it schedules `app.prewarm.prewarm_narration_cache()` as a
@@ -93,6 +95,7 @@ from app.routes.documents import router as documents_router
 from app.routes.evidence_graph import router as evidence_graph_router
 from app.routes.findings import router as findings_router
 from app.routes.opa import router as opa_router
+from app.routes.reports import router as reports_router
 from app.routes.suppliers import router as suppliers_router
 from app.routes.system_signals import router as system_signals_router
 from app.routes.systems import router as systems_router
@@ -156,6 +159,7 @@ app.include_router(systems_router)
 app.include_router(opa_router)
 app.include_router(suppliers_router)
 app.include_router(trust_centre_router)
+app.include_router(reports_router)
 
 
 @app.get("/api/health")

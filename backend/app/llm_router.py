@@ -57,14 +57,17 @@ construction to return a canned string.
 import asyncio
 import logging
 import os
+import re
 from typing import Any, Dict, Optional
 
 import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
+from app.circuit_breaker import is_available, record_rate_limited, record_success, record_timeout
+from app.concurrency_gate import GateBusyError, acquire_slot
 from app.http_client import get_shared_client
-from app.rate_limiter import acquire_rate_limit
+from app.rate_limiter import TokenBudgetExceededError, acquire_rate_limit, record_token_usage
 
 load_dotenv()
 
@@ -128,6 +131,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": ("GROQ_API_KEY",),
         "rpm_limit": 300,
+        # SENT-8-01, confirmed live 2026-09-02 via the real
+        # `x-ratelimit-limit-tokens` response header: this account's real
+        # binding constraint on `openai/gpt-oss-120b` is 8,000 tokens per
+        # minute, not the 300-request rpm_limit above -- a reasoning model
+        # burns hidden reasoning tokens on every call, so request count
+        # alone massively understates real load. `None` here (every other
+        # entry) means "no known token constraint, request-count limiting
+        # only" -- the acquire_rate_limit token check is a no-op for them.
+        "tpm_limit": 8000,
         "use_for": ["incident", "access", "high_volume", "narration", "remediation"],
     },
     "openrouter_fallback": {
@@ -164,6 +176,102 @@ FALLBACK_CASCADE: tuple[str, ...] = (
     "groq_gpt_oss",
     "openrouter_fallback",
 )
+
+
+# SENT-8-01: rough per-task completion-token budgets, used only to build a
+# pre-flight token-cost *estimate* for the rate limiter -- never to bound
+# the actual request (that's `max_tokens`/generation config elsewhere, if
+# any). "narration" and "rerank" are one-sentence/one-score outputs;
+# "orchestrator"/"compliance"/"risk_assessment"/"remediation" are judgment
+# tasks whose completion (and, on a reasoning model, hidden reasoning
+# trace) runs meaningfully longer. Deliberately conservative (rounds up)
+# since under-estimating defeats the point of a pre-flight check.
+_TASK_COMPLETION_TOKEN_BUDGET: Dict[str, int] = {
+    "narration": 250,
+    "rerank": 150,
+    "orchestrator": 400,
+    "synthesis": 400,
+    "compliance": 500,
+    "knowledge": 500,
+    "change": 500,
+    "risk_assessment": 600,
+    "remediation": 700,
+    "incident": 500,
+    "access": 500,
+    "high_volume": 500,
+    "fallback": 500,
+}
+_DEFAULT_COMPLETION_TOKEN_BUDGET = 500
+# Rough, deliberately simple chars-per-token heuristic for the prompt side
+# of the estimate (English text averages ~4 chars/token) -- exactness
+# doesn't matter here, only staying in the right order of magnitude so the
+# limiter's pre-flight check has *some* signal instead of none.
+_CHARS_PER_TOKEN_ESTIMATE = 4
+
+
+def _estimate_request_tokens(task: str, prompt: str, system_instruction: str) -> int:
+    prompt_tokens = (len(prompt) + len(system_instruction)) // _CHARS_PER_TOKEN_ESTIMATE
+    completion_budget = _TASK_COMPLETION_TOKEN_BUDGET.get(task, _DEFAULT_COMPLETION_TOKEN_BUDGET)
+    return prompt_tokens + completion_budget
+
+
+# Groq's rate-limit headers report resets as a duration string ("13.305s",
+# "57m36s", "1h2m3.5s"), not a plain number -- this parses the h/m/s
+# components present into a total seconds float. Returns `None` for an
+# unparseable or empty string rather than raising: a header-parsing miss
+# must degrade to "no live reset data" (the limiter's existing fallback
+# path), never crash the calling request.
+_RESET_DURATION_RE = re.compile(
+    r"(?:(?P<hours>\d+)h)?(?:(?P<minutes>\d+)m)?(?:(?P<seconds>\d+(?:\.\d+)?)s)?"
+)
+
+
+def _parse_reset_duration_seconds(value: Optional[str]) -> Optional[float]:
+    if not value:
+        return None
+    match = _RESET_DURATION_RE.fullmatch(value.strip())
+    if match is None:
+        return None
+    hours = float(match.group("hours") or 0)
+    minutes = float(match.group("minutes") or 0)
+    seconds = float(match.group("seconds") or 0)
+    total = hours * 3600 + minutes * 60 + seconds
+    return total if total > 0 else None
+
+
+def _cooldown_seconds_from_429_headers(headers: "httpx.Headers") -> Optional[float]:
+    """Best-effort cooldown for the circuit breaker's OPEN state on a 429:
+    prefers the token-reset window (usually the actually-binding
+    constraint, per SENT-8-01's own finding) over the request-reset
+    window, then falls back to a plain `Retry-After` seconds header (a
+    different provider's convention) if present. `None` when nothing
+    parses, letting the caller fall back to `DEFAULT_COOLDOWN_SECONDS`."""
+    reset_tokens = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
+    if reset_tokens is not None:
+        return reset_tokens
+    reset_requests = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-requests"))
+    if reset_requests is not None:
+        return reset_requests
+    retry_after = headers.get("retry-after")
+    if retry_after is not None:
+        try:
+            return float(retry_after)
+        except ValueError:
+            return None
+    return None
+
+
+def _record_token_headers(entry_key: str, headers: "httpx.Headers") -> None:
+    """Best-effort: read `x-ratelimit-remaining-tokens`/`x-ratelimit-reset-tokens`
+    from a real response (success or 429) and feed them into the rate
+    limiter's live tracking. Silently does nothing for a provider that
+    doesn't send these headers (Ollama, and any provider not on Groq's
+    exact header convention) -- `record_token_usage` already no-ops on a
+    `None` remaining-tokens value."""
+    remaining_header = headers.get("x-ratelimit-remaining-tokens")
+    remaining = int(remaining_header) if remaining_header is not None and remaining_header.isdigit() else None
+    reset_seconds = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
+    record_token_usage(entry_key, remaining, reset_seconds)
 
 
 class LLMResponse(BaseModel):
@@ -279,7 +387,7 @@ def _parse_openai_compatible_response(entry: Dict[str, Any], data: Dict[str, Any
     return LLMResponse(text=text, model_id=model_id, provider=entry["provider"])
 
 
-async def _send_one(entry_key: str, prompt: str, system_instruction: str,
+async def _send_one(entry_key: str, task: str, prompt: str, system_instruction: str,
                      timeout: float, json_output: bool) -> LLMResponse:
     """Send a single request to the provider named by `entry_key`.
 
@@ -308,18 +416,42 @@ async def _send_one(entry_key: str, prompt: str, system_instruction: str,
     else:
         request = _build_openai_compatible_request(entry, api_key, prompt, system_instruction, json_output)
 
-    # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3): waits until
-    # this provider is back under its own declared `rpm_limit` before the
-    # request goes out, rather than only reacting to a 429 after the fact.
-    await acquire_rate_limit(entry_key, entry["rpm_limit"])
+    # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3, extended
+    # SENT-8-01): waits until this provider is back under its own declared
+    # `rpm_limit` AND (when the entry declares a `tpm_limit`, or once a
+    # prior response has reported a live remaining-token count) its real
+    # token budget, before the request goes out, rather than only reacting
+    # to a 429 after the fact.
+    estimated_tokens = _estimate_request_tokens(task, prompt, system_instruction)
+    await acquire_rate_limit(
+        entry_key, entry["rpm_limit"], estimated_tokens, entry.get("tpm_limit")
+    )
 
     # Shared, pooled client (SYSTEM-DESIGN-DIAGNOSIS.md #1) -- see
     # app.http_client's module docstring for why this replaced a per-call
     # `async with httpx.AsyncClient()`.
     client = get_shared_client()
-    response = await client.post(
-        request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
-    )
+
+    # SENT-8-03: bounded local concurrency, Ollama only -- a hosted
+    # provider's own server handles its own concurrency; a local 7B model
+    # on an 8GB GPU does not. `GateBusyError` propagates to `call_llm`'s
+    # cascade loop exactly like a timeout (see `_classify_failure`),
+    # moving on to the next hop instead of piling onto an already
+    # saturated local GPU.
+    if entry["provider"] == "ollama":
+        async with acquire_slot("ollama"):
+            response = await client.post(
+                request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
+            )
+    else:
+        response = await client.post(
+            request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
+        )
+    # Read rate-limit headers regardless of outcome -- a 429's own headers
+    # are the freshest, most authoritative signal available about this
+    # provider's real remaining budget, and `raise_for_status()` below must
+    # not skip recording them just because this particular call failed.
+    _record_token_headers(entry_key, response.headers)
     response.raise_for_status()
     data = response.json()
 
@@ -372,9 +504,25 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
     exact scenario would propagate as an unhandled exception out of
     `call_llm()`, breaking its own documented "never raises" contract at
     the moment it matters most.
+
+    `GateBusyError` (SENT-8-03) is treated identically to a timeout: the
+    local concurrency gate refusing a slot means Ollama is saturated right
+    now, not that anything is actually broken -- cascading to the next
+    provider is the correct response, and the circuit breaker should
+    accumulate it the same way a real timeout would.
+
+    `TokenBudgetExceededError` (SENT-8-01) is this router's own pre-flight
+    rejection, not a response from the provider -- but it carries exactly
+    the same information a real 429 would (this provider is out of
+    budget right now), so it cascades and trips the circuit breaker the
+    same way.
     """
     if isinstance(exc, _MissingKeyError):
         return f"missing_key:{exc.entry_key}", True
+    if isinstance(exc, TokenBudgetExceededError):
+        return f"token_budget_exceeded:{entry_key}", True
+    if isinstance(exc, GateBusyError):
+        return f"concurrency_busy:{entry_key}", True
     if isinstance(exc, httpx.TimeoutException):
         return f"timeout:{entry_key}", True
     if isinstance(exc, httpx.HTTPStatusError):
@@ -433,10 +581,56 @@ async def call_llm(
     current_key = entry_key
 
     while True:
+        # SENT-8-02: a provider the circuit breaker already knows is
+        # rate-limited/unhealthy is skipped without ever calling
+        # `_send_one` -- every concurrent agent call in the same burst
+        # that discovers the same failure independently would otherwise
+        # each pay a full wasted round trip to re-learn it.
+        if not is_available(current_key):
+            reason = f"circuit_open:{current_key}"
+            reasons.append(reason)
+            tried_providers.add(PROVIDER_CONFIG[current_key]["provider"])
+            next_key = next(
+                (
+                    key for key in FALLBACK_CASCADE
+                    if key != current_key and PROVIDER_CONFIG[key]["provider"] not in tried_providers
+                ),
+                None,
+            )
+            if next_key is None:
+                logger.warning(
+                    "LLM call skipped (provider=%s): circuit open. No more providers to cascade to.",
+                    current_key,
+                )
+                return _degraded(";".join(reasons))
+            logger.warning(
+                "LLM call skipped (provider=%s): circuit open. Cascading to %s.",
+                current_key, next_key,
+            )
+            current_key = next_key
+            continue
+
         try:
-            return await _send_one(current_key, prompt, system_instruction, timeout, json_output)
-        except (_MissingKeyError, httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError) as exc:
+            response = await _send_one(current_key, task, prompt, system_instruction, timeout, json_output)
+            record_success(current_key)
+            return response
+        except (
+            _MissingKeyError, TokenBudgetExceededError, GateBusyError, httpx.TimeoutException,
+            httpx.HTTPStatusError, httpx.RequestError,
+        ) as exc:
             reason, cascadable = _classify_failure(current_key, exc)
+
+            # Feed the breaker regardless of cascadability -- a 429 or
+            # timeout is informative about this provider's health even in
+            # the (currently theoretical, since 429/5xx/timeout are all
+            # cascadable) case a non-cascadable path reaches here.
+            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+                record_rate_limited(current_key, _cooldown_seconds_from_429_headers(exc.response.headers))
+            elif isinstance(exc, TokenBudgetExceededError):
+                record_rate_limited(current_key, exc.retry_after_seconds)
+            elif isinstance(exc, (httpx.TimeoutException, httpx.RequestError, GateBusyError)):
+                record_timeout(current_key)
+
             if not cascadable:
                 logger.warning(
                     "LLM call failed (provider=%s): %s. Non-cascading error.",

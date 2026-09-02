@@ -56,6 +56,7 @@ import httpx
 import numpy as np
 from pydantic import BaseModel
 
+from app.concurrency_gate import GateBusyError, acquire_slot
 from app.http_client import get_shared_client
 from app.llm_router import _resolve_api_key
 from app.rate_limiter import acquire_rate_limit
@@ -249,9 +250,19 @@ async def call_embedding(
                 # this code path identical for both providers.
                 await acquire_rate_limit(entry_key, entry["rpm_limit"])
                 client = get_shared_client()
-                response = await client.post(
-                    url, params=params, json=body, timeout=timeout
-                )
+                # SENT-8-03: bounded local concurrency, Ollama only -- see
+                # `app.concurrency_gate`'s module docstring. `GateBusyError`
+                # is caught below and degrades this call immediately rather
+                # than retrying into the same saturated gate.
+                if entry["provider"] == "ollama":
+                    async with acquire_slot("ollama"):
+                        response = await client.post(
+                            url, params=params, json=body, timeout=timeout
+                        )
+                else:
+                    response = await client.post(
+                        url, params=params, json=body, timeout=timeout
+                    )
                 response.raise_for_status()
                 data = response.json()
                 break
@@ -267,6 +278,9 @@ async def call_embedding(
                     attempt += 1
                     continue
                 raise
+    except GateBusyError:
+        logger.warning("Embedding call found the Ollama concurrency gate busy (provider=%s).", entry_key)
+        return _degraded(f"concurrency_busy:{entry_key}")
     except httpx.TimeoutException:
         logger.warning("Embedding call timed out (provider=%s, task_type=%s).", entry_key, task_type)
         return _degraded(f"timeout:{entry_key}")
@@ -379,9 +393,17 @@ async def _call_batch_group(
                     # Proactive rate limiting (SYSTEM-DESIGN-DIAGNOSIS.md #3).
                     await acquire_rate_limit(entry_key, entry["rpm_limit"])
                     client = get_shared_client()
-                    response = await client.post(
-                        url, params=params, json=body, timeout=timeout
-                    )
+                    # SENT-8-03: bounded local concurrency, Ollama only --
+                    # see `app.concurrency_gate`'s module docstring.
+                    if entry["provider"] == "ollama":
+                        async with acquire_slot("ollama"):
+                            response = await client.post(
+                                url, params=params, json=body, timeout=timeout
+                            )
+                    else:
+                        response = await client.post(
+                            url, params=params, json=body, timeout=timeout
+                        )
                     response.raise_for_status()
                     data = response.json()
                     break
@@ -414,6 +436,7 @@ async def _call_batch_group(
                 for item in embeddings
             ]
         except (
+            GateBusyError,
             httpx.TimeoutException,
             httpx.HTTPStatusError,
             httpx.RequestError,

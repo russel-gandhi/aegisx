@@ -31,6 +31,9 @@ from app import llm_router
 from app.llm_router import (
     PROVIDER_CONFIG,
     _build_openai_compatible_request,
+    _estimate_request_tokens,
+    _parse_reset_duration_seconds,
+    _record_token_headers,
     call_llm,
     select_provider,
 )
@@ -391,3 +394,194 @@ def test_call_llm_remediation_task_reaches_groq_with_json_mode_on_the_wire(monke
     sent_body = _json.loads(route.calls.last.request.content)
     assert sent_body["response_format"] == {"type": "json_object"}
     assert sent_body["max_completion_tokens"] == 2048
+
+
+# ---------------------------------------------------------------------------
+# SENT-8-02: circuit breaker integration with call_llm's real cascade loop
+# ---------------------------------------------------------------------------
+
+
+def test_circuit_breaker_skips_provider_tripped_by_a_prior_call(monkeypatch):
+    """The exact scenario SENT-8-02 exists for: two concurrent agent calls
+    both route to `groq_gpt_oss`. The first call discovers a real 429 and
+    trips the breaker. The second call must skip Groq entirely -- proven
+    here by leaving Groq's route completely unmocked on the second call;
+    respx raises `AllMockedAssertionError` if the code actually tries to
+    reach an unregistered route, so a clean pass proves the skip really
+    happened, not just that the end result looked right."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+
+    async def _first_call_trips_the_breaker():
+        with respx.mock:
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(429, json={"error": "rate limited"})
+            )
+            respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    429,
+                    json={"error": "rate limited"},
+                    headers={"x-ratelimit-reset-tokens": "30s"},
+                )
+            )
+            respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={"choices": [{"message": {"content": "ok"}}], "model": "openrouter/auto"},
+                )
+            )
+            return await call_llm(task="orchestrator", prompt="first")
+
+    async def _second_call_must_skip_groq():
+        with respx.mock:
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(429, json={"error": "rate limited"})
+            )
+            # Deliberately no route registered for Groq -- if call_llm
+            # tries to reach it anyway, respx raises and this test fails.
+            openrouter_route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={"choices": [{"message": {"content": "second"}}], "model": "openrouter/auto"},
+                )
+            )
+            result = await call_llm(task="orchestrator", prompt="second")
+            return result, openrouter_route
+
+    first_result = asyncio.run(_first_call_trips_the_breaker())
+    assert first_result.degraded is False
+
+    second_result, openrouter_route = asyncio.run(_second_call_must_skip_groq())
+    assert openrouter_route.called
+    assert second_result.text == "second"
+    assert second_result.degraded is False
+
+
+def test_circuit_breaker_does_not_skip_a_provider_that_has_not_failed(monkeypatch):
+    """Negative case: a provider with no prior failure must still be
+    attempted normally -- the breaker must not default to skipping."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(429, json={"error": "rate limited"})
+            )
+            groq_route = respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+                return_value=httpx.Response(
+                    200,
+                    json={"choices": [{"message": {"content": "groq ok"}}], "model": "openai/gpt-oss-120b"},
+                )
+            )
+            result = await call_llm(task="orchestrator", prompt="q")
+            return result, groq_route
+
+    result, groq_route = asyncio.run(_run())
+    assert groq_route.called
+    assert result.text == "groq ok"
+
+
+# ---------------------------------------------------------------------------
+# SENT-8-01: token-budget estimation and rate-limit header parsing
+# ---------------------------------------------------------------------------
+
+
+def test_estimate_request_tokens_scales_with_prompt_length():
+    short = _estimate_request_tokens("narration", "hi", "")
+    long = _estimate_request_tokens("narration", "hi " * 1000, "")
+    assert long > short
+
+
+def test_estimate_request_tokens_uses_task_specific_completion_budget():
+    # "remediation" (700) has a larger completion budget than "narration"
+    # (250) for the identical prompt -- the task-specific table must
+    # actually be consulted, not a single flat default for every task.
+    narration = _estimate_request_tokens("narration", "same prompt", "")
+    remediation = _estimate_request_tokens("remediation", "same prompt", "")
+    assert remediation > narration
+
+
+def test_estimate_request_tokens_falls_back_to_default_for_unknown_task():
+    # Must not raise on a task name absent from the completion-budget
+    # table (e.g. a future task added to PROVIDER_CONFIG before this
+    # table is updated) -- degrades to the documented default instead.
+    estimate = _estimate_request_tokens("some_future_task", "hello", "")
+    assert estimate > 0
+
+
+@pytest.mark.parametrize(
+    "raw,expected_seconds",
+    [
+        ("13.305s", pytest.approx(13.305)),
+        ("57m36s", pytest.approx(57 * 60 + 36)),
+        ("1h2m3.5s", pytest.approx(3600 + 120 + 3.5)),
+        ("2h", pytest.approx(7200)),
+    ],
+)
+def test_parse_reset_duration_seconds_handles_groqs_real_formats(raw, expected_seconds):
+    assert _parse_reset_duration_seconds(raw) == expected_seconds
+
+
+def test_parse_reset_duration_seconds_returns_none_for_empty_or_garbage():
+    assert _parse_reset_duration_seconds(None) is None
+    assert _parse_reset_duration_seconds("") is None
+    assert _parse_reset_duration_seconds("not-a-duration") is None
+
+
+def test_record_token_headers_reads_real_groq_header_names(monkeypatch):
+    # Confirms the exact header names this function reads match what Groq
+    # actually sends (captured live 2026-09-02) -- a typo in either name
+    # would silently make every response a no-op for live-tracking.
+    recorded = {}
+
+    def _fake_record(key, remaining, reset_seconds):
+        recorded["key"] = key
+        recorded["remaining"] = remaining
+        recorded["reset_seconds"] = reset_seconds
+
+    monkeypatch.setattr("app.llm_router.record_token_usage", _fake_record)
+
+    headers = httpx.Headers(
+        {
+            "x-ratelimit-limit-tokens": "8000",
+            "x-ratelimit-remaining-tokens": "6226",
+            "x-ratelimit-reset-tokens": "13.305s",
+        }
+    )
+    _record_token_headers("groq_gpt_oss", headers)
+
+    assert recorded == {
+        "key": "groq_gpt_oss",
+        "remaining": 6226,
+        "reset_seconds": pytest.approx(13.305),
+    }
+
+
+def test_record_token_headers_is_a_noop_when_headers_absent(monkeypatch):
+    # Ollama sends no rate-limit headers at all -- must call through with
+    # `None`/`None` (rate_limiter.record_token_usage already no-ops on
+    # that), never raise.
+    recorded = {}
+
+    def _fake_record(key, remaining, reset_seconds):
+        recorded["remaining"] = remaining
+        recorded["reset_seconds"] = reset_seconds
+
+    monkeypatch.setattr("app.llm_router.record_token_usage", _fake_record)
+    _record_token_headers("ollama_qwen", httpx.Headers({}))
+    assert recorded == {"remaining": None, "reset_seconds": None}
+
+
+def test_groq_entry_declares_real_live_confirmed_tpm_limit():
+    # Regression pin: SENT-8-01's whole premise is that this specific
+    # number (confirmed live via a real x-ratelimit-limit-tokens header)
+    # is what the rate limiter throttles against, not just rpm_limit.
+    assert PROVIDER_CONFIG["groq_gpt_oss"]["tpm_limit"] == 8000
+
+
+def test_non_groq_entries_have_no_tpm_limit():
+    # Every other provider has no live-confirmed token constraint -- must
+    # stay `None` (token-check no-op) rather than acquiring a guessed
+    # value that could wrongly throttle a provider with real headroom.
+    assert PROVIDER_CONFIG["ollama_qwen"].get("tpm_limit") is None
+    assert PROVIDER_CONFIG["openrouter_fallback"].get("tpm_limit") is None

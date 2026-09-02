@@ -376,7 +376,9 @@ def test_hero_keyless_run_falls_back_to_full_agent_set_and_deterministic_fallbac
         assert finding["model_attribution"] == "deterministic-fallback"
 
     entry = result["verification_results"][EXPECTED_PE_FINDING_ID]
-    assert entry["confidence"] == "MEDIUM"
+    # SENT-9-01: PE-2024-01's real per-record ALCOA+ score now grades HIGH
+    # -- see test_c1_verifier.py's identical fix for the full derivation.
+    assert entry["confidence"] == "HIGH"
 
 
 # --- Scenario 4: no unverified default — C1 never fabricates a verified --

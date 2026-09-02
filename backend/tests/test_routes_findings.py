@@ -255,7 +255,11 @@ def test_integration_gxp_demo_cards_have_valid_claim_citation_and_confidence_dom
         assert card["confidence"] in {"HIGH", "MEDIUM", "LOW", "INSUFFICIENT_EVIDENCE"}
 
 
-def test_integration_periodic_evaluation_card_grades_medium_with_real_evidence(client):
+def test_integration_periodic_evaluation_card_grades_high_with_real_evidence(client):
+    # SENT-9-01: PE-2024-01's real per-record ALCOA+ score (8 of 9
+    # dimensions true against `periodic_evaluations`' actual columns) now
+    # grades HIGH, not the old fixed-`ALCOAScore()`-default MEDIUM -- see
+    # test_c1_verifier.py's identical fix for the full derivation.
     resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
     body = resp.json()
     pe_card = next(
@@ -267,7 +271,7 @@ def test_integration_periodic_evaluation_card_grades_medium_with_real_evidence(c
     assert pe_card["deterministic_check"]["passed"] is False
     assert pe_card["deterministic_check"]["db_record_found"] is True
     assert pe_card["deterministic_check"]["opa_corroborated"] is True
-    assert pe_card["confidence"] == "MEDIUM"
+    assert pe_card["confidence"] == "HIGH"
 
 
 def test_integration_periodic_evaluation_evidence_id_resolves_to_a_real_row(client):

@@ -103,6 +103,25 @@ A2_SYSTEM_PROMPT = (
     "Output your response in the precise AgentFinding JSON schema."
 )
 
+# SENT-8-05: found live 2026-09-02 -- `A2_SYSTEM_PROMPT` above (kept
+# bible-literal, unedited) ends with "Output your response in the precise
+# AgentFinding JSON schema," which directly contradicts `narrate_gap`'s own
+# user-prompt instruction ("Write one compliance finding sentence"). The
+# model correctly follows its system prompt and returns JSON; `narrate_gap`
+# then correctly rejects that JSON as not-prose (Design Note 4's own
+# guard) and falls back to the deterministic sentence -- meaning the
+# system prompt's own wording was silently forcing fallback on the
+# majority of calls, not any cascade/rate-limit failure. Appended (never
+# spliced into the constant itself, to keep it bible-literal for whatever
+# future full-AgentFinding-JSON call path may still want it unmodified)
+# only to the system_instruction actually sent for this one narrow,
+# one-sentence narration call.
+_NARRATION_ONLY_OVERRIDE = (
+    "\n\nFor THIS specific response only: output plain prose text, exactly "
+    "one sentence, not JSON, not the AgentFinding schema -- the instruction "
+    "above about JSON output does not apply to this particular request."
+)
+
 
 async def verify_urs_approved(pool, system_id: str) -> Dict[str, Any]:
     """Deterministic check: does `system_id` have an APPROVED URS document?
@@ -364,12 +383,23 @@ async def narrate_gap(check_result: Dict[str, Any]) -> Tuple[str, str]:
             call_llm(
                 task="narration",
                 prompt=prompt,
-                system_instruction=A2_SYSTEM_PROMPT,
+                system_instruction=A2_SYSTEM_PROMPT + _NARRATION_ONLY_OVERRIDE,
                 timeout=NARRATION_PER_HOP_TIMEOUT_SECONDS,
             ),
             timeout=NARRATION_CEILING_SECONDS,
         )
     except asyncio.TimeoutError:
+        # Previously silent -- SENT-8-05 found this the hard way: a
+        # narration call that never logs a failure but still lands on
+        # deterministic-fallback is indistinguishable from "the LLM cascade
+        # is genuinely healthy and just chose not to answer," which it
+        # never does. Log it so a future diagnostic doesn't have to
+        # re-derive this from a missing log line again.
+        logger.warning(
+            "A2 narration call exceeded the %.1fs wall-clock ceiling. "
+            "Returning deterministic-fallback narration.",
+            NARRATION_CEILING_SECONDS,
+        )
         return _deterministic_gap_sentence(check_result), "deterministic-fallback"
 
     if response.degraded:

@@ -219,3 +219,26 @@ def _reset_rate_limiters():
     reset_rate_limiters()
     yield
     reset_rate_limiters()
+
+
+@pytest.fixture(autouse=True)
+def _reset_circuit_breakers():
+    """Autouse test isolation for `app.circuit_breaker`'s process-global
+    circuit registry (SENT-8-02), mirroring `_reset_rate_limiters` above --
+    a test that trips a provider's breaker must not leave it OPEN for the
+    next test that happens to exercise the same provider key."""
+    from app.circuit_breaker import reset_circuit_breakers
+    reset_circuit_breakers()
+    yield
+    reset_circuit_breakers()
+
+
+@pytest.fixture(autouse=True)
+def _reset_concurrency_gates():
+    """Autouse test isolation for `app.concurrency_gate`'s process-global
+    gate registry (SENT-8-03), mirroring `_reset_rate_limiters` /
+    `_reset_circuit_breakers` above."""
+    from app.concurrency_gate import reset_concurrency_gates
+    reset_concurrency_gates()
+    yield
+    reset_concurrency_gates()
