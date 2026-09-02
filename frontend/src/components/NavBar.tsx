@@ -35,9 +35,17 @@ const ROUTE_ICONS: Record<string, ComponentType<{ className?: string }>> = {
 export default function NavBar() {
   return (
     <header className="glass sticky top-0 z-20 border-b border-white/[0.07]">
+      {/* 2026-09-03 whole-app visual pass: a hairline accent gradient
+          under the nav bar's own bottom edge -- Raycast/Vercel-style top
+          chrome detail, purely decorative (aria-hidden), sits below the
+          real border so it never affects layout or contrast. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-accent-2/40 to-transparent"
+      />
       <div className="mx-auto flex max-w-[1400px] items-center gap-4 px-4 py-2.5 sm:px-6">
         <div className="flex shrink-0 items-center gap-2.5">
-          <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-br from-[#3d97ff] to-[#0a56e8] text-[11px] font-extrabold text-white shadow-[0_6px_18px_rgba(47,139,255,0.4)]">
+          <div className="grid h-8 w-8 place-items-center rounded-[10px] bg-gradient-to-br from-[#3d97ff] to-[#0a56e8] text-[11px] font-extrabold text-white shadow-[0_6px_18px_rgba(47,139,255,0.4)] transition-transform duration-200 hover:scale-105">
             AX
           </div>
           <div className="hidden leading-tight sm:block">

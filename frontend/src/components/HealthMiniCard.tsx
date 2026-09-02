@@ -16,6 +16,11 @@ export interface HealthMiniCardProps {
   // icon + label, never color alone"). Purely presentational -- absent for
   // any caller that doesn't pass one, same as before this prop existed.
   icon?: ComponentType<{ className?: string }>
+  // 2026-09-03 bento redesign: lets a caller widen a specific card (e.g.
+  // `lg:col-span-2`) without this component needing to know about grid
+  // layout itself -- appended after the base classes so a caller's
+  // grid-span utility can't be accidentally overridden by them.
+  className?: string
 }
 
 const DEFAULT_ERROR_TEXT = "Couldn't load this signal."
@@ -27,6 +32,7 @@ export default function HealthMiniCard({
   errorText,
   style,
   icon: Icon,
+  className = '',
 }: HealthMiniCardProps) {
   // 06-UI-SPEC.md Animation Contract: "Subtle fade-in + 4px slide-up ...
   // staggered ~40ms per card" -- previously a hand-rolled `useMountTransition`
@@ -45,7 +51,7 @@ export default function HealthMiniCard({
       data-status={status}
       style={style}
       delay={delaySeconds}
-      className="group rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 shadow-panel transition-colors duration-300 ease-out hover:border-white/[0.14] hover:bg-white/[0.045]"
+      className={`group rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 shadow-panel transition-colors duration-300 ease-out hover:border-white/[0.14] hover:bg-white/[0.045] ${className}`}
     >
       <div className="flex items-center gap-2">
         {Icon && (

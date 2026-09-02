@@ -55,6 +55,12 @@
   --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 60px rgba(0, 0, 0, 0.35);
   --shadow-float: 0 24px 70px rgba(0, 0, 0, 0.45);
   --shadow-glow: 0 0 0 1px rgba(47, 139, 255, 0.22), 0 8px 30px rgba(47, 139, 255, 0.2);
+  /* 2026-09-03 whole-app visual pass (bold-but-credible, Vercel/Raycast-
+     leaning per user direction): a stronger elevation step for the
+     Command Centre's hero panels -- deeper shadow + a brighter top-edge
+     highlight than --shadow-panel, reserved for the one or two most
+     important surfaces on a page rather than every .card. */
+  --shadow-hero: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 40px 100px rgba(0, 0, 0, 0.5);
 }
 
 html {
@@ -63,13 +69,17 @@ html {
 }
 
 body {
-  font-feature-settings: "cv11", "ss01";
+  font-feature-settings: "cv11", "ss01", "tnum";
   -webkit-font-smoothing: antialiased;
 }
 
 /* Ambient background: a very quiet radial wash behind the whole app,
    matching the reference's #ambient layer -- fixed, non-interactive,
-   never competing with foreground content. */
+   never competing with foreground content. 2026-09-03: a third, cooler
+   wash added lower-left plus a hairline noise texture (SVG feTurbulence
+   data-uri, ~1.5% opacity) for tactile depth -- the flat gradient alone
+   read as slightly sterile at this scale; grain is how Vercel/Linear-class
+   dark UIs avoid banding on a near-black canvas without brightening it. */
 .app-ambient {
   position: fixed;
   inset: 0;
@@ -77,7 +87,42 @@ body {
   pointer-events: none;
   background:
     radial-gradient(1100px 640px at 82% -8%, rgba(47, 139, 255, 0.14), transparent 60%),
-    radial-gradient(760px 520px at 6% 8%, rgba(56, 215, 255, 0.08), transparent 60%);
+    radial-gradient(760px 520px at 6% 8%, rgba(56, 215, 255, 0.08), transparent 60%),
+    radial-gradient(900px 600px at 15% 95%, rgba(154, 123, 255, 0.06), transparent 65%);
+}
+.app-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Gradient headline text (Vercel/Linear pattern): reserved for one hero
+   heading per page, never body text or repeated across a dense list --
+   overuse is exactly what turns this from "confident" into "gaudy". */
+.text-gradient {
+  background: linear-gradient(90deg, var(--color-ink) 0%, var(--color-accent-2) 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Premium card treatment for a page's one or two hero panels (Command
+   Centre's readiness panel, a page's primary stat block) -- NOT a
+   replacement for .card, which stays the workhorse for the other 90% of
+   surfaces. Adds the inset top highlight + deeper shadow, plus a hover
+   border brightening so it reads as an interactive-feeling premium
+   surface even where it isn't literally clickable. */
+.card-hero {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-edge);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.015));
+  box-shadow: var(--shadow-hero);
+  transition: border-color 0.25s ease;
+}
+.card-hero:hover {
+  border-color: var(--color-edge-strong);
 }
 
 /* Glass panel utility -- translucent, blurred, soft-bordered. Used for

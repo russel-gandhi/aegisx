@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   UserCheck,
   Truck,
+  ServerCrash,
 } from 'lucide-react'
 import ReadinessDial from '../components/ReadinessDial'
 import HealthMiniCard from '../components/HealthMiniCard'
@@ -260,7 +261,15 @@ export default function CommandCentre() {
   return (
     <div>
       <p className="eyebrow">Overview</p>
-      <h1 className="mt-2 text-[28px] font-bold tracking-tight text-ink">Command Centre</h1>
+      {/* 2026-09-03 whole-app visual pass: gradient headline (index.css's
+          .text-gradient) reserved for this ONE hero heading -- the largest
+          , boldest text on the page, matching the Vercel/Linear-style
+          "confident type" direction. Every other heading on this page and
+          across the app stays plain -- overusing the gradient anywhere
+          else is exactly the "gaudy, not bold" failure mode to avoid. */}
+      <h1 className="text-gradient mt-2 text-[34px] font-extrabold tracking-tight sm:text-[40px]">
+        Command Centre
+      </h1>
       <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
         The top-level view of GxP system readiness: a readiness dial and six health mini-cards,
         computed live from real backend state -- never a stale seed value. This is the landing
@@ -286,9 +295,17 @@ export default function CommandCentre() {
       </div>
 
       {everyCallFailed ? (
-        <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.03] p-6">
-          <p className="text-lg font-semibold text-ink">{EMPTY_STATE_HEADING}</p>
-          <p className="mt-1 text-ink-muted">{EMPTY_STATE_BODY}</p>
+        // 2026-09-03: previously a plain untouched box -- the one branch of
+        // this page the bento redesign never reached, so anyone without a
+        // reachable backend saw no visual change at all. Same card-hero
+        // treatment as the loaded state's readiness panel, so the page
+        // reads as "the same product" whether or not data is flowing.
+        <div className="card-hero mt-8 flex flex-col items-center gap-3 p-12 text-center">
+          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-red-soft text-red">
+            <ServerCrash className="h-6 w-6" />
+          </div>
+          <p className="text-xl font-bold tracking-tight text-ink">{EMPTY_STATE_HEADING}</p>
+          <p className="max-w-md text-[13.5px] leading-relaxed text-ink-muted">{EMPTY_STATE_BODY}</p>
         </div>
       ) : (
         <>
@@ -315,47 +332,61 @@ export default function CommandCentre() {
             </p>
           )}
 
-          <div className="mt-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatTile icon={Layers} label="Systems in scope" value={systemsInScope.length} delay={0} />
-            <StatTile
-              icon={ShieldAlert}
-              label="Open findings"
-              value={assuranceLoading ? '—' : failingCards.length}
-              tone={openFindingsTone}
-              delay={0.04}
-            />
-            <StatTile
-              icon={ListChecks}
-              label="Pending approvals"
-              value={actionsState === 'loading' ? '—' : pendingCount}
-              tone={pendingTone}
-              delay={0.08}
-            />
-            <StatTile icon={Fingerprint} label="Audit trail" value={auditValue} tone={auditTone} delay={0.12} />
-          </div>
-
-          <p className="eyebrow mt-10">Overall readiness</p>
+          {/* 2026-09-03 bento redesign: the dial and the four stat tiles
+              were two stacked, disconnected blocks -- now one hero panel,
+              dial on the left as the visual anchor, stats as a 2x2 grid on
+              the right. Reads as a single "here's where you stand" unit
+              instead of two separate widgets glued together. */}
           <div
-            className="relative mt-3 flex justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10"
+            className="card-hero mt-8 grid grid-cols-1 items-center gap-8 p-8 lg:grid-cols-[auto_1fr]"
             data-tour="readiness-dial"
           >
-            {assuranceLoading && totalChecks === 0 ? (
-              <Skeleton className="h-40 w-40 !rounded-full" />
-            ) : totalChecks > 0 ? (
-              <ReadinessDial passed={passed} total={totalChecks} />
-            ) : (
-              <p className="text-ink-muted">
-                No readiness data available for the selected system(s).
-              </p>
-            )}
+            <div className="flex justify-center">
+              {assuranceLoading && totalChecks === 0 ? (
+                <Skeleton className="h-40 w-40 !rounded-full" />
+              ) : totalChecks > 0 ? (
+                <ReadinessDial passed={passed} total={totalChecks} />
+              ) : (
+                <p className="max-w-[188px] text-center text-sm text-ink-muted">
+                  No readiness data available for the selected system(s).
+                </p>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <StatTile icon={Layers} label="Systems in scope" value={systemsInScope.length} delay={0} />
+              <StatTile
+                icon={ShieldAlert}
+                label="Open findings"
+                value={assuranceLoading ? '—' : failingCards.length}
+                tone={openFindingsTone}
+                delay={0.04}
+              />
+              <StatTile
+                icon={ListChecks}
+                label="Pending approvals"
+                value={actionsState === 'loading' ? '—' : pendingCount}
+                tone={pendingTone}
+                delay={0.08}
+              />
+              <StatTile icon={Fingerprint} label="Audit trail" value={auditValue} tone={auditTone} delay={0.12} />
+            </div>
           </div>
 
           <p className="eyebrow mt-10">Health signals</p>
+          {/* Bento grid: Documentation & Traceability and Remediation &
+              Approvals each carry the most information (a meter plus
+              2-3 numbers), so they span two columns -- the varied cell
+              sizing is the "bento" part; the other four stay single-width.
+              Deliberately not forced into a perfectly even grid (row 3 has
+              a gap) -- real bento layouts accept that trade for the
+              size-communicates-importance signal, per the agreed
+              bold-but-credible direction. */}
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <HealthMiniCard
               title="Documentation & Traceability"
               status={card1Status}
               icon={FileText}
+              className="lg:col-span-2"
               style={{ transitionDelay: `${cardDelays[0]}ms` }}
             >
               <p className="text-ink">{card1Count} open</p>
@@ -388,6 +419,7 @@ export default function CommandCentre() {
               title="Remediation & Approvals"
               status={card3Status}
               icon={ClipboardCheck}
+              className="lg:col-span-2"
               style={{ transitionDelay: `${cardDelays[2]}ms` }}
             >
               <p className="text-ink">{pendingCount} pending</p>
