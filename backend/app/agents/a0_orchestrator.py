@@ -8,10 +8,14 @@ Orchestrator Routing Prompt" (transcribed verbatim below as
 `A0_SYSTEM_PROMPT`).
 
 A0 is a single classification call: build `OrchestratorInput`, ask the
-router (task="orchestrator" -> Gemini 2.5 Flash, thinking ON, 512-budget
-per `llm_router.PROVIDER_CONFIG["gemini_flash_thinking"]`) for a strict
-JSON `OrchestratorOutput`, and narrow `active_agents` to whatever subset
-it names. No deterministic Postgres/OPA check backs this node (Bible
+router (task="orchestrator" -> `llm_router.PROVIDER_CONFIG["ollama_qwen"]`
+as of the 2026-09-01 local-first migration, cascading to
+`groq_gpt_oss`/`openrouter_fallback` on failure -- the Bible-literal
+"Gemini 2.5 Flash, thinking ON" description this docstring carried until
+2026-09-03 no longer describes any entry in `PROVIDER_CONFIG`, see that
+module's own comments for why) for a strict JSON `OrchestratorOutput`, and
+narrow `active_agents` to whatever subset it names. No deterministic
+Postgres/OPA check backs this node (Bible
 Section 2: "Deterministic Checks: N/A") - the routing decision itself
 stays out of `route_specialists` (app.graph.state), which this module
 never imports or modifies (03-03-PLAN.md <critical_findings>).
