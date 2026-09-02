@@ -341,6 +341,30 @@ def test_unit_run_c1_empty_findings_returns_empty_mapping():
     assert asyncio.run(_run()) == {}
 
 
+def test_unit_run_c1_no_pool_still_attaches_opa_bundle_hash(monkeypatch):
+    """2026-09-02 incident remediation: run_c1's own no-pool fail-closed
+    branch (every finding forced to INSUFFICIENT_EVIDENCE) never touches
+    Postgres — but the bundle fingerprint is a local filesystem read, not a
+    DB read, so it must still be present even here."""
+    async def _no_pool():
+        return None
+
+    monkeypatch.setattr(c1_verifier_module, "acquire_pool_or_none", _no_pool)
+
+    finding = _agent_finding(
+        "NO-POOL-1", "ANNEX11-S11-PE-001", "PE-2024-01", "irrelevant claim text",
+    )
+
+    async def _run():
+        return await run_c1({"findings": [finding]})
+
+    result = asyncio.run(_run())
+    entry = result["verification_results"]["NO-POOL-1"]
+    assert entry["confidence"] == "INSUFFICIENT_EVIDENCE"
+    assert entry["opa_bundle_hash"] not in (None, "")
+    assert len(entry["opa_bundle_hash"]) == 64
+
+
 # ---------------------------------------------------------------------------
 # NEGATIVE -- EVID-02: an LLM-shaped claim that contradicts real Postgres +
 # real OPA state, a fabricated evidence id, and the positive-control proof
@@ -404,6 +428,11 @@ def test_negative_evid02_fabricated_evidence_short_circuits_before_opa_call(monk
     assert result["db_record_found"] is False
     assert result["confidence"] == "INSUFFICIENT_EVIDENCE"
     assert calls["n"] == 0
+    # 2026-09-02 incident remediation: the bundle fingerprint is a pure
+    # filesystem read, independent of db_record_found/OPA outcome — present
+    # on every verify_finding() branch, including this missing-record one.
+    assert result["opa_bundle_hash"] not in (None, "")
+    assert len(result["opa_bundle_hash"]) == 64
 
 
 def test_negative_positive_control_truthful_claim_against_real_row_scores_high():

@@ -58,6 +58,19 @@ class AgentFinding(BaseModel):
     # str, not an enum — documented value domain is HIGH / MEDIUM / LOW /
     # INSUFFICIENT_EVIDENCE. Keeping this a plain str preserves the exact
     # type Phase 3's C1 verifier emits against.
+    #
+    # 2026-09-02 production-incident report: DESPITE the comment above,
+    # every A-agent (A2, A3-A6) only ever writes the literal "UNVERIFIED"
+    # here (or the Bible-mandated "LOW" on a degraded-mode failure-behavior
+    # finding) — this field is an emission-time PLACEHOLDER, never a real
+    # grade. The real grade lives in the sibling
+    # `verification_results[finding_id]["confidence"]` structure, computed
+    # independently by C1 (`app.agents.c1_verifier.calculate_confidence`).
+    # `routes/findings.py::_assemble_card` and `agents/a7_remediation.py`
+    # both already read the correct field and have their own docstrings
+    # warning about this exact trap — this comment exists so a NEW call
+    # site (a future route, a new frontend component) sees the warning
+    # before writing one. Never branch on this field's value.
     confidence_score: str  # HIGH, MEDIUM, LOW, INSUFFICIENT_EVIDENCE
     evidence_ids: List[str]
     alcoa_score: ALCOAScore
@@ -237,6 +250,12 @@ class DeterministicCheck(BaseModel):
     db_record_found: bool
     opa_corroborated: bool
     opa_rule_ids: List[str]
+    # 2026-09-02 production-incident remediation: fingerprint of the
+    # policies/*.rego bundle this evaluation ran against
+    # (app.opa_client.get_policy_bundle_hash()), so a later audit can tell
+    # whether two evaluations of the same finding saw the same policy
+    # bundle. Defaulted so no existing constructor call site breaks.
+    opa_bundle_hash: str = "unavailable"
 
 
 class AssuranceCard(BaseModel):
@@ -373,6 +392,11 @@ class TrustCentreResponse(BaseModel):
     embedding_provider: LLMProviderInfo
     opa_policy_files: List[str]
     opa_policy_count: int
+    # 2026-09-02 production-incident remediation: same hash as
+    # DeterministicCheck.opa_bundle_hash above, exposed here so the Trust
+    # Centre (Bible Section 11.8) shows an honest, non-hardcoded "policy
+    # bundle version" instead of only listing filenames.
+    opa_policy_bundle_hash: str = "unavailable"
 
 
 # Phase 06.1 (06.1-01, RAG-01/RAG-02/RAG-05/RAG-06/RAG-07, D-05): hybrid

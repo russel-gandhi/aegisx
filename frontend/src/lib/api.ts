@@ -165,6 +165,11 @@ export interface DeterministicCheckData {
   db_record_found: boolean
   opa_corroborated: boolean
   opa_rule_ids: string[]
+  // 2026-09-02 production-incident remediation: fingerprint of the
+  // policies/*.rego bundle this evaluation ran against. Optional (not
+  // required in an object literal) so existing test fixtures that predate
+  // this field keep compiling; a real API response always includes it.
+  opa_bundle_hash?: string
 }
 
 export interface AssuranceCardData {
@@ -584,6 +589,10 @@ export interface TrustCentreResponse {
   embedding_provider: LLMProviderInfo
   opa_policy_files: string[]
   opa_policy_count: number
+  // 2026-09-02 production-incident remediation: honest, non-hardcoded
+  // "policy bundle version" for the Trust Centre. Optional for the same
+  // fixture-compatibility reason as DeterministicCheckData.opa_bundle_hash.
+  opa_policy_bundle_hash?: string
 }
 
 export function fetchTrustCentre(): Promise<TrustCentreResponse> {

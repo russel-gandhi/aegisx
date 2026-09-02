@@ -172,19 +172,25 @@ def test_payload_containing_datetime_value_does_not_raise_typeerror(monkeypatch)
     assert violations[0]["rule_id"] == "ANNEX11-S10-CHG-001"
 
 
-def test_unreachable_host_returns_empty_list_and_logs_warning(monkeypatch, caplog):
+def test_unreachable_host_returns_empty_list_and_logs_error(monkeypatch, caplog):
+    """2026-09-02 incident remediation: raised from WARNING to ERROR, and
+    the message now says UNREACHABLE explicitly and distinctly from the
+    non-2xx branch below — see opa_client.py's own comment on why an
+    unreachable OPA silently looking identical to "zero violations found"
+    was the actual production-incident risk this loudens."""
     import app.opa_client as opa_client_module
 
     monkeypatch.setattr(opa_client_module, "OPA_URL", "http://127.0.0.1:9/v1/data/sentinel/gxp/violation")
 
-    with caplog.at_level(logging.WARNING, logger="app.opa_client"):
+    with caplog.at_level(logging.ERROR, logger="app.opa_client"):
         violations = asyncio.run(opa_client_module.evaluate_opa_policy({"documents": []}))
 
     assert violations == []
-    assert any("OPA call failed" in record.message for record in caplog.records)
+    assert any("OPA UNREACHABLE" in record.message for record in caplog.records)
+    assert all(record.levelno >= logging.ERROR for record in caplog.records)
 
 
-def test_non_2xx_status_returns_empty_list_and_logs_warning(monkeypatch, caplog):
+def test_non_2xx_status_returns_empty_list_and_logs_error(monkeypatch, caplog):
     import app.opa_client as opa_client_module
 
     # A valid host (the live OPA server), but a path it does not serve —
@@ -192,8 +198,61 @@ def test_non_2xx_status_returns_empty_list_and_logs_warning(monkeypatch, caplog)
     # (deviation 2, backend tier) rather than the connection-error branch.
     monkeypatch.setattr(opa_client_module, "OPA_URL", "http://127.0.0.1:8181/nonexistent-route")
 
-    with caplog.at_level(logging.WARNING, logger="app.opa_client"):
+    with caplog.at_level(logging.ERROR, logger="app.opa_client"):
         violations = asyncio.run(opa_client_module.evaluate_opa_policy({"documents": []}))
 
     assert violations == []
-    assert any("OPA call failed" in record.message for record in caplog.records)
+    assert any("non-2xx status" in record.message for record in caplog.records)
+    assert all(record.levelno >= logging.ERROR for record in caplog.records)
+
+
+def test_get_policy_bundle_hash_is_a_stable_64_char_hex_digest():
+    """Regression guard for the Trust Centre / audit-trail bundle
+    fingerprint (2026-09-02 incident remediation). Two calls against the
+    same on-disk policies/ directory must agree exactly — this is the
+    property both the Trust Centre response and every C1 verification
+    result depend on to be comparable across requests."""
+    from app.opa_client import get_policy_bundle_hash
+
+    first = get_policy_bundle_hash()
+    second = get_policy_bundle_hash()
+    assert first == second
+    assert len(first) == 64
+    assert all(c in "0123456789abcdef" for c in first)
+
+
+def test_get_policy_bundle_hash_changes_when_a_rego_file_changes(tmp_path):
+    """Proves the hash is actually content-sensitive, not a constant that
+    happens to look plausible. Uses a throwaway directory rather than the
+    real policies/ tree so this test never depends on (or risks mutating)
+    the real Rego bundle."""
+    from app.opa_client import get_policy_bundle_hash
+
+    (tmp_path / "a.rego").write_text("package sentinel.gxp\n\nviolation contains {} if { false }\n")
+    before = get_policy_bundle_hash(str(tmp_path))
+
+    (tmp_path / "a.rego").write_text("package sentinel.gxp\n\nviolation contains {} if { true }\n")
+    after = get_policy_bundle_hash(str(tmp_path))
+
+    assert before != after
+
+
+def test_get_policy_bundle_hash_ignores_test_rego_files(tmp_path):
+    """`_test.rego`-style files must not affect the fingerprint — editing
+    test fixtures should never change what the Trust Centre reports as the
+    evaluated bundle version."""
+    from app.opa_client import get_policy_bundle_hash
+
+    (tmp_path / "a.rego").write_text("package sentinel.gxp\n")
+    baseline = get_policy_bundle_hash(str(tmp_path))
+
+    (tmp_path / "a_test.rego").write_text("package sentinel.gxp_test\n\n# a whole test suite\n")
+    assert get_policy_bundle_hash(str(tmp_path)) == baseline
+
+
+def test_get_policy_bundle_hash_returns_unavailable_for_a_missing_directory():
+    """A filesystem hiccup here must degrade, never raise into a caller
+    (verify_finding, get_trust_centre) doing real compliance work."""
+    from app.opa_client import get_policy_bundle_hash
+
+    assert get_policy_bundle_hash("C:/this/path/does/not/exist/aegisx-test") == "unavailable"

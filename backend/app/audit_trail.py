@@ -82,6 +82,18 @@ CANONICAL_FIELDS: Tuple[str, ...] = (
     "approval_id",
 )
 
+# 2026-09-02 production-incident remediation (infra/postgres/initdb/
+# 006_audit_opa_bundle_hash.sql): which policies/*.rego bundle version
+# produced the opa_rule_ids corroboration on a given row. Deliberately NOT
+# added to CANONICAL_FIELDS / the hash chain: every row written before this
+# column existed would recompute a different hash the instant this value
+# joined the hashed set (its column simply didn't exist at write time), so
+# every pre-existing row would newly report TAMPERED under verify_chain --
+# the exact false-positive this module's own docstring already warns
+# CANONICAL_FIELDS exists to prevent (correction 2). This column is
+# recorded metadata, like event_id/timestamp_utc/the two hash columns
+# themselves, not hash-chain-protected content.
+
 # The two CANONICAL_FIELDS entries backed by a Postgres JSONB column --
 # see module docstring, correction 1.
 JSONB_LIST_FIELDS: Tuple[str, ...] = ("evidence_ids", "opa_rule_ids")
@@ -161,9 +173,10 @@ async def log_event(pool, event_data: Dict[str, Any]) -> str:
                 (event_id, timestamp_utc, session_id, user_id, user_role, agent_id,
                  action_type, target_system_id, target_record_id, input_hash,
                  output_summary, evidence_ids, opa_rule_ids, model_id,
-                 prompt_version, approval_id, previous_event_hash, event_hash)
+                 prompt_version, approval_id, previous_event_hash, event_hash,
+                 opa_bundle_hash)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                        $14, $15, $16, $17, $18)
+                        $14, $15, $16, $17, $18, $19)
                 """,
                 event_id,
                 timestamp_utc,
@@ -183,6 +196,7 @@ async def log_event(pool, event_data: Dict[str, Any]) -> str:
                 event_data.get("approval_id"),
                 prev_hash,
                 event_hash,
+                event_data.get("opa_bundle_hash"),
             )
             return event_id
 

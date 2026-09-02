@@ -108,6 +108,7 @@ def _assemble_card(
         db_record_found=verification_result["db_record_found"],
         opa_corroborated=verification_result["opa_corroborated"],
         opa_rule_ids=verification_result["opa_rule_ids"],
+        opa_bundle_hash=verification_result.get("opa_bundle_hash", "unavailable"),
     )
     return AssuranceCard(
         finding_id=finding["finding_id"],

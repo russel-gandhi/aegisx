@@ -22,6 +22,7 @@ import os
 from fastapi import APIRouter
 
 from app.llm_router import FALLBACK_CASCADE, PROVIDER_CONFIG
+from app.opa_client import _POLICIES_DIR, get_policy_bundle_hash
 from app.retrieval.embeddings import EMBEDDING_PROVIDER_CONFIG
 from app.schemas import LLMProviderInfo, TrustCentreResponse
 
@@ -31,14 +32,13 @@ router = APIRouter()
 # `.rego` file under this directory as one bundle. Listing the same
 # directory here (rather than hardcoding a file list) means this route can
 # never silently drift from what the OPA container is actually serving.
-_POLICIES_DIR = os.path.join(
-    os.path.dirname(  # aegisx/ repo root -- policies/ is a sibling of backend/, not inside it
-        os.path.dirname(  # aegisx/backend
-            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # aegisx/backend/app
-        )
-    ),
-    "policies",
-)
+#
+# 2026-09-02: reuse app.opa_client's own `_POLICIES_DIR` rather than
+# recomputing an independent copy of the same path -- this route and
+# opa_client.get_policy_bundle_hash() previously each derived the repo-root
+# path with their own separate dirname() chain (harmless while both were
+# correct, but two copies of "where policies/ lives" is exactly the kind of
+# duplication that silently drifts if only one is ever updated).
 
 
 def _provider_info(key: str, entry: dict) -> LLMProviderInfo:
@@ -70,4 +70,5 @@ async def get_trust_centre() -> TrustCentreResponse:
         embedding_provider=embedding_provider,
         opa_policy_files=policy_files,
         opa_policy_count=len(policy_files),
+        opa_policy_bundle_hash=get_policy_bundle_hash(),
     )

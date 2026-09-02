@@ -220,6 +220,7 @@ async def generate_capa(
                 "opa_rule_ids": verification_result["opa_rule_ids"],
                 "model_id": model_id,
                 "prompt_version": "A7-v1",
+                "opa_bundle_hash": verification_result.get("opa_bundle_hash"),
             },
         )
         return GenerateCapaResponse(
@@ -249,6 +250,7 @@ async def generate_capa(
             "opa_rule_ids": verification_result["opa_rule_ids"],
             "model_id": model_id,
             "prompt_version": "A7-v1",
+            "opa_bundle_hash": verification_result.get("opa_bundle_hash"),
         },
     )
 

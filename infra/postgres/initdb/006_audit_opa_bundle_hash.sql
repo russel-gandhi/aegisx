@@ -1,0 +1,41 @@
+-- infra/postgres/initdb/006_audit_opa_bundle_hash.sql
+--
+-- Remediation follow-up to a 2026-09-02 production-incident triage (OPA
+-- stale/unreachable-bundle investigation). `audit_events` already recorded
+-- WHICH Rego rule IDs corroborated a finding (`opa_rule_ids`) but never
+-- WHICH VERSION of the policy bundle produced that corroboration -- for a
+-- product whose entire thesis is deterministic, reconstructable evidence,
+-- that was a real gap: docker-compose.yml runs OPA with no `--watch`, so a
+-- `.rego` edit made after the container started is invisible to it until a
+-- manual restart, with zero error signal either way (policies/README.md,
+-- policies/opa-gate.sh already document this). If `policies/gxp_rules.rego`
+-- is ever amended after a finding was already recorded, there was
+-- previously no way to reconstruct which bundle version actually evaluated
+-- it.
+--
+-- `opa_bundle_hash` is a SHA-256 hex digest of the backend process's own
+-- `policies/*.rego` checkout (app.opa_client.get_policy_bundle_hash()),
+-- attached to every C1 verification result (app.agents.c1_verifier) and
+-- threaded into A7's PROPOSAL_CREATED / PROPOSAL_BLOCKED audit events
+-- (routes/actions.py). It is NOT proof of what the OPA *server* actually
+-- loaded (directory-mode OPA exposes no bundle-version API to check
+-- against) -- it records what the backend believed the bundle to be at
+-- evaluation time, which is enough to tell whether two audit events saw
+-- the same policy bundle or not.
+--
+-- Deliberately NOT added to app.audit_trail.CANONICAL_FIELDS / the hash
+-- chain -- see that module's own comment for why (every row logged before
+-- this column existed would otherwise retroactively report TAMPERED).
+-- NULL for any row logged before this migration; not backfilled, since
+-- there is no way to recover which bundle version a historical row
+-- actually saw.
+--
+-- `IF NOT EXISTS` framing makes this file safe to apply both automatically
+-- (fresh volume, docker-compose initdb mount) and manually via
+-- infra/apply-migrations.sh against an already-running stack.
+--
+-- Routed to SENT-7-05 for Bible reconciliation (additive, not Bible DDL --
+-- like 002/003/004/005 before it).
+
+ALTER TABLE audit_events
+    ADD COLUMN IF NOT EXISTS opa_bundle_hash VARCHAR(64);

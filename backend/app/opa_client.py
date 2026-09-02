@@ -43,6 +43,7 @@ not in the caller. Routed to **SENT-7-05**.
 """
 
 import datetime
+import hashlib
 import logging
 import os
 from typing import Any, Dict, List
@@ -85,6 +86,66 @@ OPA_URL = os.getenv(
     "OPA_URL", "http://127.0.0.1:8181/v1/data/sentinel/gxp/violation"
 )
 
+# 2026-09-02 production-incident remediation: docker-compose.yml runs OPA in
+# directory-mode with no `--watch` flag (policies/README.md, opa-gate.sh
+# both already document "restart after every edit"), so a `.rego` edit made
+# after the container started is invisible to a running OPA server until a
+# manual `docker compose restart opa` -- and evaluate_opa_policy() below has
+# no way to tell "OPA answered with a stale bundle" apart from "OPA answered
+# correctly with zero violations". A live OPA-reachability incident (13
+# tests briefly failing with `len(violations) == 0` against known-violating
+# seed data) turned out on investigation to be transient unreachability, not
+# staleness -- but the underlying ambiguity (both failure modes silently
+# degrade to the same `[]`) is real regardless of which one fired that day.
+#
+# This hash does not close that ambiguity by itself (it cannot prove what
+# the OPA *server* actually loaded -- only OPA's own bundle-status API
+# could, and directory-mode loading does not expose one). What it gives:
+# (1) the Trust Centre (Bible Section 11.8) an honest, non-hardcoded
+# "policy bundle version" value an operator can eyeball, and (2) every C1
+# verification result / A7 audit event a recorded fingerprint of what the
+# BACKEND CHECKOUT believed the bundle to be at evaluation time, so a later
+# investigation can at least rule in/out "the policy files changed between
+# these two audit events" without guessing from git history.
+_POLICIES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "policies",
+)
+
+
+def get_policy_bundle_hash(policies_dir: str = _POLICIES_DIR) -> str:
+    """SHA-256 hex digest over every non-test `.rego` file under
+    `policies_dir`, sorted by filename, hashed as `"{filename}\\n{content}\\n"`
+    pairs (so a rename changes the hash even if content is byte-identical).
+
+    Returns the literal string `"unavailable"` if the directory can't be
+    listed or a file can't be read -- this is a diagnostic value, not a
+    correctness dependency, so a filesystem hiccup here must never raise
+    into a caller (`verify_finding`, `get_trust_centre`) that has real
+    compliance work to finish.
+    """
+    try:
+        rego_files = sorted(
+            f
+            for f in os.listdir(policies_dir)
+            if f.endswith(".rego") and not f.endswith("_test.rego")
+        )
+    except OSError:
+        return "unavailable"
+
+    hasher = hashlib.sha256()
+    for filename in rego_files:
+        try:
+            with open(os.path.join(policies_dir, filename), "r", encoding="utf-8") as fh:
+                content = fh.read()
+        except OSError:
+            return "unavailable"
+        hasher.update(filename.encode("utf-8"))
+        hasher.update(b"\n")
+        hasher.update(content.encode("utf-8"))
+        hasher.update(b"\n")
+    return hasher.hexdigest()
+
 
 async def evaluate_opa_policy(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Send `payload` to the live OPA REST endpoint and return the violation
@@ -118,11 +179,39 @@ async def evaluate_opa_policy(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
         )
         response.raise_for_status()
         return response.json().get("result", [])
-    except (httpx.RequestError, httpx.HTTPStatusError) as e:
-        # Deviation 3 (backend tier): log, don't print. A server process
-        # writing diagnostics to stdout loses them the moment it runs
-        # anywhere other than a developer's terminal.
-        logger.warning("OPA call failed (url=%s): %s. Using fallback rules.", OPA_URL, e)
+    except httpx.RequestError as e:
+        # 2026-09-02 incident remediation: this branch means OPA never
+        # answered at all (connection refused, DNS failure, timeout).
+        # Logged at ERROR (not WARNING) and with its own distinct message,
+        # separate from the HTTPStatusError branch below -- a caller
+        # reading `[]` back from this function cannot tell this apart from
+        # "OPA correctly found zero violations" (that ambiguity is the
+        # actual defect; this log line is the only place today that can
+        # still tell the two apart after the fact). See
+        # get_policy_bundle_hash()'s docstring above for the related
+        # bundle-staleness ambiguity this does NOT close.
+        logger.error(
+            "OPA UNREACHABLE (url=%s): %s. Falling back to python_fallback_rules() "
+            "-- the caller is receiving an EMPTY violation list that means "
+            "'OPA did not answer', not 'no violations found'.",
+            OPA_URL, e,
+        )
+        return python_fallback_rules(payload)
+    except httpx.HTTPStatusError as e:
+        # Deviation 2 (backend tier): a non-2xx response (500, 400, etc.) is
+        # exactly as unusable as no response, so it degrades the same way --
+        # but it is logged as its own branch, distinctly from RequestError
+        # above, because a non-2xx status usually means a real server-side
+        # problem (a malformed request this codebase built, or an OPA
+        # process that started but failed to load its policy bundle) rather
+        # than a network-level failure, and the two point an investigator
+        # at different next steps.
+        logger.error(
+            "OPA returned a non-2xx status (url=%s): %s. Falling back to "
+            "python_fallback_rules() -- same caller-visible 'empty means "
+            "unanswered, not compliant' ambiguity as an unreachable OPA.",
+            OPA_URL, e,
+        )
         return python_fallback_rules(payload)
 
 

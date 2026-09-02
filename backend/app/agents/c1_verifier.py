@@ -36,7 +36,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from app.db import acquire_pool_or_none
-from app.opa_client import evaluate_opa_policy
+from app.opa_client import evaluate_opa_policy, get_policy_bundle_hash
 from app.schemas import ALCOAScore
 
 # D-06 (03-CONTEXT.md Open Question 2): the Bible's calculate_confidence()
@@ -360,6 +360,15 @@ async def verify_finding(pool, finding: dict) -> Dict[str, Any]:
     rule_ids: List[str] = finding.get("regulatory_citations") or []
     evidence_ids: List[str] = finding.get("evidence_ids") or []
 
+    # 2026-09-02 incident remediation: computed regardless of db_record/OPA
+    # outcome below -- it is a pure local-filesystem read (see
+    # get_policy_bundle_hash()'s docstring), never a reason to fail or
+    # degrade this function. Attached to every branch's return dict so an
+    # audit event built from this result can later answer "which policy
+    # bundle version did this evaluation see", closing the gap the OPA
+    # staleness incident report identified in the audit trail.
+    bundle_hash = get_policy_bundle_hash()
+
     db_record = await fetch_evidence_record(pool, finding)
     if db_record is None:
         return {
@@ -368,6 +377,7 @@ async def verify_finding(pool, finding: dict) -> Dict[str, Any]:
             "opa_corroborated": False,
             "opa_rule_ids": rule_ids,
             "evidence_ids": evidence_ids,
+            "opa_bundle_hash": bundle_hash,
         }
 
     finding["alcoa_score"] = calculate_alcoa_score(db_record, finding).model_dump()
@@ -385,6 +395,7 @@ async def verify_finding(pool, finding: dict) -> Dict[str, Any]:
         "opa_corroborated": opa_corroborated,
         "opa_rule_ids": rule_ids,
         "evidence_ids": evidence_ids,
+        "opa_bundle_hash": bundle_hash,
     }
 
 
@@ -408,6 +419,10 @@ async def run_c1(state) -> Dict[str, Any]:
                 "opa_corroborated": False,
                 "opa_rule_ids": finding.get("regulatory_citations") or [],
                 "evidence_ids": finding.get("evidence_ids") or [],
+                # No Postgres pool does not mean no policy-bundle read --
+                # the hash comes from the local filesystem, independent of
+                # DB availability (see verify_finding's own comment above).
+                "opa_bundle_hash": get_policy_bundle_hash(),
             }
             continue
         results[finding_id] = await verify_finding(pool, finding)

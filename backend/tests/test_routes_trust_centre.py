@@ -41,3 +41,21 @@ def test_trust_centre_lists_the_real_rego_policy_bundle(client):
     assert body["opa_policy_count"] >= 1
     assert all(f.endswith(".rego") for f in body["opa_policy_files"])
     assert all("_test" not in f for f in body["opa_policy_files"])
+
+
+def test_trust_centre_reports_a_real_policy_bundle_hash(client):
+    """2026-09-02 incident remediation: the Trust Centre must show an
+    honest, non-hardcoded policy-bundle fingerprint (Bible Section 11.8),
+    not the literal "unavailable" degraded value — the real policies/
+    directory is present in this checkout, so get_policy_bundle_hash()
+    must succeed."""
+    resp = client.get("/api/trust-centre")
+    body = resp.json()
+    assert body["opa_policy_bundle_hash"] != "unavailable"
+    assert len(body["opa_policy_bundle_hash"]) == 64
+
+    # Same hash twice in a row -- the fingerprint must be stable across
+    # requests when nothing on disk has changed (the property an operator
+    # actually relies on to detect drift).
+    second = client.get("/api/trust-centre").json()
+    assert second["opa_policy_bundle_hash"] == body["opa_policy_bundle_hash"]
