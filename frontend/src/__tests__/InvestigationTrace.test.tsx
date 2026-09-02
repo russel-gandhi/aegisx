@@ -34,7 +34,7 @@ describe('InvestigationTrace -- complete vs skipped styling', () => {
 
     const glyph = screen.getByTestId('investigation-trace-glyph-understanding')
     expect(glyph.textContent).toBe('✓')
-    expect(glyph.className).toContain('text-emerald-600')
+    expect(glyph.className).toContain('text-mint')
   })
 
   it('renders a skipped stage with the neutral dash glyph and a dimmed label, never styled as an error', () => {
@@ -43,7 +43,7 @@ describe('InvestigationTrace -- complete vs skipped styling', () => {
 
     const glyph = screen.getByTestId('investigation-trace-glyph-preparing')
     expect(glyph.textContent).toBe('-')
-    expect(glyph.className).toContain('text-slate-500')
+    expect(glyph.className).toContain('text-ink-faint')
     expect(glyph.className).not.toContain('red')
   })
 })

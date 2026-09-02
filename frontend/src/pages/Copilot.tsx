@@ -277,21 +277,22 @@ export default function Copilot() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Ask GxP Copilot</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Ask Copilot</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Ask GxP Copilot</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Questions are answered from the indexed knowledge base with inspectable evidence -- every
         answer names the source document, section/page, and retrieval method behind it, backed by
         the C2 → A0 → [A1…A6] → C1 → A7 → C3 agent pipeline. The canvas below visualizes live
         agent execution state for a system-readiness question.
       </p>
 
-      <div className="mt-4">
-        <label htmlFor="copilot-system" className="text-sm text-slate-400">
+      <div className="mt-4 flex items-center gap-2">
+        <label htmlFor="copilot-system" className="text-sm text-ink-muted">
           System
         </label>
         <select
           id="copilot-system"
-          className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          className="input-field"
           value={selectedSystemId}
           onChange={(event) => setSelectedSystemId(event.target.value)}
         >
@@ -307,11 +308,11 @@ export default function Copilot() {
         <AgentTopologyCanvas nodeStatus={nodeStatus} disconnected={disconnected} />
       </div>
 
-      <div className="mt-6 rounded border border-slate-800 bg-slate-900/50 p-4">
+      <div className="card mt-6 p-4">
         {messages.length === 0 ? (
           <div data-testid="copilot-empty-state">
-            <p className="text-lg font-semibold text-slate-100">{EMPTY_STATE_HEADING}</p>
-            <p className="mt-1 text-sm text-slate-400">{EMPTY_STATE_BODY}</p>
+            <p className="text-lg font-semibold text-ink">{EMPTY_STATE_HEADING}</p>
+            <p className="mt-1 text-sm text-ink-muted">{EMPTY_STATE_BODY}</p>
           </div>
         ) : (
           <div
@@ -366,12 +367,12 @@ export default function Copilot() {
           disabled={isStreaming}
           placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
           rows={2}
-          className="max-h-40 min-h-[3rem] flex-1 overflow-y-auto rounded border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+          className="input-field max-h-40 min-h-[3rem] flex-1 resize-none overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={isStreaming || inputValue.trim().length === 0}
-          className="rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn btn-success"
         >
           {isStreaming ? 'Investigating…' : 'Ask Copilot'}
         </button>

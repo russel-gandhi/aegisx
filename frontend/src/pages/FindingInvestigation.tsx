@@ -154,20 +154,21 @@ export default function FindingInvestigation() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Evidence Investigation</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Evidence investigation</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Evidence Investigation</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Each card&apos;s confidence was computed deterministically against the system&apos;s own
         database records and the OPA policy engine -- not by the model that wrote the claim
         (EVID-03, Bible Section 1.3).
       </p>
 
-      <div className="mt-4">
-        <label htmlFor="findings-system" className="text-sm text-slate-400">
+      <div className="mt-4 flex items-center gap-2">
+        <label htmlFor="findings-system" className="text-sm text-ink-muted">
           System
         </label>
         <select
           id="findings-system"
-          className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          className="input-field"
           value={systemId}
           onChange={(e) => {
             setState('loading')
@@ -188,9 +189,9 @@ export default function FindingInvestigation() {
             until the first card -- more cards may still be in flight even
             after one has painted. It disappears only once the terminal
             frame arrives ('ready') or the stream fails ('error'). */}
-        {state === 'loading' && <p className="text-slate-400">Loading assurance cards...</p>}
+        {state === 'loading' && <p className="text-ink-muted">Loading assurance cards...</p>}
         {state === 'error' && (
-          <p className="text-red-400">
+          <p className="text-red">
             Error loading assurance cards. Confirm the backend is running and reachable.
           </p>
         )}
@@ -199,7 +200,7 @@ export default function FindingInvestigation() {
             means the first card has not landed yet, not that every check
             passed. */}
         {state === 'ready' && cards.length === 0 && (
-          <p className="text-slate-400">
+          <p className="text-ink-muted">
             {`Every deterministic check for ${systemId} currently passes -- no findings to review.`}
           </p>
         )}
@@ -229,7 +230,7 @@ export default function FindingInvestigation() {
                         key={evidenceId}
                         to={`/blast-radius?node=${encodeURIComponent(evidenceNodeIndex[evidenceId])}`}
                         data-tour="blast-radius-link"
-                        className="text-sm text-sky-400 underline hover:text-sky-300"
+                        className="text-sm text-accent-2 underline underline-offset-2 hover:text-ink"
                       >
                         {`Blast Radius: ${evidenceId}`}
                       </Link>
@@ -239,23 +240,23 @@ export default function FindingInvestigation() {
                   disabled={isLoading}
                   onClick={() => handleGenerateCapa(card.finding_id)}
                   data-tour="generate-capa-button"
-                  className="rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn btn-secondary"
                 >
                   {isLoading ? 'Generating...' : 'Generate CAPA'}
                 </button>
               </div>
               {capaState.status === 'success' && (
-                <p className="mt-2 text-sm text-emerald-400">
+                <p className="mt-2 text-sm text-mint">
                   {'Proposal '}
                   <span className="font-semibold">{capaState.proposalId}</span>
                   {' created. '}
-                  <Link to="/actions" className="underline hover:text-emerald-300">
+                  <Link to="/actions" className="underline underline-offset-2 hover:text-ink">
                     View in Action / Approval Centre
                   </Link>
                 </p>
               )}
               {capaState.status === 'error' && (
-                <p className="mt-2 text-sm text-red-400">{capaState.message}</p>
+                <p className="mt-2 text-sm text-red">{capaState.message}</p>
               )}
             </div>
           )

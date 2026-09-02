@@ -26,10 +26,10 @@ export interface EvidenceViewProps {
 // this component's four evidence-support band names (06.1-UI-SPEC.md Color
 // table, "Evidence-support badge" rows).
 export const EVIDENCE_SUPPORT_STYLES: Record<string, string> = {
-  HIGH: 'border-emerald-700 bg-emerald-950/40',
-  MODERATE: 'border-amber-700 bg-amber-950/40',
-  LIMITED: 'border-orange-700 bg-orange-950/40',
-  INSUFFICIENT_EVIDENCE: 'border-red-700 bg-red-950/40',
+  HIGH: 'border-mint/30 bg-mint-soft',
+  MODERATE: 'border-amber-500/30 bg-amber-soft',
+  LIMITED: 'border-orange/30 bg-orange-soft',
+  INSUFFICIENT_EVIDENCE: 'border-red-500/30 bg-red-soft',
 }
 
 export const EVIDENCE_SUPPORT_LABELS: Record<string, string> = {
@@ -65,9 +65,7 @@ export const INSUFFICIENT_EVIDENCE_COPY =
 export const VISIBLE_EVIDENCE_LIMIT = 5
 
 function SectionLabel({ children }: { children: string }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{children}</p>
-  )
+  return <p className="text-[11px] font-bold tracking-[0.08em] text-ink-faint uppercase">{children}</p>
 }
 
 // Formatting to 2 decimal places is the only arithmetic this component
@@ -96,24 +94,24 @@ function EvidenceItem({ item, systemId }: { item: RetrievalEvidenceItem; systemI
     <div
       data-testid={`evidence-item-${item.evidence_id}`}
       data-evidence-type={item.evidence_type}
-      className="rounded border border-slate-800 bg-slate-900/50 p-4"
+      className="rounded-lg border border-white/[0.07] bg-white/[0.025] p-4"
     >
       <span
         data-testid={`evidence-type-badge-${item.evidence_id}`}
-        className="inline-block rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+        className="badge badge-neutral"
       >
         {typeLabel}
       </span>
 
-      <div className="mt-2">
-        <SectionLabel>SOURCE</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{item.document_title}</p>
+      <div className="mt-2.5">
+        <SectionLabel>Source</SectionLabel>
+        <p className="mt-1 text-[13.5px] text-ink">{item.document_title}</p>
       </div>
 
       {!isGraphRelationship && (
-        <div className="mt-2">
-          <SectionLabel>SECTION/PAGE</SectionLabel>
-          <p className="mt-1 text-sm text-slate-400">
+        <div className="mt-2.5">
+          <SectionLabel>Section/page</SectionLabel>
+          <p className="mt-1 text-[13px] text-ink-muted">
             {item.section === null ? 'no section' : item.section} —{' '}
             {item.page === null ? 'n/a' : item.page}
           </p>
@@ -121,41 +119,46 @@ function EvidenceItem({ item, systemId }: { item: RetrievalEvidenceItem; systemI
       )}
 
       {isGraphRelationship && item.graph_path.length > 0 && (
-        <div className="mt-2">
-          <SectionLabel>GRAPH PATH</SectionLabel>
-          <p className="mt-1 text-sm text-slate-400">{item.graph_path.join(' → ')}</p>
+        <div className="mt-2.5">
+          <SectionLabel>Graph path</SectionLabel>
+          <p className="mt-1 text-[13px] text-ink-muted">{item.graph_path.join(' → ')}</p>
         </div>
       )}
 
-      <div className="mt-2">
-        <SectionLabel>RETRIEVAL METHOD</SectionLabel>
+      <div className="mt-2.5">
+        <SectionLabel>Retrieval method</SectionLabel>
+        {/* Deliberately neutral (badge-neutral, no accent hue) --
+            06.1-UI-SPEC.md's Color table: this is a provenance fact, not a
+            quality signal, and must not be color-coded like a
+            confidence/status badge would be. */}
         <span
           data-testid={`evidence-method-badge-${item.evidence_id}`}
-          className="mt-1 inline-block rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+          className="badge badge-neutral mt-1"
         >
           {methodLabel}
         </span>
       </div>
 
       {scores.length > 0 && (
-        <div className="mt-2">
-          <SectionLabel>SCORES</SectionLabel>
-          <p className="mt-1 text-sm text-slate-400">{scores.join(' · ')}</p>
+        <div className="mt-2.5">
+          <SectionLabel>Scores</SectionLabel>
+          <p className="mt-1 text-[13px] text-ink-muted">{scores.join(' · ')}</p>
         </div>
       )}
 
-      <div className="mt-2">
-        <p className="text-sm text-slate-400">
-          {WHY_SELECTED_PREFIX} <span className="text-slate-300">{item.why_selected}</span>
+      <div className="mt-2.5">
+        <p className="text-[13px] text-ink-muted">
+          {WHY_SELECTED_PREFIX} <span className="text-ink">{item.why_selected}</span>
         </p>
       </div>
 
       {href !== null && linkLabel !== null && (
-        <div className="mt-2">
+        <div className="mt-2.5">
+          {/* Deliberately neutral -- carries no accent hue (06.1-UI-SPEC.md). */}
           <Link
             to={href}
             data-testid="evidence-item-link"
-            className="text-slate-300 underline underline-offset-2 hover:text-slate-100"
+            className="text-ink-muted underline underline-offset-2 hover:text-ink"
           >
             {linkLabel}
           </Link>
@@ -182,24 +185,21 @@ export default function EvidenceView({
     return (
       <div
         data-testid="evidence-view-panel"
-        className="max-w-2xl rounded-lg border border-red-700 bg-red-950/40 p-4"
+        className="max-w-2xl rounded-xl border border-red-500/30 bg-red-soft p-4"
       >
-        <p className="text-sm text-slate-100">{INSUFFICIENT_EVIDENCE_COPY}</p>
+        <p className="text-[13.5px] text-ink">{INSUFFICIENT_EVIDENCE_COPY}</p>
       </div>
     )
   }
 
-  const badgeStyle = EVIDENCE_SUPPORT_STYLES[evidenceSupport] ?? 'border-slate-700 bg-slate-900/40'
+  const badgeStyle = EVIDENCE_SUPPORT_STYLES[evidenceSupport] ?? 'border-white/15 bg-white/[0.03]'
   const badgeLabel = EVIDENCE_SUPPORT_LABELS[evidenceSupport] ?? evidenceSupport
   const hasOverflow = evidence.length > VISIBLE_EVIDENCE_LIMIT
   const hiddenCount = evidence.length - VISIBLE_EVIDENCE_LIMIT
 
   return (
-    <div data-testid="evidence-view-panel" className={`max-w-2xl rounded-lg border p-4 ${badgeStyle}`}>
-      <span
-        data-testid="evidence-support-badge"
-        className="inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-100"
-      >
+    <div data-testid="evidence-view-panel" className={`max-w-2xl rounded-xl border p-4 ${badgeStyle}`}>
+      <span data-testid="evidence-support-badge" className="badge badge-neutral">
         {badgeLabel}
       </span>
 
@@ -227,14 +227,14 @@ export default function EvidenceView({
           type="button"
           data-testid="evidence-view-expander"
           onClick={() => setExpanded((prev) => !prev)}
-          className="mt-3 text-sm text-slate-400 hover:text-slate-200"
+          className="mt-3 text-[13px] font-medium text-accent-2 hover:text-ink"
         >
           {expanded ? 'Show fewer' : `Show ${hiddenCount} more`}
         </button>
       )}
 
       {modelAttribution !== undefined && (
-        <p className="mt-3 text-xs text-slate-500">Model: {modelAttribution}</p>
+        <p className="mt-3 font-mono text-[11px] text-ink-faint">Model: {modelAttribution}</p>
       )}
     </div>
   )

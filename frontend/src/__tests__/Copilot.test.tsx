@@ -240,14 +240,14 @@ describe('Copilot hero query', () => {
     }
 
     await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-amber-600')
-      expect(findNode('A2').className).toContain('border-amber-600')
+      expect(findNode('A0').className).toContain('border-amber')
+      expect(findNode('A2').className).toContain('border-amber')
     })
 
     await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-emerald-600')
-      expect(findNode('A2').className).toContain('border-emerald-600')
-      expect(findNode('C1').className).toContain('border-emerald-600')
+      expect(findNode('A0').className).toContain('border-mint')
+      expect(findNode('A2').className).toContain('border-mint')
+      expect(findNode('C1').className).toContain('border-mint')
     })
   })
 

@@ -25,15 +25,11 @@ function StatusPill({ status }: { status: string | null }) {
   const label = status ?? 'UNKNOWN'
   const tone =
     label === 'APPROVED'
-      ? 'bg-emerald-950/50 text-emerald-400 border-emerald-800'
+      ? 'badge-mint'
       : label === 'REJECTED' || label === 'SUSPENDED'
-        ? 'bg-red-950/50 text-red-400 border-red-800'
-        : 'bg-slate-800 text-slate-300 border-slate-700'
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tone}`}>
-      {label}
-    </span>
-  )
+        ? 'badge-red'
+        : 'badge-neutral'
+  return <span className={`badge ${tone}`}>{label}</span>
 }
 
 export default function Suppliers() {
@@ -63,19 +59,20 @@ export default function Suppliers() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Supplier Intelligence</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Supplier registry</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Supplier Intelligence</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Every vendor registered against this system, their qualification status, and when their
         next reassessment is due &mdash; read directly from live database state.
       </p>
 
       <div className="mt-4 flex items-center gap-3">
-        <label htmlFor="suppliers-system" className="text-sm text-slate-400">
+        <label htmlFor="suppliers-system" className="text-sm text-ink-muted">
           System
         </label>
         <select
           id="suppliers-system"
-          className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          className="input-field"
           value={systemId}
           onChange={(e) => setSystemId(e.target.value as SystemId)}
         >
@@ -87,7 +84,7 @@ export default function Suppliers() {
         </select>
 
         {status === 'ready' && overdueCount > 0 && (
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-800 bg-orange-950/40 px-3 py-1 text-xs font-medium text-orange-300">
+          <span className="badge badge-orange gap-1.5">
             <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
               <path
                 fillRule="evenodd"
@@ -100,18 +97,18 @@ export default function Suppliers() {
         )}
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-lg border border-slate-800">
-        {status === 'loading' && <p className="p-6 text-sm text-slate-400">Loading suppliers&hellip;</p>}
+      <div className="mt-6 overflow-x-auto rounded-xl border border-white/[0.08]">
+        {status === 'loading' && <p className="p-6 text-sm text-ink-muted">Loading suppliers&hellip;</p>}
         {status === 'error' && (
-          <p className="p-6 text-sm text-red-400">Couldn&rsquo;t load the supplier registry. Refresh to retry.</p>
+          <p className="p-6 text-sm text-red">Couldn&rsquo;t load the supplier registry. Refresh to retry.</p>
         )}
         {status === 'ready' && suppliers.length === 0 && (
-          <p className="p-6 text-sm text-slate-400">No suppliers registered for this system.</p>
+          <p className="p-6 text-sm text-ink-muted">No suppliers registered for this system.</p>
         )}
         {status === 'ready' && suppliers.length > 0 && (
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead>
-              <tr className="border-b border-slate-800 bg-slate-900/60 text-xs uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-white/[0.08] bg-white/[0.03] text-xs tracking-wide text-ink-faint uppercase">
                 <th className="px-4 py-3 font-medium">Supplier</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Reassessment Due</th>
@@ -124,21 +121,21 @@ export default function Suppliers() {
                   key={s.supplier_id}
                   data-testid="supplier-row"
                   data-overdue={s.is_overdue}
-                  className={`border-b border-slate-800/60 last:border-0 ${
-                    s.is_overdue ? 'bg-orange-950/20' : ''
+                  className={`border-b border-white/[0.06] last:border-0 ${
+                    s.is_overdue ? 'bg-orange-soft' : ''
                   }`}
                 >
-                  <td className="px-4 py-3 font-medium text-slate-100">{s.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{s.name}</td>
                   <td className="px-4 py-3">
                     <StatusPill status={s.status} />
                   </td>
-                  <td className={`px-4 py-3 ${s.is_overdue ? 'font-medium text-orange-300' : 'text-slate-300'}`}>
+                  <td className={`px-4 py-3 ${s.is_overdue ? 'font-medium text-orange' : 'text-ink-muted'}`}>
                     {formatDate(s.reassessment_due_date_ns)}
-                    {s.is_overdue && <span className="ml-2 text-xs text-orange-400">(overdue)</span>}
+                    {s.is_overdue && <span className="ml-2 text-xs text-orange">(overdue)</span>}
                   </td>
-                  <td className="px-4 py-3 text-slate-300">
+                  <td className="px-4 py-3 text-ink-muted">
                     {s.latest_assessment_result ?? (
-                      <span className="text-slate-500">No assessment on record</span>
+                      <span className="text-ink-faint">No assessment on record</span>
                     )}
                   </td>
                 </tr>

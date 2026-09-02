@@ -41,9 +41,9 @@ export interface ChatMessageProps {
 
 // Reused verbatim from 06-UI-SPEC.md's Color table: injection-blocked and
 // stream-failure responses share the same destructive treatment.
-const DESTRUCTIVE_BUBBLE_STYLE = 'border-red-700 bg-red-950/40 text-slate-100'
-const DEFAULT_ASSISTANT_BUBBLE_STYLE = 'border-slate-800 bg-slate-900/50 text-slate-100'
-const USER_BUBBLE_STYLE = 'border-slate-700 bg-slate-800 text-slate-100'
+const DESTRUCTIVE_BUBBLE_STYLE = 'border-red-500/30 bg-red-soft text-ink'
+const DEFAULT_ASSISTANT_BUBBLE_STYLE = 'border-white/[0.08] bg-white/[0.035] text-ink'
+const USER_BUBBLE_STYLE = 'border-accent/30 bg-accent-soft text-ink'
 
 // 06-UI-SPEC.md Animation Contract: "Chat message, on arrival -- Fade-in
 // ... `transition-opacity duration-200` from `opacity-0` to `opacity-100`
@@ -72,7 +72,7 @@ export default function ChatMessage({
       <div className="flex justify-end">
         <div
           data-testid="chat-message-user"
-          className={`max-w-2xl rounded-lg border px-4 py-2 text-sm transition-opacity duration-200 ${USER_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl rounded-xl border px-4 py-2 text-sm transition-opacity duration-200 ${USER_BUBBLE_STYLE} ${opacityClass}`}
         >
           {message.text}
         </div>
@@ -87,13 +87,13 @@ export default function ChatMessage({
         <div
           data-testid="chat-message-assistant"
           data-kind="cards"
-          className={`max-w-2xl space-y-4 rounded-lg border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl space-y-4 rounded-xl border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
         >
           {message.status === 'investigating' && cards.length === 0 && (
-            <p className="text-slate-400">Investigating…</p>
+            <p className="text-ink-muted">Investigating…</p>
           )}
           {message.status === 'done' && cards.length === 0 && (
-            <p className="text-slate-400">
+            <p className="text-ink-muted">
               Every deterministic check currently passes -- no findings to review.
             </p>
           )}
@@ -114,9 +114,9 @@ export default function ChatMessage({
         <div
           data-testid="chat-message-assistant"
           data-kind="investigation"
-          className={`max-w-2xl space-y-3 rounded-lg border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
+          className={`max-w-2xl space-y-3 rounded-xl border px-4 py-3 text-sm transition-opacity duration-200 ${DEFAULT_ASSISTANT_BUBBLE_STYLE} ${opacityClass}`}
         >
-          {investigating && <p className="text-slate-400">Investigating…</p>}
+          {investigating && <p className="text-ink-muted">Investigating…</p>}
 
           {!investigating && result !== undefined && (
             <>
@@ -129,8 +129,8 @@ export default function ChatMessage({
                 />
               ) : (
                 <>
-                  <p className="whitespace-pre-wrap text-slate-100">{result.answer}</p>
-                  <p className="text-xs text-slate-500">Model: {result.model_attribution}</p>
+                  <p className="whitespace-pre-wrap text-ink">{result.answer}</p>
+                  <p className="text-xs text-ink-faint">Model: {result.model_attribution}</p>
                   <InvestigationTrace stages={result.stages} />
                   <EvidenceView
                     evidence={result.evidence}
@@ -163,7 +163,7 @@ export default function ChatMessage({
         data-testid="chat-message-assistant"
         data-kind="text"
         data-variant={message.variant ?? 'default'}
-        className={`max-w-2xl whitespace-pre-wrap rounded-lg border px-4 py-2 text-sm transition-opacity duration-200 ${bubbleStyle} ${opacityClass}`}
+        className={`max-w-2xl whitespace-pre-wrap rounded-xl border px-4 py-2 text-sm transition-opacity duration-200 ${bubbleStyle} ${opacityClass}`}
       >
         {message.text}
       </div>

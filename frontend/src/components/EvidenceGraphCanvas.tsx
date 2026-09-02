@@ -30,15 +30,15 @@ const COLUMNS = 6
 // entity kind added later without a matching design decision) falls back
 // to the neutral colour rather than silently rendering unstyled.
 export const NODE_TYPE_COLORS: Record<string, string> = {
-  SYSTEM: '#38bdf8', // sky-400
-  REQUIREMENT: '#a78bfa', // violet-400
-  TEST_CASE: '#34d399', // emerald-400
-  RISK: '#f87171', // red-400
-  CHANGE: '#fbbf24', // amber-400
-  CONTROL: '#fb923c', // orange-400
-  DOCUMENT: '#94a3b8', // slate-400
+  SYSTEM: '#38d7ff', // --color-accent-2
+  REQUIREMENT: '#9a7bff', // --color-violet
+  TEST_CASE: '#2fd889', // --color-mint
+  RISK: '#ff5449', // --color-red
+  CHANGE: '#ffb020', // --color-amber
+  CONTROL: '#ff8a3d', // --color-orange
+  DOCUMENT: 'rgba(243, 245, 251, 0.5)', // --color-ink-faint-ish
 }
-const NODE_TYPE_COLOR_DEFAULT = '#64748b' // slate-500
+const NODE_TYPE_COLOR_DEFAULT = 'rgba(243, 245, 251, 0.35)'
 
 export function nodeAccentColor(nodeType: string): string {
   return NODE_TYPE_COLORS[nodeType] ?? NODE_TYPE_COLOR_DEFAULT
@@ -114,7 +114,7 @@ export default function EvidenceGraphCanvas({
     // React Flow renders nothing inside a zero-height parent -- the fixed
     // height here is load-bearing, not decorative (mirrors
     // AgentTopologyCanvas.tsx).
-    <div style={{ height: 480 }} className="w-full rounded-lg border border-slate-800 bg-slate-900">
+    <div style={{ height: 480 }} className="w-full overflow-hidden rounded-xl border border-white/[0.08] bg-[#080b13]">
       <ReactFlow
         nodes={flowNodes}
         edges={flowEdges}
@@ -125,7 +125,7 @@ export default function EvidenceGraphCanvas({
         proOptions={{ hideAttribution: true }}
         onNodeClick={onNodeClick ? (_event, node) => onNodeClick(node.id) : undefined}
       >
-        <Background />
+        <Background color="rgba(255,255,255,0.08)" />
         <Controls />
       </ReactFlow>
     </div>

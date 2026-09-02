@@ -23,8 +23,8 @@ describe('AgentTopologyCanvas', () => {
     const { container } = render(<AgentTopologyCanvas />)
     for (const id of ['C2', 'A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'C1', 'A7', 'C3']) {
       const node = findNode(container, id)
-      expect(node.className).toContain('border-slate-700')
-      expect(node.className).toContain('bg-slate-800')
+      expect(node.className).toContain('border-white/15')
+      expect(node.className).toContain('bg-white/[0.05]')
     }
   })
 
@@ -50,9 +50,9 @@ describe('AgentTopologyCanvas', () => {
 
   it('colors A0/A2 running and C1 waiting on stream open', () => {
     const { container } = render(<AgentTopologyCanvas nodeStatus={{ A0: 'running', A2: 'running' }} />)
-    expect(findNode(container, 'A0').className).toContain('border-amber-600')
-    expect(findNode(container, 'A2').className).toContain('border-amber-600')
-    expect(findNode(container, 'C1').className).toContain('border-slate-700')
+    expect(findNode(container, 'A0').className).toContain('border-amber')
+    expect(findNode(container, 'A2').className).toContain('border-amber')
+    expect(findNode(container, 'C1').className).toContain('border-white/15')
   })
 
   it('colors C1 running on the first card, then all three complete on the terminal frame', () => {
@@ -62,7 +62,7 @@ describe('AgentTopologyCanvas', () => {
     rerender(
       <AgentTopologyCanvas nodeStatus={{ A0: 'running', A2: 'running', C1: 'running' }} />,
     )
-    expect(findNode(container, 'C1').className).toContain('border-amber-600')
+    expect(findNode(container, 'C1').className).toContain('border-amber')
 
     rerender(
       <AgentTopologyCanvas
@@ -70,7 +70,7 @@ describe('AgentTopologyCanvas', () => {
       />,
     )
     for (const id of ['A0', 'A2', 'C1']) {
-      expect(findNode(container, id).className).toContain('border-emerald-600')
+      expect(findNode(container, id).className).toContain('border-mint')
     }
   })
 
@@ -86,6 +86,6 @@ describe('AgentTopologyCanvas', () => {
     expect(getByTestId('topology-disconnected-banner').textContent).toContain(
       'Live agent state disconnected',
     )
-    expect(findNode(container, 'A0').className).toContain('border-amber-600')
+    expect(findNode(container, 'A0').className).toContain('border-amber')
   })
 })

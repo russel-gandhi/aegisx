@@ -64,7 +64,7 @@ export const SELECT_SYSTEM_HINT = 'Select a system first'
 
 // D-13: a neutral ring, not an accent hue -- a deep-link highlight is a
 // landing cue, not a success/quality signal.
-export const HIGHLIGHTED_ROW_STYLE = 'ring-1 ring-slate-500'
+export const HIGHLIGHTED_ROW_STYLE = 'ring-2 ring-white/25'
 
 export function ingestionFailureCopy(stage: string): string {
   return `Processing stopped at ${stage} — the file was uploaded but not fully indexed, so it won't appear in retrieval yet. Try uploading it again.`
@@ -103,23 +103,23 @@ function computeStageGlyphs(state: RowStageState): StageGlyph[] {
   return INGESTION_STAGE_LABELS.map((_, index) => {
     if (state.kind === 'uploading') {
       return index === 0
-        ? { char: '◌', className: 'text-amber-600' }
-        : { char: '-', className: 'text-slate-500' }
+        ? { char: '◌', className: 'text-amber' }
+        : { char: '-', className: 'text-ink-faint' }
     }
     if (state.kind === 'ready') {
-      return { char: '✓', className: 'text-emerald-600' }
+      return { char: '✓', className: 'text-mint' }
     }
     // state.kind === 'failed'
     if (state.failedStageIndex === null) {
-      return { char: '-', className: 'text-slate-500' }
+      return { char: '-', className: 'text-ink-faint' }
     }
     if (index < state.failedStageIndex) {
-      return { char: '✓', className: 'text-emerald-600' }
+      return { char: '✓', className: 'text-mint' }
     }
     if (index === state.failedStageIndex) {
-      return { char: '✕', className: 'text-red-400' }
+      return { char: '✕', className: 'text-red' }
     }
-    return { char: '-', className: 'text-slate-500' }
+    return { char: '-', className: 'text-ink-faint' }
   })
 }
 
@@ -151,7 +151,7 @@ function StageChecklist({ state, documentId }: { state: RowStageState; documentI
           <span className={`transition-colors duration-300 ${glyphs[index].className}`}>
             {glyphs[index].char}
           </span>
-          <span className="text-slate-400">{label}</span>
+          <span className="text-ink-muted">{label}</span>
         </span>
       ))}
     </div>
@@ -265,24 +265,25 @@ export default function Knowledge() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Knowledge</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Knowledge base</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Knowledge</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Upload GxP documents to build the indexed corpus Copilot retrieves evidence from --
         every ingestion stage below reflects real backend state, never a fabricated progress
         animation.
       </p>
 
-      <div className="mt-6 lg:mt-6">
-        <h2 className="text-lg font-semibold text-slate-100">Add Knowledge</h2>
+      <div className="card mt-6 p-5">
+        <h2 className="text-[15px] font-semibold text-ink">Add Knowledge</h2>
 
-        <div className="mt-3">
-          <label htmlFor="knowledge-system" className="text-sm text-slate-400">
+        <div className="mt-3 flex items-center gap-2">
+          <label htmlFor="knowledge-system" className="text-sm text-ink-muted">
             System
           </label>
           <select
             id="knowledge-system"
             data-testid="knowledge-system-select"
-            className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+            className="input-field"
             value={systemId}
             onChange={(event) => setSystemId(event.target.value)}
           >
@@ -299,20 +300,20 @@ export default function Knowledge() {
           data-testid="knowledge-drop-zone"
           onDragOver={handleDragOver}
           onDrop={handleDrop}
-          className="mt-3 flex min-h-[160px] flex-col items-center justify-center rounded border border-dashed border-slate-800 bg-slate-900/50 p-4 text-center"
+          className="mt-3 flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] p-4 text-center transition-colors hover:border-accent/40"
         >
-          <p className="max-w-md text-sm text-slate-400">{DROP_ZONE_COPY}</p>
+          <p className="max-w-md text-sm text-ink-muted">{DROP_ZONE_COPY}</p>
           <button
             type="button"
             data-testid="browse-files-button"
             disabled={!systemId}
             onClick={handleBrowseClick}
-            className="mt-3 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+            className="btn btn-success mt-3"
           >
             Browse files
           </button>
           {!systemId && (
-            <p data-testid="select-system-hint" className="mt-1 text-xs text-slate-400">
+            <p data-testid="select-system-hint" className="mt-1 text-xs text-ink-faint">
               {SELECT_SYSTEM_HINT}
             </p>
           )}
@@ -326,26 +327,26 @@ export default function Knowledge() {
         </div>
 
         {inlineError && (
-          <p data-testid="knowledge-inline-error" className="mt-2 text-sm text-red-400">
+          <p data-testid="knowledge-inline-error" className="mt-2 text-sm text-red">
             {inlineError}
           </p>
         )}
       </div>
 
-      <div className="mt-6 lg:mt-6">
+      <div className="mt-6">
         {isEmpty ? (
           <div
             data-testid="knowledge-empty-state"
-            className="rounded border border-slate-800 bg-slate-900/50 p-6 text-center"
+            className="card p-8 text-center"
           >
-            <p className="text-lg font-semibold text-slate-100">{EMPTY_HEADING}</p>
-            <p className="mt-1 text-sm text-slate-400">{EMPTY_BODY}</p>
+            <p className="text-lg font-semibold text-ink">{EMPTY_HEADING}</p>
+            <p className="mt-1 text-sm text-ink-muted">{EMPTY_BODY}</p>
             <button
               type="button"
               data-testid="knowledge-empty-cta"
               disabled={!systemId}
               onClick={handleBrowseClick}
-              className="mt-3 rounded bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="btn btn-success mt-3"
             >
               {EMPTY_CTA}
             </button>
@@ -356,15 +357,15 @@ export default function Knowledge() {
               <div
                 key={pendingUpload.tempId}
                 data-testid={`knowledge-source-row-${pendingUpload.tempId}`}
-                className="rounded border border-slate-800 bg-slate-900 p-4 transition-all duration-300 ease-out"
+                className="card p-4 transition-all duration-300 ease-out"
               >
                 <p
-                  className="truncate text-sm font-medium text-slate-100"
+                  className="truncate text-sm font-medium text-ink"
                   title={pendingUpload.fileName}
                 >
                   {pendingUpload.fileName}
                 </p>
-                <p className="mt-1 text-xs text-slate-400">Uploading…</p>
+                <p className="mt-1 text-xs text-ink-faint">Uploading…</p>
                 <StageChecklist state={{ kind: 'uploading' }} documentId={pendingUpload.tempId} />
               </div>
             )}
@@ -390,17 +391,17 @@ export default function Knowledge() {
                   key={doc.document_id}
                   data-testid={`knowledge-source-row-${doc.document_id}`}
                   data-highlighted={isHighlighted ? 'true' : undefined}
-                  className={`rounded border border-slate-800 bg-slate-900 p-4 transition-all duration-300 ease-out ${isHighlighted ? HIGHLIGHTED_ROW_STYLE : ''}`}
+                  className={`card p-4 transition-all duration-300 ease-out ${isHighlighted ? HIGHLIGHTED_ROW_STYLE : ''}`}
                 >
-                  <p className="truncate text-sm font-medium text-slate-100" title={doc.title}>
+                  <p className="truncate text-sm font-medium text-ink" title={doc.title}>
                     {doc.title}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-ink-faint">
                     {doc.doc_type} · {doc.version ?? '—'} · {doc.ingestion_status} ·{' '}
                     {formatCreatedDate(doc.created_date)} · {doc.chunk_count} indexed units
                   </p>
                   {cachedFailedStage && (
-                    <p className="mt-1 text-xs text-red-400">
+                    <p className="mt-1 text-xs text-red">
                       {ingestionFailureCopy(cachedFailedStage)}
                     </p>
                   )}

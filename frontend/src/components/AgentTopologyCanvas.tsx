@@ -41,11 +41,13 @@ export type NodeStatusValue = 'waiting' | 'running' | 'complete'
 // C2 is dimmed for the same reason A1/A3-A6 are).
 const DIMMED_NODE_IDS = new Set(['C2', 'A1', 'A3', 'A4', 'A5', 'A6', 'A7', 'C3'])
 
-// 06-UI-SPEC.md Color table, transcribed verbatim.
+// 06-UI-SPEC.md Color table, semantics transcribed verbatim (waiting =
+// neutral, running = amber, complete = emerald/mint); literal token names
+// updated for the 2026-09-02 UI overhaul's design system.
 const STATUS_CLASSES: Record<NodeStatusValue, string> = {
-  waiting: 'border-slate-700 bg-slate-800',
-  running: 'border-amber-600 bg-amber-950/40',
-  complete: 'border-emerald-600 bg-emerald-950/40',
+  waiting: 'border-white/15 bg-white/[0.05]',
+  running: 'border-amber bg-amber-soft',
+  complete: 'border-mint bg-mint-soft',
 }
 
 export interface AgentTopologyCanvasProps {
@@ -86,7 +88,7 @@ export default function AgentTopologyCanvas({
       {disconnected && (
         <p
           data-testid="topology-disconnected-banner"
-          className="mb-2 rounded border border-red-700 bg-red-950/40 p-2 text-sm text-red-300"
+          className="mb-2 rounded-lg border border-red-500/30 bg-red-soft p-2 text-sm text-red"
         >
           Live agent state disconnected — the topology below reflects the last known state. Ask
           again to reconnect.
@@ -94,14 +96,17 @@ export default function AgentTopologyCanvas({
       )}
       {/* React Flow renders nothing inside a zero-height parent — the fixed height here is
           load-bearing, not decorative. */}
-      <div style={{ height: 480 }} className="w-full rounded-lg border border-slate-800 bg-slate-900">
+      <div
+        style={{ height: 480 }}
+        className="w-full overflow-hidden rounded-xl border border-white/[0.08] bg-[#080b13]"
+      >
         <ReactFlow nodes={nodes} edges={edges} fitView>
-          <Background />
+          <Background color="rgba(255,255,255,0.08)" />
           <Controls />
         </ReactFlow>
       </div>
       {/* D-03's literal required note -- do not paraphrase. */}
-      <p className="mt-2 text-xs text-slate-500">A1, A3–A6 not yet implemented (v2)</p>
+      <p className="mt-2 text-xs text-ink-faint">A1, A3–A6 not yet implemented (v2)</p>
     </div>
   )
 }

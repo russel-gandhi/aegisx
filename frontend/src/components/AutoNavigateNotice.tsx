@@ -104,7 +104,7 @@ export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoN
         role="status"
         aria-live="polite"
         data-testid="auto-navigate-notice-cancelled"
-        className={`rounded border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 transition-opacity duration-200 ${opacityClass}`}
+        className={`glass rounded-lg px-3 py-2 text-xs text-ink-muted transition-opacity duration-200 ${opacityClass}`}
       >
         {CANCELLED_COPY}
       </div>
@@ -121,14 +121,14 @@ export default function AutoNavigateNotice({ target, armed, onCancelled }: AutoN
       role="status"
       aria-live="polite"
       data-testid="auto-navigate-notice"
-      className={`flex items-center justify-between gap-3 rounded border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300 transition-opacity duration-200 ${opacityClass}`}
+      className={`glass flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-xs text-ink-muted transition-opacity duration-200 ${opacityClass}`}
     >
       <span>{autoNavigateCopy(destination, label)}</span>
       <button
         type="button"
         data-testid="auto-navigate-stay-here"
         onClick={handleStayHere}
-        className="rounded border border-slate-700 px-2 py-0.5 text-slate-200"
+        className="rounded-md border border-white/[0.14] px-2 py-0.5 text-ink hover:bg-white/[0.06]"
       >
         {STAY_HERE_LABEL}
       </button>

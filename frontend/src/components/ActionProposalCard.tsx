@@ -18,25 +18,23 @@ export interface ActionProposalCardProps {
 }
 
 export const STATUS_STYLES: Record<string, string> = {
-  PENDING_APPROVAL: 'border-amber-700 bg-amber-950/40',
-  APPROVED: 'border-emerald-700 bg-emerald-950/40',
-  EXECUTED: 'border-emerald-700 bg-emerald-950/40',
-  REJECTED: 'border-red-700 bg-red-950/40',
-  BLOCKED: 'border-orange-700 bg-orange-950/40',
+  PENDING_APPROVAL: 'border-l-amber',
+  APPROVED: 'border-l-mint',
+  EXECUTED: 'border-l-mint',
+  REJECTED: 'border-l-red',
+  BLOCKED: 'border-l-orange',
 }
 
 export const STATUS_BADGE_STYLES: Record<string, string> = {
-  PENDING_APPROVAL: 'bg-amber-700 text-amber-50',
-  APPROVED: 'bg-emerald-700 text-emerald-50',
-  EXECUTED: 'bg-emerald-700 text-emerald-50',
-  REJECTED: 'bg-red-700 text-red-50',
-  BLOCKED: 'bg-orange-700 text-orange-50',
+  PENDING_APPROVAL: 'badge-amber',
+  APPROVED: 'badge-mint',
+  EXECUTED: 'badge-mint',
+  REJECTED: 'badge-red',
+  BLOCKED: 'badge-orange',
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{children}</p>
-  )
+  return <p className="text-[11px] font-bold tracking-[0.08em] text-ink-faint uppercase">{children}</p>
 }
 
 export default function ActionProposalCard({
@@ -48,8 +46,8 @@ export default function ActionProposalCard({
 }: ActionProposalCardProps) {
   const [confirmingReject, setConfirmingReject] = useState(false)
 
-  const borderStyle = STATUS_STYLES[proposal.status] ?? 'border-slate-700 bg-slate-900/40'
-  const badgeStyle = STATUS_BADGE_STYLES[proposal.status] ?? 'bg-slate-700 text-slate-50'
+  const borderStyle = STATUS_STYLES[proposal.status] ?? 'border-l-white/20'
+  const badgeStyle = STATUS_BADGE_STYLES[proposal.status] ?? 'badge-neutral'
   const isPending = proposal.status === 'PENDING_APPROVAL'
   const isBusy = busy !== null
 
@@ -57,56 +55,52 @@ export default function ActionProposalCard({
     <div
       data-testid="action-proposal-card"
       data-status={proposal.status}
-      className={`rounded-lg border p-4 ${borderStyle}`}
+      className={`card border-l-[3px] p-5 ${borderStyle}`}
     >
-      <p className="text-sm text-slate-500">{proposal.id}</p>
-
-      <div className="mt-3">
-        <SectionLabel>ACTION TYPE</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{proposal.action_type}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[11px] text-ink-faint">{proposal.id}</p>
+        <span className={`badge ${badgeStyle}`}>{proposal.status}</span>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>CATEGORY</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{proposal.category ?? 'Not provided'}</p>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <SectionLabel>Action type</SectionLabel>
+          <p className="mt-1 text-[13.5px] text-ink">{proposal.action_type}</p>
+        </div>
+
+        <div>
+          <SectionLabel>Category</SectionLabel>
+          <p className="mt-1 text-[13.5px] text-ink">{proposal.category ?? 'Not provided'}</p>
+        </div>
+
+        <div>
+          <SectionLabel>Target system</SectionLabel>
+          <p className="mt-1 font-mono text-[13px] text-ink">{proposal.target_system}</p>
+        </div>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>TARGET SYSTEM</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{proposal.target_system}</p>
-      </div>
-
-      <div className="mt-3">
-        <SectionLabel>JUSTIFICATION</SectionLabel>
-        <p className="mt-1 whitespace-pre-wrap text-sm text-slate-100">
+      <div className="mt-4">
+        <SectionLabel>Justification</SectionLabel>
+        <p className="mt-1 text-[13.5px] leading-relaxed whitespace-pre-wrap text-ink-muted">
           {proposal.justification ?? 'Not provided'}
         </p>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>PAYLOAD</SectionLabel>
-        <pre className="mt-1 max-h-48 overflow-auto rounded bg-slate-950 p-2 text-xs text-slate-300">
+      <div className="mt-4">
+        <SectionLabel>Payload</SectionLabel>
+        <pre className="mt-1 max-h-48 overflow-auto rounded-lg border border-white/[0.06] bg-black/30 p-3 font-mono text-[11px] text-ink-muted">
           {JSON.stringify(proposal.payload, null, 2)}
         </pre>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>STATUS</SectionLabel>
-        <span
-          className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${badgeStyle}`}
-        >
-          {proposal.status}
-        </span>
-      </div>
-
       {isPending && (
-        <div className="mt-4 border-t border-slate-800 pt-3">
+        <div className="mt-4 border-t border-white/[0.07] pt-4">
           {confirmingReject ? (
             <div>
-              <p className="text-sm text-slate-200">
+              <p className="text-[13px] text-ink">
                 {`Reject Action: Reject this ${proposal.action_type} on ${proposal.target_system}? It will not be executed. This decision is recorded in the audit trail and cannot be undone.`}
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-3 flex gap-2">
                 <button
                   type="button"
                   disabled={isBusy}
@@ -114,7 +108,7 @@ export default function ActionProposalCard({
                     setConfirmingReject(false)
                     onReject(proposal.id)
                   }}
-                  className="rounded bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn btn-danger"
                 >
                   {busy === 'rejecting' ? 'Rejecting...' : 'Confirm Reject'}
                 </button>
@@ -122,7 +116,7 @@ export default function ActionProposalCard({
                   type="button"
                   disabled={isBusy}
                   onClick={() => setConfirmingReject(false)}
-                  className="rounded px-3 py-1.5 text-sm font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="btn btn-secondary"
                 >
                   Cancel
                 </button>
@@ -135,7 +129,7 @@ export default function ActionProposalCard({
                 disabled={isBusy}
                 onClick={() => onApprove(proposal.id)}
                 data-tour="approve-action"
-                className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-success"
               >
                 {busy === 'approving' ? 'Approving...' : 'Approve Action'}
               </button>
@@ -143,13 +137,13 @@ export default function ActionProposalCard({
                 type="button"
                 disabled={isBusy}
                 onClick={() => setConfirmingReject(true)}
-                className="rounded bg-red-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="btn btn-danger"
               >
                 {busy === 'rejecting' ? 'Rejecting...' : 'Reject Action'}
               </button>
             </div>
           )}
-          {error && <p className="mt-2 text-sm text-red-400">{error}</p>}
+          {error && <p className="mt-2 text-sm text-red">{error}</p>}
         </div>
       )}
     </div>

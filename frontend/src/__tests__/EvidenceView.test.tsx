@@ -69,12 +69,19 @@ describe('EvidenceView -- fixed section order', () => {
     )
 
     const card = screen.getByTestId(`evidence-item-${item.evidence_id}`)
+    // 2026-09-02 UI overhaul: section labels moved from literal ALL-CAPS
+    // markup to Title Case text with a CSS-only `uppercase` transform
+    // (still visually renders as caps -- jsdom's textContent reads the raw
+    // markup, not the CSS transform). Case-insensitive search preserves
+    // this test's real intent -- order -- without depending on markup
+    // casing that's now a presentation detail, not the contract.
     const text = card.textContent ?? ''
-    const sourceIdx = text.indexOf('SOURCE')
-    const sectionIdx = text.indexOf('SECTION/PAGE')
-    const methodIdx = text.indexOf('RETRIEVAL METHOD')
-    const scoresIdx = text.indexOf('SCORES')
-    const whyIdx = text.indexOf(WHY_SELECTED_PREFIX)
+    const upperText = text.toUpperCase()
+    const sourceIdx = upperText.indexOf('SOURCE')
+    const sectionIdx = upperText.indexOf('SECTION/PAGE')
+    const methodIdx = upperText.indexOf('RETRIEVAL METHOD')
+    const scoresIdx = upperText.indexOf('SCORES')
+    const whyIdx = upperText.indexOf(WHY_SELECTED_PREFIX.toUpperCase())
 
     expect(sourceIdx).toBeGreaterThanOrEqual(0)
     expect(sourceIdx).toBeLessThan(sectionIdx)
@@ -148,12 +155,18 @@ describe('EvidenceView -- evidence-support badge', () => {
     const badge = screen.getByTestId('evidence-support-badge')
     expect(badge.textContent).toBe('WEIRD_BAND')
     const panel = screen.getByTestId('evidence-view-panel')
-    expect(panel.className).toContain('border-slate-700')
+    // 2026-09-02 UI overhaul: the neutral fallback token changed shape
+    // (Tailwind slate literal -> the new design system's neutral token),
+    // but the underlying contract this test guards is unchanged -- an
+    // unrecognised band must never accidentally pick up a semantic
+    // (mint/amber/orange/red) color, staying visually neutral instead.
+    expect(panel.className).not.toMatch(/mint|amber|orange|(?<!bg-)red/)
+    expect(panel.className).toContain('border-white/15')
   })
 })
 
 describe('EvidenceView -- retrieval-method and evidence-type badges are neutral', () => {
-  it('uses only slate-800/slate-300 classes for both badge kinds', () => {
+  it('uses only the neutral badge class for both badge kinds, never an accent hue', () => {
     const item = fixtureItem()
     renderWithRouter(
       <EvidenceView
@@ -166,10 +179,10 @@ describe('EvidenceView -- retrieval-method and evidence-type badges are neutral'
 
     const methodBadge = screen.getByTestId(`evidence-method-badge-${item.evidence_id}`)
     const typeBadge = screen.getByTestId(`evidence-type-badge-${item.evidence_id}`)
-    expect(methodBadge.className).toContain('bg-slate-800')
-    expect(methodBadge.className).toContain('text-slate-300')
-    expect(typeBadge.className).toContain('bg-slate-800')
-    expect(typeBadge.className).toContain('text-slate-300')
+    expect(methodBadge.className).toContain('badge-neutral')
+    expect(methodBadge.className).not.toMatch(/badge-(blue|mint|amber|orange|red|violet)/)
+    expect(typeBadge.className).toContain('badge-neutral')
+    expect(typeBadge.className).not.toMatch(/badge-(blue|mint|amber|orange|red|violet)/)
   })
 })
 
@@ -328,7 +341,7 @@ describe('EvidenceView -- deep links (D-13, plan 06.1-08)', () => {
     expect(card.querySelector('[title]')).toBeNull()
   })
 
-  it('carries no accent hue on the link -- only slate classes', () => {
+  it('carries no accent hue on the link -- neutral ink tokens only', () => {
     const item = fixtureItem({ evidence_type: 'document', document_id: 'DOC-A' })
     renderWithRouter(
       <EvidenceView
@@ -339,7 +352,7 @@ describe('EvidenceView -- deep links (D-13, plan 06.1-08)', () => {
       />,
     )
     const link = screen.getByTestId('evidence-item-link')
-    expect(link.className).toContain('text-slate-300')
-    expect(link.className).not.toMatch(/(emerald|amber|orange|red)-[0-9]+/)
+    expect(link.className).toContain('text-ink-muted')
+    expect(link.className).not.toMatch(/text-(accent|mint|amber|orange|red|violet)/)
   })
 })

@@ -134,40 +134,41 @@ export default function Actions() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Action / Approval Centre</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Approval centre</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Action / Approval Centre</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Every GxP-relevant write proposed by A7 Remediation sits here PENDING until a human
         approves it. Approval dialogs render exclusively from server-trusted proposal metadata,
         never from LLM-generated markup.
       </p>
 
       <div className="mt-4 flex items-center gap-2 text-sm">
-        {connectionStatus === 'connecting' && <span className="text-slate-400">Connecting…</span>}
+        {connectionStatus === 'connecting' && <span className="text-ink-faint">Connecting…</span>}
         {connectionStatus === 'connected' && (
           <>
             <span
               data-testid="ws-connected-dot"
               aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-emerald-600"
+              className="h-2 w-2 rounded-full bg-mint shadow-[0_0_8px_rgba(47,216,137,0.7)]"
             />
-            <span className="text-slate-400">Live</span>
+            <span className="text-ink-muted">Live</span>
           </>
         )}
         {connectionStatus === 'degraded' && (
-          <span className="text-amber-400">
+          <span className="text-amber">
             Live updates unavailable — refresh to see new actions.
           </span>
         )}
       </div>
 
-      <h2 className="mt-6 text-lg font-semibold text-slate-100">{`Pending Actions (${proposals.length})`}</h2>
+      <h2 className="mt-6 text-[15px] font-semibold text-ink">{`Pending Actions (${proposals.length})`}</h2>
 
       <div className="mt-3 max-h-[36rem] space-y-4 overflow-auto">
-        {loadState === 'loading' && <p className="text-slate-400">Loading pending actions...</p>}
+        {loadState === 'loading' && <p className="text-ink-muted">Loading pending actions...</p>}
 
         {loadState === 'error' && (
           <div>
-            <p className="text-red-400">
+            <p className="text-red">
               Couldn&apos;t load pending actions — check your connection and retry.
             </p>
             <button
@@ -176,7 +177,7 @@ export default function Actions() {
                 setLoadState('loading')
                 setRetryToken((t) => t + 1)
               }}
-              className="mt-2 rounded bg-slate-800 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700"
+              className="btn btn-secondary mt-2"
             >
               Retry
             </button>
@@ -185,8 +186,8 @@ export default function Actions() {
 
         {loadState === 'ready' && proposals.length === 0 && (
           <div>
-            <p className="text-lg font-semibold text-slate-100">No pending actions</p>
-            <p className="mt-1 text-slate-400">
+            <p className="text-lg font-semibold text-ink">No pending actions</p>
+            <p className="mt-1 text-ink-muted">
               All caught up — proposed actions will appear here as A7 generates them, and this
               list updates live.
             </p>

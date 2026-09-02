@@ -1,1 +1,337 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   AegisX design system (UI/UX overhaul, 2026-09-02)
+
+   Palette, radius, and shadow language adapted from the company's own
+   reference showcase (GxP_Sentinel_Interactive_Hackathon_Showcase.html):
+   deep near-black surfaces, a saturated blue/cyan primary accent pair,
+   mint/amber/red/violet as a semantic secondary set, large soft shadows,
+   generous rounding, and glass (blurred, translucent) panels. Adapted for
+   a working dashboard rather than copied from a marketing page: radii
+   and type scale are toned down from the source's hero-sized values to
+   fit dense, information-heavy screens.
+   --------------------------------------------------------------------- */
+
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Surfaces -- three steps of dark, from page background to raised card */
+  --color-canvas: #05070d;
+  --color-surface: #0b0f1a;
+  --color-surface-2: #111726;
+  --color-surface-3: #171f33;
+
+  /* Borders */
+  --color-edge: rgba(255, 255, 255, 0.09);
+  --color-edge-strong: rgba(255, 255, 255, 0.16);
+
+  /* Text */
+  --color-ink: #f3f5fb;
+  --color-ink-muted: rgba(243, 245, 251, 0.62);
+  --color-ink-faint: rgba(243, 245, 251, 0.4);
+
+  /* Accent system */
+  --color-accent: #2f8bff;
+  --color-accent-2: #38d7ff;
+  --color-accent-soft: rgba(47, 139, 255, 0.14);
+  --color-mint: #2fd889;
+  --color-mint-soft: rgba(47, 216, 137, 0.14);
+  --color-amber: #ffb020;
+  --color-amber-soft: rgba(255, 176, 32, 0.14);
+  --color-orange: #ff8a3d;
+  --color-orange-soft: rgba(255, 138, 61, 0.14);
+  --color-red: #ff5449;
+  --color-red-soft: rgba(255, 84, 73, 0.14);
+  --color-violet: #9a7bff;
+  --color-violet-soft: rgba(154, 123, 255, 0.14);
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 20px 60px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 24px 70px rgba(0, 0, 0, 0.45);
+  --shadow-glow: 0 0 0 1px rgba(47, 139, 255, 0.22), 0 8px 30px rgba(47, 139, 255, 0.2);
+}
+
+html {
+  background: var(--color-canvas);
+  color-scheme: dark;
+}
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Ambient background: a very quiet radial wash behind the whole app,
+   matching the reference's #ambient layer -- fixed, non-interactive,
+   never competing with foreground content. */
+.app-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 640px at 82% -8%, rgba(47, 139, 255, 0.14), transparent 60%),
+    radial-gradient(760px 520px at 6% 8%, rgba(56, 215, 255, 0.08), transparent 60%);
+}
+
+/* Glass panel utility -- translucent, blurred, soft-bordered. Used for
+   nav chrome and any panel that should feel "floating" above content. */
+.glass {
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--color-edge);
+}
+
+/* Scrollbar, dark-mode tuned */
+* {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  scrollbar-width: thin;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.22);
+  background-clip: content-box;
+}
+
+/* ---------------------------------------------------------------------
+   Shared component classes -- one definition per pattern, reused across
+   every page rather than repeating the same long utility string in each
+   file. Kept in @layer components so Tailwind utility classes applied
+   alongside these (e.g. `className="card mt-4"`) can still override them.
+   --------------------------------------------------------------------- */
+@layer components {
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent-2);
+  }
+
+  .card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-edge);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: var(--shadow-panel);
+  }
+
+  .input-field {
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-edge-strong);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--color-ink);
+    padding: 0.5rem 0.75rem;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .input-field:focus {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+  }
+  .input-field::placeholder {
+    color: var(--color-ink-faint);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.55rem 1.05rem;
+    font-size: 13px;
+    font-weight: 600;
+    transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+    white-space: nowrap;
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-accent);
+    color: white;
+    box-shadow: var(--shadow-glow);
+  }
+  .btn-primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+  .btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-ink);
+    border: 1px solid var(--color-edge-strong);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .btn-success {
+    background: var(--color-mint);
+    color: #04160d;
+    box-shadow: 0 8px 24px rgba(47, 216, 137, 0.35);
+  }
+  .btn-success:hover:not(:disabled) {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+  }
+  .btn-danger {
+    background: var(--color-red);
+    color: white;
+    box-shadow: 0 8px 24px rgba(255, 84, 73, 0.3);
+  }
+  .btn-danger:hover:not(:disabled) {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .badge-blue {
+    background: var(--color-accent-soft);
+    color: #8ec4ff;
+  }
+  .badge-mint {
+    background: var(--color-mint-soft);
+    color: #6fe3ac;
+  }
+  .badge-amber {
+    background: var(--color-amber-soft);
+    color: #ffcb6b;
+  }
+  .badge-red {
+    background: var(--color-red-soft);
+    color: #ff8a80;
+  }
+  .badge-orange {
+    background: var(--color-orange-soft);
+    color: #ffab6e;
+  }
+  .badge-violet {
+    background: var(--color-violet-soft);
+    color: #c2adff;
+  }
+  .badge-neutral {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--color-ink-muted);
+  }
+}
+
+/* React Flow node/edge text and controls, dark-canvas tuned -- the
+   library's own stylesheet (@xyflow/react/dist/style.css) defaults to
+   black text on a white node background; AgentTopologyCanvas/
+   EvidenceGraphCanvas both render on a dark canvas now, so this
+   overrides text/line colors globally rather than per-canvas. */
+@layer base {
+  .react-flow__node {
+    color: var(--color-ink);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: pre-line;
+    text-align: center;
+    border-radius: var(--radius-sm) !important;
+  }
+}
+/* Deliberately unlayered (not @layer base): the library's own node-default
+   rule (@xyflow/react/dist/style.css) is itself unlayered, and per the CSS
+   Cascade Layers spec an unlayered rule always beats a layered one of equal
+   specificity regardless of source order -- so a Tailwind utility (which
+   Tailwind v4 emits inside `@layer utilities`) can never out-rank it.
+   Matching the library's own un-layered-ness here, plus loading after its
+   stylesheet (main.tsx imports it before this file), wins the default
+   dark-canvas background/border on specificity + source order alone, no
+   `!important` required -- which matters because `!important` would also
+   flatten every per-status color a caller sets via a higher-specificity
+   compound selector below. */
+.react-flow__node-default {
+  background: var(--color-surface-2);
+  border-color: var(--color-edge-strong);
+  padding: 8px 10px;
+}
+/* Per-status/per-type overrides for AgentTopologyCanvas and
+   EvidenceGraphCanvas: compounding `.react-flow__node` with the status
+   class raises specificity above the plain `.react-flow__node-default`
+   rule immediately above (and above the library's own unlayered default),
+   so these still render even though all three rules are unlayered. */
+.react-flow__node.border-amber {
+  background-color: var(--color-amber-soft);
+  border-color: var(--color-amber);
+}
+.react-flow__node.border-mint {
+  background-color: var(--color-mint-soft);
+  border-color: var(--color-mint);
+}
+.react-flow__node.border-white\/15 {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.react-flow__edge-path {
+  stroke: rgba(255, 255, 255, 0.22);
+}
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--color-accent-2);
+}
+.react-flow__controls {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  box-shadow: var(--shadow-panel);
+}
+.react-flow__controls-button {
+  background: var(--color-surface-2) !important;
+  border-bottom: 1px solid var(--color-edge) !important;
+  color: var(--color-ink) !important;
+}
+.react-flow__controls-button:hover {
+  background: var(--color-surface-3) !important;
+}
+.react-flow__controls-button svg {
+  fill: var(--color-ink) !important;
+}
+.react-flow__attribution {
+  background: transparent !important;
+}
+.react-flow__attribution a {
+  color: var(--color-ink-faint) !important;
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

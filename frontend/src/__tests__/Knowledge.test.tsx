@@ -188,7 +188,7 @@ describe('Knowledge upload -- stage honesty while in flight', () => {
     // stage is not-yet-started -- found by scoping to the row containing
     // the uploading filename, since the pending row's id is a random uuid.
     const pendingRow = screen.getByText('new_doc.md').closest('div') as HTMLElement
-    const glyphs = pendingRow.querySelectorAll('span.text-amber-600, span.text-slate-500')
+    const glyphs = pendingRow.querySelectorAll('span.text-amber, span.text-ink-faint')
     expect(glyphs.length).toBe(6)
     expect(glyphs[0].textContent).toBe('◌')
     for (let i = 1; i < 6; i += 1) {

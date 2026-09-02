@@ -135,8 +135,9 @@ export default function InspectionSimulator() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Inspection Readiness Simulator</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Timed challenge</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Inspection Readiness Simulator</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Ten FDA-inspector-style questions, each answered live through the real Copilot pipeline
         with cited evidence &mdash; the same 30-second bar the Bible sets for a credible audit-prep
         demo.
@@ -148,14 +149,14 @@ export default function InspectionSimulator() {
             const s = states[q.id]
             const dotClass =
               s.phase === 'answered' && !s.result.insufficient_evidence
-                ? 'bg-emerald-500'
+                ? 'bg-mint'
                 : s.phase === 'answered' || s.phase === 'timed_out'
-                  ? 'bg-orange-500'
+                  ? 'bg-orange'
                   : s.phase === 'error'
-                    ? 'bg-red-500'
+                    ? 'bg-red'
                     : i === current
-                      ? 'bg-slate-400'
-                      : 'bg-slate-700'
+                      ? 'bg-ink-muted'
+                      : 'bg-white/15'
             return (
               <button
                 key={q.id}
@@ -167,27 +168,27 @@ export default function InspectionSimulator() {
             )
           })}
         </div>
-        <span className="text-sm text-slate-500">
+        <span className="text-sm text-ink-faint">
           {answeredCount}/10 answered &middot; {passedCount} passed
         </span>
       </div>
 
-      <div className="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-6">
+      <div className="card mt-6 p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            <p className="eyebrow">
               Question {current + 1} of 10
             </p>
-            <p className="mt-1 text-sm text-orange-300">{question.observation}</p>
-            <p className="mt-3 text-lg text-slate-100">&ldquo;{question.query}&rdquo;</p>
+            <p className="mt-1 text-sm text-orange">{question.observation}</p>
+            <p className="mt-3 text-lg text-ink">&ldquo;{question.query}&rdquo;</p>
           </div>
           {state.phase === 'running' && (
             <div
               data-testid="countdown"
               className={`shrink-0 rounded-full border px-3 py-1.5 text-center text-lg font-semibold tabular-nums ${
                 state.secondsLeft <= 10
-                  ? 'border-red-700 bg-red-950/40 text-red-300'
-                  : 'border-slate-700 bg-slate-800 text-slate-200'
+                  ? 'border-red-500/30 bg-red-soft text-red'
+                  : 'border-white/[0.14] bg-white/[0.06] text-ink'
               }`}
             >
               {state.secondsLeft}s
@@ -200,22 +201,22 @@ export default function InspectionSimulator() {
             <button
               type="button"
               onClick={startQuestion}
-              className="rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-600"
+              className="btn btn-success"
             >
               Start Question
             </button>
           )}
 
           {state.phase === 'running' && (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-ink-muted">
               Copilot is retrieving evidence and verifying against real database and policy state&hellip;
             </p>
           )}
 
           {state.phase === 'timed_out' && (
-            <div className="rounded-lg border border-orange-800 bg-orange-950/30 p-4">
-              <p className="font-medium text-orange-300">Timed out</p>
-              <p className="mt-1 text-sm text-slate-400">
+            <div className="rounded-xl border border-orange/30 bg-orange-soft p-4">
+              <p className="font-medium text-orange">Timed out</p>
+              <p className="mt-1 text-sm text-ink-muted">
                 No answer within {TIME_LIMIT_SECONDS}s. This counts against readiness the same way a
                 slow response would in a real inspection.
               </p>
@@ -223,42 +224,40 @@ export default function InspectionSimulator() {
           )}
 
           {state.phase === 'error' && (
-            <p className="text-sm text-red-400">The request failed. Check that the backend is reachable.</p>
+            <p className="text-sm text-red">The request failed. Check that the backend is reachable.</p>
           )}
 
           {state.phase === 'answered' && (
             <div
-              className={`rounded-lg border p-4 ${
+              className={`rounded-xl border p-4 ${
                 state.result.insufficient_evidence
-                  ? 'border-orange-800 bg-orange-950/20'
-                  : 'border-emerald-800 bg-emerald-950/10'
+                  ? 'border-orange/30 bg-orange-soft'
+                  : 'border-mint/30 bg-mint-soft'
               }`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
-                    state.result.insufficient_evidence
-                      ? 'border-orange-700 bg-orange-950/50 text-orange-300'
-                      : 'border-emerald-700 bg-emerald-950/50 text-emerald-300'
+                  className={`badge ${
+                    state.result.insufficient_evidence ? 'badge-orange' : 'badge-mint'
                   }`}
                 >
                   {state.result.insufficient_evidence ? 'INSUFFICIENT EVIDENCE' : 'ANSWERED'}
                 </span>
-                <span className="font-mono text-xs text-slate-500">{state.elapsedSeconds.toFixed(1)}s</span>
-                <span className="text-xs text-slate-500">&middot; {state.result.evidence.length} evidence items</span>
+                <span className="font-mono text-xs text-ink-faint">{state.elapsedSeconds.toFixed(1)}s</span>
+                <span className="text-xs text-ink-faint">&middot; {state.result.evidence.length} evidence items</span>
               </div>
               {state.result.findings.length > 0 && (
                 <ul className="mt-3 space-y-2">
                   {state.result.findings.map((f) => (
-                    <li key={f.finding_id} className="text-sm text-slate-300">
-                      <span className="font-mono text-xs text-slate-500">[{f.regulatory_citations.join(', ')}]</span>{' '}
+                    <li key={f.finding_id} className="text-sm text-ink-muted">
+                      <span className="font-mono text-xs text-ink-faint">[{f.regulatory_citations.join(', ')}]</span>{' '}
                       {f.claim}
                     </li>
                   ))}
                 </ul>
               )}
               {state.result.answer && (
-                <p className="mt-3 text-sm text-slate-300">{state.result.answer}</p>
+                <p className="mt-3 text-sm text-ink-muted">{state.result.answer}</p>
               )}
             </div>
           )}
@@ -270,7 +269,7 @@ export default function InspectionSimulator() {
           type="button"
           onClick={() => setCurrent((c) => Math.max(0, c - 1))}
           disabled={current === 0}
-          className="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
           Previous
         </button>
@@ -278,7 +277,7 @@ export default function InspectionSimulator() {
           type="button"
           onClick={() => setCurrent((c) => Math.min(QUESTIONS.length - 1, c + 1))}
           disabled={current === QUESTIONS.length - 1}
-          className="rounded border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200 transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn-secondary disabled:cursor-not-allowed disabled:opacity-40"
         >
           Next
         </button>

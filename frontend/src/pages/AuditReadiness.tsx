@@ -42,17 +42,13 @@ function evidenceTypeFor(card: AssuranceCardData): string {
 function ConfidencePill({ confidence }: { confidence: string }) {
   const tone =
     confidence === 'HIGH'
-      ? 'bg-red-950/50 text-red-400 border-red-800'
+      ? 'badge-red'
       : confidence === 'MEDIUM'
-        ? 'bg-orange-950/50 text-orange-400 border-orange-800'
+        ? 'badge-orange'
         : confidence === 'LOW'
-          ? 'bg-amber-950/50 text-amber-400 border-amber-800'
-          : 'bg-slate-800 text-slate-400 border-slate-700'
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${tone}`}>
-      {confidence}
-    </span>
-  )
+          ? 'badge-amber'
+          : 'badge-neutral'
+  return <span className={`badge ${tone}`}>{confidence}</span>
 }
 
 // Cell intensity scales with count, not a fixed palette lookup -- a heat
@@ -60,11 +56,11 @@ function ConfidencePill({ confidence }: { confidence: string }) {
 // needs visible differentiation between "1 finding" and "3 findings" in
 // the same cell, which a flat threshold table can't give.
 function heatCellClasses(count: number, max: number): string {
-  if (count === 0) return 'bg-slate-900/40 text-slate-600'
+  if (count === 0) return 'bg-white/[0.015] text-ink-faint'
   const intensity = max > 0 ? count / max : 0
-  if (intensity > 0.66) return 'bg-red-900/70 text-red-100 font-semibold'
-  if (intensity > 0.33) return 'bg-orange-900/60 text-orange-100 font-semibold'
-  return 'bg-amber-900/40 text-amber-100'
+  if (intensity > 0.66) return 'bg-red-soft text-red font-semibold'
+  if (intensity > 0.33) return 'bg-orange-soft text-orange font-semibold'
+  return 'bg-amber-soft text-amber'
 }
 
 export default function AuditReadiness() {
@@ -125,19 +121,20 @@ export default function AuditReadiness() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Audit Readiness</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Compliance overview</p>
+      <h1 className="mt-1 text-[28px] font-bold text-ink">Audit Readiness</h1>
+      <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Every open compliance finding for this system, independently verified against real
         database records and OPA/Rego policy evaluation.
       </p>
 
-      <div className="mt-4">
-        <label htmlFor="audit-readiness-system" className="text-sm text-slate-400">
+      <div className="mt-4 flex items-center gap-2">
+        <label htmlFor="audit-readiness-system" className="text-sm text-ink-muted">
           System
         </label>
         <select
           id="audit-readiness-system"
-          className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          className="input-field"
           value={systemId}
           onChange={(e) => setSystemId(e.target.value as SystemId)}
         >
@@ -149,33 +146,33 @@ export default function AuditReadiness() {
         </select>
       </div>
 
-      {status === 'loading' && <p className="mt-8 text-sm text-slate-400">Loading findings&hellip;</p>}
+      {status === 'loading' && <p className="mt-8 text-sm text-ink-muted">Loading findings&hellip;</p>}
       {status === 'error' && (
-        <p className="mt-8 text-sm text-red-400">Couldn&rsquo;t load assurance data. Refresh to retry.</p>
+        <p className="mt-8 text-sm text-red">Couldn&rsquo;t load assurance data. Refresh to retry.</p>
       )}
 
       {status === 'ready' && (
         <>
-          <div className="mt-8">
-            <p className="text-lg font-semibold text-slate-100">Evidence Confidence Heat Map</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Open findings by evidence type and confidence level. Darker cells mean more findings
+          <div className="card mt-8 p-5">
+            <p className="text-[15px] font-semibold text-ink">Evidence Confidence Heat Map</p>
+            <p className="mt-1 text-sm text-ink-muted">
+              Open findings by evidence type and confidence level. Brighter cells mean more findings
               share that combination.
             </p>
             {cards.length === 0 ? (
-              <p className="mt-4 text-sm text-slate-500">No open findings for this system.</p>
+              <p className="mt-4 text-sm text-ink-faint">No open findings for this system.</p>
             ) : (
-              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800">
+              <div className="mt-4 overflow-x-auto rounded-xl border border-white/[0.08]">
                 <table className="w-full min-w-[560px] border-collapse text-sm">
                   <thead>
                     <tr>
-                      <th className="border-b border-slate-800 bg-slate-900/60 px-4 py-2 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <th className="border-b border-white/[0.08] bg-white/[0.03] px-4 py-2 text-left text-xs font-medium tracking-wide text-ink-faint uppercase">
                         Evidence Type
                       </th>
                       {CONFIDENCE_LEVELS.map((c) => (
                         <th
                           key={c}
-                          className="border-b border-slate-800 bg-slate-900/60 px-4 py-2 text-center text-xs font-medium uppercase tracking-wide text-slate-500"
+                          className="border-b border-white/[0.08] bg-white/[0.03] px-4 py-2 text-center text-xs font-medium tracking-wide text-ink-faint uppercase"
                         >
                           {c}
                         </th>
@@ -185,7 +182,7 @@ export default function AuditReadiness() {
                   <tbody>
                     {evidenceTypes.map((type) => (
                       <tr key={type}>
-                        <td className="border-b border-slate-800/60 bg-slate-900 px-4 py-3 font-medium text-slate-200 last:border-0">
+                        <td className="border-b border-white/[0.06] px-4 py-3 font-medium text-ink last:border-0">
                           {type}
                         </td>
                         {CONFIDENCE_LEVELS.map((c) => {
@@ -193,7 +190,7 @@ export default function AuditReadiness() {
                           return (
                             <td
                               key={c}
-                              className={`border-b border-slate-800/60 px-4 py-3 text-center transition-colors last:border-0 ${heatCellClasses(count, maxCellCount)}`}
+                              className={`border-b border-white/[0.06] px-4 py-3 text-center transition-colors last:border-0 ${heatCellClasses(count, maxCellCount)}`}
                             >
                               {count > 0 ? count : '—'}
                             </td>
@@ -209,13 +206,13 @@ export default function AuditReadiness() {
 
           <div className="mt-10">
             <div className="flex flex-wrap items-center justify-between gap-4">
-              <p className="text-lg font-semibold text-slate-100">
-                Findings Matrix <span className="text-sm font-normal text-slate-500">({filteredCards.length})</span>
+              <p className="text-[15px] font-semibold text-ink">
+                Findings Matrix <span className="text-sm font-normal text-ink-faint">({filteredCards.length})</span>
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <select
                   aria-label="Filter by confidence"
-                  className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                  className="input-field"
                   value={confidenceFilter}
                   onChange={(e) => setConfidenceFilter(e.target.value as Confidence | 'ALL')}
                 >
@@ -228,7 +225,7 @@ export default function AuditReadiness() {
                 </select>
                 <select
                   aria-label="Filter by evidence type"
-                  className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+                  className="input-field"
                   value={evidenceTypeFilter}
                   onChange={(e) => setEvidenceTypeFilter(e.target.value)}
                 >
@@ -244,40 +241,40 @@ export default function AuditReadiness() {
 
             <div className="mt-4 space-y-3">
               {filteredCards.length === 0 && (
-                <p className="text-sm text-slate-500">No findings match the current filters.</p>
+                <p className="text-sm text-ink-faint">No findings match the current filters.</p>
               )}
               {filteredCards.map((card) => (
                 <div
                   key={card.finding_id}
                   data-testid="finding-row"
-                  className="rounded-lg border border-slate-800 bg-slate-900 p-4"
+                  className="card p-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-slate-700 bg-slate-800/60 px-2 py-0.5 text-xs text-slate-400">
+                        <span className="badge badge-neutral">
                           {evidenceTypeFor(card)}
                         </span>
                         {card.regulatory_citations.map((cite) => (
-                          <span key={cite} className="font-mono text-xs text-slate-500">
+                          <span key={cite} className="font-mono text-xs text-ink-faint">
                             {cite}
                           </span>
                         ))}
                       </div>
-                      <p className="mt-2 text-sm text-slate-200">{card.claim}</p>
+                      <p className="mt-2 text-sm text-ink">{card.claim}</p>
                     </div>
                     <ConfidencePill confidence={card.confidence} />
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-4 border-t border-slate-800 pt-3 text-xs text-slate-500">
+                  <div className="mt-3 flex flex-wrap gap-4 border-t border-white/[0.06] pt-3 text-xs text-ink-faint">
                     <span>
-                      DB record: <span className="text-slate-300">{card.deterministic_check.db_record_found ? 'found' : 'missing'}</span>
+                      DB record: <span className="text-ink-muted">{card.deterministic_check.db_record_found ? 'found' : 'missing'}</span>
                     </span>
                     <span>
                       OPA corroborated:{' '}
-                      <span className="text-slate-300">{card.deterministic_check.opa_corroborated ? 'yes' : 'no'}</span>
+                      <span className="text-ink-muted">{card.deterministic_check.opa_corroborated ? 'yes' : 'no'}</span>
                     </span>
                     <span>
-                      Model: <span className="text-slate-300">{card.model_attribution}</span>
+                      Model: <span className="text-ink-muted">{card.model_attribution}</span>
                     </span>
                   </div>
                 </div>

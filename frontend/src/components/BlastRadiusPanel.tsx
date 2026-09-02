@@ -16,11 +16,11 @@ const NONE_MARKER = 'None'
 function Section({ label, items }: { label: string; items: string[] }) {
   return (
     <div className="mt-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="eyebrow">{label}</p>
       {items.length === 0 ? (
-        <p className="mt-1 text-sm text-slate-500">{NONE_MARKER}</p>
+        <p className="mt-1 text-sm text-ink-faint">{NONE_MARKER}</p>
       ) : (
-        <ul className="mt-1 text-sm text-slate-100">
+        <ul className="mt-1 space-y-0.5 text-sm text-ink">
           {items.map((item) => (
             <li key={item}>{item}</li>
           ))}
@@ -33,24 +33,24 @@ function Section({ label, items }: { label: string; items: string[] }) {
 export default function BlastRadiusPanel({ result, loading, error }: BlastRadiusPanelProps) {
   if (loading) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <p className="text-slate-400">Loading blast radius...</p>
+      <div className="card p-4">
+        <p className="text-ink-muted">Loading blast radius...</p>
       </div>
     )
   }
 
   if (error !== null) {
     return (
-      <div className="rounded-lg border border-red-700 bg-red-950/40 p-4">
-        <p className="text-red-400">{error}</p>
+      <div className="rounded-xl border border-red-500/30 bg-red-soft p-4">
+        <p className="text-red">{error}</p>
       </div>
     )
   }
 
   if (result === null) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <p className="text-sm text-slate-400">
+      <div className="card p-4">
+        <p className="text-sm text-ink-faint">
           Select a node on the graph to see its blast radius.
         </p>
       </div>
@@ -73,33 +73,33 @@ export default function BlastRadiusPanel({ result, loading, error }: BlastRadius
     result.potential_gxp_impact === 'NONE'
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-slate-900 p-4" data-testid="blast-radius-panel">
-      <h2 className="text-lg font-semibold text-slate-100">Impact Summary</h2>
+    <div className="card p-4" data-testid="blast-radius-panel">
+      <h2 className="text-[15px] font-semibold text-ink">Impact Summary</h2>
 
       {/* Bible Section 14.3's own four-line impact summary shape, in its
           own order -- each the length of a server-supplied array except
           the impact grade itself. */}
-      <dl className="mt-2 text-sm text-slate-100">
+      <dl className="mt-2 space-y-1 text-sm text-ink">
         <div className="flex justify-between">
-          <dt>Direct dependencies</dt>
-          <dd>{result.direct_dependencies.length}</dd>
+          <dt className="text-ink-muted">Direct dependencies</dt>
+          <dd className="font-medium">{result.direct_dependencies.length}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>Indirect dependencies</dt>
-          <dd>{result.indirect_dependencies.length}</dd>
+          <dt className="text-ink-muted">Indirect dependencies</dt>
+          <dd className="font-medium">{result.indirect_dependencies.length}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>Affected controls</dt>
-          <dd>{result.affected_controls.length}</dd>
+          <dt className="text-ink-muted">Affected controls</dt>
+          <dd className="font-medium">{result.affected_controls.length}</dd>
         </div>
         <div className="flex justify-between">
-          <dt>Potential GxP impact</dt>
-          <dd>{result.potential_gxp_impact}</dd>
+          <dt className="text-ink-muted">Potential GxP impact</dt>
+          <dd className="font-medium">{result.potential_gxp_impact}</dd>
         </div>
       </dl>
 
       {allEmpty && (
-        <p className="mt-3 text-sm text-slate-400">
+        <p className="mt-3 text-sm text-ink-faint">
           No downstream impact -- this node has no dependents in the evidence graph.
         </p>
       )}
@@ -111,10 +111,8 @@ export default function BlastRadiusPanel({ result, loading, error }: BlastRadius
       <Section label="Affected systems" items={result.affected_systems} />
 
       <div className="mt-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Highest-impact downstream
-        </p>
-        <p className="mt-1 text-sm text-slate-100">
+        <p className="eyebrow">Highest-impact downstream</p>
+        <p className="mt-1 text-sm text-ink">
           {result.highest_impact_downstream ?? NONE_MARKER}
         </p>
       </div>

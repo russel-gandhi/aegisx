@@ -11,17 +11,17 @@ export interface AssuranceCardProps {
 }
 
 const CONFIDENCE_STYLES: Record<string, string> = {
-  HIGH: 'border-emerald-700 bg-emerald-950/40',
-  MEDIUM: 'border-amber-700 bg-amber-950/40',
-  LOW: 'border-orange-700 bg-orange-950/40',
-  INSUFFICIENT_EVIDENCE: 'border-red-700 bg-red-950/40',
+  HIGH: 'border-l-mint',
+  MEDIUM: 'border-l-amber',
+  LOW: 'border-l-orange',
+  INSUFFICIENT_EVIDENCE: 'border-l-red',
 }
 
 const CONFIDENCE_BADGE_STYLES: Record<string, string> = {
-  HIGH: 'bg-emerald-700 text-emerald-50',
-  MEDIUM: 'bg-amber-700 text-amber-50',
-  LOW: 'bg-orange-700 text-orange-50',
-  INSUFFICIENT_EVIDENCE: 'bg-red-700 text-red-50',
+  HIGH: 'badge-mint',
+  MEDIUM: 'badge-amber',
+  LOW: 'badge-orange',
+  INSUFFICIENT_EVIDENCE: 'badge-red',
 }
 
 const ALCOA_LABELS: Record<string, string> = {
@@ -37,9 +37,7 @@ const ALCOA_LABELS: Record<string, string> = {
 }
 
 function SectionLabel({ children }: { children: string }) {
-  return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{children}</p>
-  )
+  return <p className="text-[11px] font-bold tracking-[0.08em] text-ink-faint uppercase">{children}</p>
 }
 
 // Rendered, in this fixed order, the union of EVID-03's five required
@@ -47,85 +45,96 @@ function SectionLabel({ children }: { children: string }) {
 // DETERMINISTIC CHECK, CONFIDENCE, then the ALCOA+ nine-dimension grid and
 // the model attribution line.
 export default function AssuranceCard({ card }: AssuranceCardProps) {
-  const borderStyle = CONFIDENCE_STYLES[card.confidence] ?? 'border-slate-700 bg-slate-900/40'
-  const badgeStyle = CONFIDENCE_BADGE_STYLES[card.confidence] ?? 'bg-slate-700 text-slate-50'
+  const borderStyle = CONFIDENCE_STYLES[card.confidence] ?? 'border-l-white/20'
+  const badgeStyle = CONFIDENCE_BADGE_STYLES[card.confidence] ?? 'badge-neutral'
+  const alcoaTrue = Object.values(card.alcoa_score).filter(Boolean).length
 
   return (
     <div
       data-testid="assurance-card"
       data-confidence={card.confidence}
-      className={`rounded-lg border p-4 ${borderStyle}`}
+      className={`card border-l-[3px] p-5 ${borderStyle}`}
     >
-      <p className="text-sm text-slate-500">{card.finding_id}</p>
-
-      <div className="mt-3">
-        <SectionLabel>CLAIM</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{card.claim}</p>
+      <div className="flex items-start justify-between gap-3">
+        <p className="font-mono text-[11px] text-ink-faint">{card.finding_id}</p>
+        <div className="text-right">
+          <SectionLabel>Confidence</SectionLabel>
+          <span className={`badge mt-1 ${badgeStyle}`}>{card.confidence}</span>
+        </div>
       </div>
 
       <div className="mt-3">
-        <SectionLabel>EVIDENCE</SectionLabel>
-        {card.evidence_ids.length === 0 ? (
-          <p className="mt-1 text-sm text-slate-400">
-            No evidence record exists for this finding -- A2 emitted a no-record marker
-            rather than fabricating an identifier.
-          </p>
-        ) : (
-          <ul className="mt-1 text-sm text-slate-100">
-            {card.evidence_ids.map((evidenceId) => (
-              <li key={evidenceId}>{evidenceId}</li>
+        <SectionLabel>Claim</SectionLabel>
+        <p className="mt-1 text-[14px] leading-relaxed text-ink">{card.claim}</p>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <SectionLabel>Evidence</SectionLabel>
+          {card.evidence_ids.length === 0 ? (
+            <p className="mt-1 text-[13px] text-ink-muted">
+              No evidence record exists for this finding -- A2 emitted a no-record marker
+              rather than fabricating an identifier.
+            </p>
+          ) : (
+            <ul className="mt-1 space-y-0.5 font-mono text-[12.5px] text-ink">
+              {card.evidence_ids.map((evidenceId) => (
+                <li key={evidenceId}>{evidenceId}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <SectionLabel>Rule</SectionLabel>
+          <ul className="mt-1 space-y-0.5 font-mono text-[12.5px] text-ink">
+            {card.regulatory_citations.map((citation) => (
+              <li key={citation}>{citation}</li>
             ))}
           </ul>
-        )}
+        </div>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>RULE</SectionLabel>
-        <ul className="mt-1 text-sm text-slate-100">
-          {card.regulatory_citations.map((citation) => (
-            <li key={citation}>{citation}</li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="mt-3">
-        <SectionLabel>DETERMINISTIC CHECK</SectionLabel>
-        <p className="mt-1 text-sm text-slate-100">{card.deterministic_check.check_name}</p>
-        <p className="mt-1 text-sm text-slate-400">
-          Database record found:{' '}
-          <span className="text-slate-200">
-            {card.deterministic_check.db_record_found ? 'yes' : 'no'}
+      <div className="mt-4 rounded-lg border border-white/[0.06] bg-black/20 p-3">
+        <SectionLabel>Deterministic check</SectionLabel>
+        <p className="mt-1 font-mono text-[12.5px] text-ink">{card.deterministic_check.check_name}</p>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ink-muted">
+          <span>
+            Database record found:{' '}
+            <span className="font-medium text-ink">
+              {card.deterministic_check.db_record_found ? 'Yes' : 'No'}
+            </span>
           </span>
-        </p>
-        <p className="text-sm text-slate-400">
-          OPA corroborated:{' '}
-          <span className="text-slate-200">
-            {card.deterministic_check.opa_corroborated ? 'yes' : 'no'}
+          <span>
+            OPA corroborated:{' '}
+            <span className="font-medium text-ink">
+              {card.deterministic_check.opa_corroborated ? 'Yes' : 'No'}
+            </span>
           </span>
-        </p>
+        </div>
       </div>
 
-      <div className="mt-3">
-        <SectionLabel>CONFIDENCE</SectionLabel>
-        <span
-          className={`mt-1 inline-block rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${badgeStyle}`}
-        >
-          {card.confidence}
-        </span>
-      </div>
-
-      <div className="mt-4 border-t border-slate-800 pt-3">
-        <SectionLabel>ALCOA+</SectionLabel>
-        <div className="mt-1 grid grid-cols-3 gap-x-3 gap-y-1 text-xs text-slate-300 sm:grid-cols-3">
+      <div className="mt-4 border-t border-white/[0.07] pt-3">
+        <div className="flex items-center justify-between">
+          <SectionLabel>ALCOA+ data integrity</SectionLabel>
+          <span className="text-[11px] font-semibold text-ink-faint">{alcoaTrue}/9</span>
+        </div>
+        <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-3">
           {Object.entries(card.alcoa_score).map(([dimension, value]) => (
-            <span key={dimension}>
-              {ALCOA_LABELS[dimension] ?? dimension}: {value ? 'yes' : 'no'}
+            <span
+              key={dimension}
+              className={`flex items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] ${
+                value ? 'text-mint' : 'text-ink-faint'
+              }`}
+            >
+              <span className={`h-1 w-1 shrink-0 rounded-full ${value ? 'bg-mint' : 'bg-white/20'}`} />
+              {ALCOA_LABELS[dimension] ?? dimension}
             </span>
           ))}
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-slate-500">Model: {card.model_attribution}</p>
+      <p className="mt-4 font-mono text-[11px] text-ink-faint">Model: {card.model_attribution}</p>
     </div>
   )
 }

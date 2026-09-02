@@ -50,18 +50,18 @@ export default function InvestigationTrace({ stages }: InvestigationTraceProps) 
         type="button"
         data-testid="investigation-trace-toggle"
         onClick={() => setOpen((prev) => !prev)}
-        className="text-sm text-slate-400 hover:text-slate-200"
+        className="text-[13px] font-medium text-ink-faint hover:text-ink"
       >
         {TRACE_TOGGLE_LABEL}
       </button>
 
       {open && (
-        <div className="mt-2 space-y-2">
+        <div className="mt-2 space-y-2 rounded-lg border border-white/[0.06] bg-black/15 p-3">
           {stages.map((stage, index) => {
             const glyph = STAGE_GLYPHS[stage.status] ?? '-'
             const isComplete = stage.status === 'complete'
-            const glyphClass = isComplete ? 'text-emerald-600' : 'text-slate-500'
-            const labelClass = isComplete ? 'text-slate-100' : 'text-slate-500'
+            const glyphClass = isComplete ? 'text-mint' : 'text-ink-faint'
+            const labelClass = isComplete ? 'text-ink' : 'text-ink-faint'
             return (
               <div
                 key={stage.stage_id}
@@ -71,13 +71,13 @@ export default function InvestigationTrace({ stages }: InvestigationTraceProps) 
               >
                 <span
                   data-testid={`investigation-trace-glyph-${stage.stage_id}`}
-                  className={`mr-2 ${glyphClass}`}
+                  className={`mr-2 font-semibold ${glyphClass}`}
                 >
                   {glyph}
                 </span>
-                <span className={labelClass}>{stage.label}</span>
+                <span className={`text-[13px] ${labelClass}`}>{stage.label}</span>
                 {stage.detail !== null && (
-                  <p className="ml-6 text-xs text-slate-500">{stage.detail}</p>
+                  <p className="mt-0.5 ml-6 text-[11.5px] text-ink-faint">{stage.detail}</p>
                 )}
               </div>
             )

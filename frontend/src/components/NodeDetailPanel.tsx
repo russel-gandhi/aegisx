@@ -26,8 +26,8 @@ function stringifyPropertyValue(value: unknown): string {
 export default function NodeDetailPanel({ node }: NodeDetailPanelProps) {
   if (node === null) {
     return (
-      <div className="rounded-lg border border-slate-800 bg-slate-900 p-4">
-        <p className="text-sm text-slate-400">Click a node on the graph to see its detail.</p>
+      <div className="card p-4">
+        <p className="text-sm text-ink-faint">Click a node on the graph to see its detail.</p>
       </div>
     )
   }
@@ -36,20 +36,19 @@ export default function NodeDetailPanel({ node }: NodeDetailPanelProps) {
 
   return (
     <div
-      className="rounded-lg border border-slate-800 bg-slate-900 p-4"
+      className="card p-4"
       data-testid="node-detail-panel"
     >
-      <h2 className="text-lg font-semibold text-slate-100">
-        {node.node_type}: {node.entity_id}
-      </h2>
+      <h2 className="eyebrow">{node.node_type}</h2>
+      <p className="mt-0.5 font-mono text-[13px] text-ink">{node.entity_id}</p>
       {propertyEntries.length === 0 ? (
-        <p className="mt-2 text-sm text-slate-400">No properties recorded for this node.</p>
+        <p className="mt-3 text-sm text-ink-faint">No properties recorded for this node.</p>
       ) : (
-        <dl className="mt-2 text-sm text-slate-300">
+        <dl className="mt-3 space-y-1.5 text-sm">
           {propertyEntries.map(([key, value]) => (
-            <div key={key} className="mt-1 flex gap-2">
-              <dt className="font-medium text-slate-400">{key}:</dt>
-              <dd className="text-slate-100">{stringifyPropertyValue(value)}</dd>
+            <div key={key} className="flex gap-2">
+              <dt className="text-ink-muted">{key}:</dt>
+              <dd className="font-medium text-ink">{stringifyPropertyValue(value)}</dd>
             </div>
           ))}
         </dl>

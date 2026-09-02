@@ -41,14 +41,21 @@ export default function HealthMiniCard({
       data-testid="health-mini-card"
       data-status={status}
       style={style}
-      className={`rounded-lg border border-slate-800 bg-slate-900 p-4 transition-all duration-300 ease-out ${
+      className={`group rounded-xl border border-white/[0.08] bg-white/[0.03] p-5 shadow-panel transition-all duration-300 ease-out hover:border-white/[0.14] hover:bg-white/[0.045] ${
         mounted ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0'
       }`}
     >
-      <p className="text-lg font-semibold text-slate-100">{title}</p>
-      <div className="mt-2 text-sm">
-        {status === 'loading' && <p className="text-slate-400">Loading…</p>}
-        {status === 'error' && <p className="text-red-400">{errorText ?? DEFAULT_ERROR_TEXT}</p>}
+      <p className="text-[13px] font-semibold tracking-tight text-ink">{title}</p>
+      <div className="mt-3 text-sm">
+        {status === 'loading' && (
+          <div className="flex items-center gap-2 text-ink-faint">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+            Loading…
+          </div>
+        )}
+        {status === 'error' && (
+          <p className="text-red">{errorText ?? DEFAULT_ERROR_TEXT}</p>
+        )}
         {status === 'ready' && children}
       </div>
     </div>

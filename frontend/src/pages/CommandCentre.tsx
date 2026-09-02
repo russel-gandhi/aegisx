@@ -221,20 +221,21 @@ export default function CommandCentre() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold text-slate-100">Command Centre</h1>
-      <p className="mt-2 max-w-2xl text-slate-400">
+      <p className="eyebrow">Overview</p>
+      <h1 className="mt-2 text-[28px] font-bold tracking-tight text-ink">Command Centre</h1>
+      <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink-muted">
         The top-level view of GxP system readiness: a readiness dial and six health mini-cards,
         computed live from real backend state -- never a stale seed value. This is the landing
         page an IT System Manager or QA/Compliance user sees first.
       </p>
 
-      <div className="mt-4">
-        <label htmlFor="command-centre-system" className="text-sm text-slate-400">
+      <div className="mt-5 flex items-center gap-2">
+        <label htmlFor="command-centre-system" className="text-[13px] font-medium text-ink-muted">
           System
         </label>
         <select
           id="command-centre-system"
-          className="ml-2 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-sm text-slate-100"
+          className="input-field"
           value={scope}
           onChange={(e) => setScope(e.target.value as Scope)}
         >
@@ -247,22 +248,22 @@ export default function CommandCentre() {
       </div>
 
       {everyCallFailed ? (
-        <div className="mt-8">
-          <p className="text-lg font-semibold text-slate-100">{EMPTY_STATE_HEADING}</p>
-          <p className="mt-1 text-slate-400">{EMPTY_STATE_BODY}</p>
+        <div className="mt-8 rounded-xl border border-white/[0.08] bg-white/[0.03] p-6">
+          <p className="text-lg font-semibold text-ink">{EMPTY_STATE_HEADING}</p>
+          <p className="mt-1 text-ink-muted">{EMPTY_STATE_BODY}</p>
         </div>
       ) : (
         <>
           {hasAnyFailure && !bannerDismissed && (
             <div
               data-testid="aggregate-error-banner"
-              className="mt-6 flex items-start justify-between gap-4 rounded border border-red-700 bg-red-950/40 p-3 text-sm text-red-300"
+              className="mt-6 flex items-start justify-between gap-4 rounded-xl border border-red-500/30 bg-red-soft p-4 text-sm text-red"
             >
               <p>{AGGREGATE_ERROR_COPY}</p>
               <button
                 type="button"
                 onClick={() => setBannerDismissed(true)}
-                className="text-red-300 hover:text-red-100"
+                className="text-red hover:opacity-70"
                 aria-label="Dismiss"
               >
                 ×
@@ -271,30 +272,33 @@ export default function CommandCentre() {
           )}
 
           {showPartialNote && (
-            <p data-testid="partial-data-note" className="mt-4 text-sm text-amber-400">
+            <p data-testid="partial-data-note" className="mt-4 text-sm text-amber">
               {PARTIAL_DATA_NOTE}
             </p>
           )}
 
-          <div className="mt-8 flex justify-center" data-tour="readiness-dial">
+          <div
+            className="relative mt-10 flex justify-center rounded-2xl border border-white/[0.06] bg-white/[0.02] py-10"
+            data-tour="readiness-dial"
+          >
             {assuranceLoading && totalChecks === 0 ? (
-              <p className="text-slate-400">Loading readiness…</p>
+              <p className="text-ink-muted">Loading readiness…</p>
             ) : totalChecks > 0 ? (
               <ReadinessDial passed={passed} total={totalChecks} />
             ) : (
-              <p className="text-slate-400">
+              <p className="text-ink-muted">
                 No readiness data available for the selected system(s).
               </p>
             )}
           </div>
 
-          <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <HealthMiniCard
               title="Documentation & Traceability"
               status={card1Status}
               style={{ transitionDelay: `${cardDelays[0]}ms` }}
             >
-              <p className="text-slate-100">{card1Count} open</p>
+              <p className="text-ink">{card1Count} open</p>
             </HealthMiniCard>
 
             <HealthMiniCard
@@ -302,7 +306,7 @@ export default function CommandCentre() {
               status={card2Status}
               style={{ transitionDelay: `${cardDelays[1]}ms` }}
             >
-              <p className="text-slate-100">{card2Count} open</p>
+              <p className="text-ink">{card2Count} open</p>
             </HealthMiniCard>
 
             <HealthMiniCard
@@ -310,9 +314,9 @@ export default function CommandCentre() {
               status={card3Status}
               style={{ transitionDelay: `${cardDelays[2]}ms` }}
             >
-              <p className="text-slate-100">{pendingCount} pending</p>
-              <p className="mt-1 text-slate-400">{approvedCount} approved</p>
-              <p className="mt-1 text-slate-400">{rejectedCount} rejected</p>
+              <p className="text-ink">{pendingCount} pending</p>
+              <p className="mt-1 text-ink-muted">{approvedCount} approved</p>
+              <p className="mt-1 text-ink-muted">{rejectedCount} rejected</p>
             </HealthMiniCard>
 
             <div data-tour="mini-card-audit-integrity">
@@ -321,11 +325,7 @@ export default function CommandCentre() {
                 status={card4Status}
                 style={{ transitionDelay: `${cardDelays[3]}ms` }}
               >
-                <p
-                  className={
-                    chainData?.status === 'TAMPERED' ? 'text-red-400' : 'text-emerald-400'
-                  }
-                >
+                <p className={chainData?.status === 'TAMPERED' ? 'text-red' : 'text-mint'}>
                   {chainData?.status ?? 'UNKNOWN'}
                 </p>
               </HealthMiniCard>
@@ -336,7 +336,7 @@ export default function CommandCentre() {
               status={card5Status}
               style={{ transitionDelay: `${cardDelays[4]}ms` }}
             >
-              <p className="text-slate-100">{overdueAccessReviews} overdue</p>
+              <p className="text-ink">{overdueAccessReviews} overdue</p>
             </HealthMiniCard>
 
             <HealthMiniCard
@@ -344,9 +344,9 @@ export default function CommandCentre() {
               status={card6Status}
               style={{ transitionDelay: `${cardDelays[5]}ms` }}
             >
-              <p className="text-slate-100">{overdueSuppliers} overdue</p>
+              <p className="text-ink">{overdueSuppliers} overdue</p>
               {overdueSupplierNames.length > 0 && (
-                <ul className="mt-1 text-slate-400">
+                <ul className="mt-1 text-ink-muted">
                   {overdueSupplierNames.map((name) => (
                     <li key={name}>{name}</li>
                   ))}

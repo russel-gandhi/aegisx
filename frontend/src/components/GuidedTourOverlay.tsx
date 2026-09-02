@@ -85,38 +85,26 @@ function TourTooltip({
   return (
     <div
       data-testid="tour-tooltip"
-      className="max-w-[400px] rounded border border-slate-700 bg-slate-900 p-4 text-slate-100 shadow-lg"
+      className="glass max-w-[400px] rounded-xl p-5 text-ink shadow-float"
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+      <p className="text-[11px] font-bold tracking-[0.1em] text-accent-2 uppercase">
         {`Step ${index + 1} of ${TOUR_STEPS.length}`}
       </p>
       {step.title !== undefined && (
-        <p className="mt-1 text-lg font-semibold text-slate-100">{step.title}</p>
+        <p className="mt-1.5 text-lg font-semibold text-ink">{step.title}</p>
       )}
-      <div className="mt-2 text-sm text-slate-200">{step.content}</div>
+      <div className="mt-2 text-sm text-ink-muted">{step.content}</div>
       <div className="mt-4 flex items-center justify-between gap-2">
-        <button
-          type="button"
-          {...skipProps}
-          className="text-sm text-slate-400 hover:text-slate-200"
-        >
+        <button type="button" {...skipProps} className="text-sm text-ink-faint hover:text-ink">
           Explore Freely
         </button>
         <div className="flex gap-2">
           {index > 0 && (
-            <button
-              type="button"
-              {...backProps}
-              className="rounded px-3 py-1.5 text-sm font-medium text-slate-300 hover:bg-slate-800"
-            >
+            <button type="button" {...backProps} className="btn btn-secondary">
               Back
             </button>
           )}
-          <button
-            type="button"
-            {...primaryProps}
-            className="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-emerald-600"
-          >
+          <button type="button" {...primaryProps} className="btn btn-success">
             {isLastStep ? 'Restart Tour' : 'Next'}
           </button>
         </div>
@@ -392,7 +380,7 @@ export default function GuidedTourOverlay() {
       {run && skipNote !== null && (
         <div
           data-testid="tour-skip-note"
-          className="fixed bottom-20 right-6 z-50 max-w-xs rounded border border-amber-700 bg-amber-950/80 p-3 text-sm text-amber-200"
+          className="glass fixed right-6 bottom-20 z-50 max-w-xs rounded-xl border-amber-500/25 bg-amber-soft p-3 text-sm text-amber"
         >
           {skipNote}
         </div>
@@ -400,7 +388,7 @@ export default function GuidedTourOverlay() {
       {targetNotFoundNote !== null && (
         <div
           data-testid="tour-target-not-found-note"
-          className="fixed bottom-20 right-6 z-50 max-w-xs rounded border border-amber-700 bg-amber-950/80 p-3 text-sm text-amber-200"
+          className="glass fixed right-6 bottom-20 z-50 max-w-xs rounded-xl border-amber-500/25 bg-amber-soft p-3 text-sm text-amber"
         >
           {targetNotFoundNote}
         </div>
@@ -410,7 +398,7 @@ export default function GuidedTourOverlay() {
           type="button"
           data-testid="start-guided-tour"
           onClick={start}
-          className="fixed bottom-6 right-6 z-50 rounded bg-emerald-700 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-emerald-600"
+          className="btn btn-success fixed right-6 bottom-6 z-50"
         >
           Start Guided Tour
         </button>
