@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
-import PrototypeBanner from './components/PrototypeBanner'
 import NavBar from './components/NavBar'
 import RoleSelector from './components/RoleSelector'
 import GuidedTourOverlay from './components/GuidedTourOverlay'
@@ -38,7 +37,6 @@ export function AppShell() {
       <div className="app-ambient" aria-hidden="true" />
       <div className="relative z-10">
         <ScrollToTop />
-        <PrototypeBanner />
         <NavBar />
         <RoleSelector />
         <GuidedTourOverlay />

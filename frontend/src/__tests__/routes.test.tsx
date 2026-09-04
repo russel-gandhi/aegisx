@@ -4,8 +4,6 @@ import { MemoryRouter } from 'react-router-dom'
 import { AppShell } from '../App'
 import { routes } from '../routes'
 
-const BANNER_TEXT = 'PROTOTYPE — SYNTHETIC DATA — NOT VALIDATED FOR PRODUCTION GxP USE'
-
 // One distinctive heading per route, asserted independently of the route table so a typo
 // in one page's own heading can't accidentally make this test tautological.
 const expectedHeadings: Record<string, string> = {
@@ -47,15 +45,6 @@ describe('route rendering', () => {
       expect(
         screen.getByRole('heading', { level: 1, name: expectedHeadings[path] }),
       ).toBeInTheDocument()
-    })
-
-    it(`shows the prototype banner on ${path}`, () => {
-      render(
-        <MemoryRouter initialEntries={[path]}>
-          <AppShell />
-        </MemoryRouter>,
-      )
-      expect(screen.getByText(BANNER_TEXT)).toBeInTheDocument()
     })
   }
 
