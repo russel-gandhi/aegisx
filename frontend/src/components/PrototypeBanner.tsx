@@ -2,17 +2,22 @@
 // decoration: every screen must carry it, unmodified, for as long as the app runs on
 // synthetic demo data. Reproduced character-for-character from Bible line 1374, em dashes
 // included — do not paraphrase or reformat this string.
+//
+// Styled with the same soft-color language every other alert/error surface in the app
+// uses (bg-red-soft + text-red, see EvidenceView's insufficient-evidence panel) rather
+// than a solid full-bleed red block -- a compliance notice that reads as "part of this
+// product's design system" instead of a one-off browser-alarm color clashing with it.
 export default function PrototypeBanner() {
   return (
     <div
       role="alert"
-      className="relative z-30 flex items-center justify-center gap-2 border-b border-red-500/30 bg-gradient-to-r from-red-600 via-red-500 to-red-600 px-4 py-2 text-center text-[13px] font-semibold tracking-wide text-white shadow-[0_1px_0_rgba(255,255,255,0.15)_inset]"
+      className="relative z-30 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b border-red-500/25 bg-red-soft px-4 py-1.5 text-center text-[12px] font-semibold tracking-wide text-red sm:text-[13px]"
     >
       <svg
         aria-hidden="true"
         viewBox="0 0 20 20"
         fill="currentColor"
-        className="h-3.5 w-3.5 shrink-0 opacity-90"
+        className="h-3.5 w-3.5 shrink-0"
       >
         <path
           fillRule="evenodd"
@@ -20,7 +25,7 @@ export default function PrototypeBanner() {
           clipRule="evenodd"
         />
       </svg>
-      PROTOTYPE — SYNTHETIC DATA — NOT VALIDATED FOR PRODUCTION GxP USE
+      <span>PROTOTYPE — SYNTHETIC DATA — NOT VALIDATED FOR PRODUCTION GxP USE</span>
     </div>
   )
 }

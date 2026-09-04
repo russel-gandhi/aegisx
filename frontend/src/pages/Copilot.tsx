@@ -304,6 +304,56 @@ export default function Copilot() {
         </select>
       </div>
 
+      {/*
+        The composer sits immediately below the system selector, above the
+        topology canvas -- not below it. React Flow's canvas captures the
+        scroll wheel for zoom/pan while the cursor is over it, which traps a
+        mouse-wheel scroll attempt and makes anything placed below the
+        (480px-tall) canvas awkward to reach. Asking a question is this
+        page's primary action; it should never require fighting a graph's
+        scroll capture to find the input box.
+
+        The Guided Tour's `copilot-input` anchor sits on the FORM, not the
+        textarea. react-joyride's overlay intercepts pointer events everywhere
+        outside the spotlight cut-out, and only the spotlighted element stays
+        interactive (v3 default `blockTargetInteraction: false`). Anchoring on
+        the textarea alone left the "Ask Copilot" submit button underneath the
+        overlay, so the tour step's own instruction ("submit it yourself") was
+        physically impossible -- the click was swallowed, or worse, read as an
+        overlay click that closed the step. The form wraps both controls, so
+        spotlighting it keeps the whole submit affordance reachable.
+      */}
+      <form
+        onSubmit={handleSubmit}
+        data-tour="copilot-input"
+        className="card mt-5 flex items-end gap-2 p-3"
+      >
+        <textarea
+          value={inputValue}
+          onChange={(event) => {
+            // WCAG 2.2.1 Timing Adjustable: a user who has started typing
+            // their next question has told us they are staying -- mark
+            // navigationCancelled for the newest message the same way
+            // "Stay here" does, before updating the input value.
+            if (latestAssistantId !== null) {
+              setNavigationCancelled((prev) => ({ ...prev, [latestAssistantId]: true }))
+            }
+            setInputValue(event.target.value)
+          }}
+          disabled={isStreaming}
+          placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
+          rows={2}
+          className="input-field max-h-40 min-h-[3rem] flex-1 resize-none overflow-y-auto border-0 bg-transparent disabled:cursor-not-allowed disabled:opacity-60"
+        />
+        <button
+          type="submit"
+          disabled={isStreaming || inputValue.trim().length === 0}
+          className="btn btn-success"
+        >
+          {isStreaming ? 'Investigating…' : 'Ask Copilot'}
+        </button>
+      </form>
+
       <div className="mt-6">
         <AgentTopologyCanvas nodeStatus={nodeStatus} disconnected={disconnected} />
       </div>
@@ -335,48 +385,6 @@ export default function Copilot() {
           </div>
         )}
       </div>
-
-      {/*
-        The Guided Tour's `copilot-input` anchor sits on the FORM, not the
-        textarea. react-joyride's overlay intercepts pointer events everywhere
-        outside the spotlight cut-out, and only the spotlighted element stays
-        interactive (v3 default `blockTargetInteraction: false`). Anchoring on
-        the textarea alone left the "Ask Copilot" submit button underneath the
-        overlay, so the tour step's own instruction ("submit it yourself") was
-        physically impossible -- the click was swallowed, or worse, read as an
-        overlay click that closed the step. The form wraps both controls, so
-        spotlighting it keeps the whole submit affordance reachable.
-      */}
-      <form
-        onSubmit={handleSubmit}
-        data-tour="copilot-input"
-        className="mt-4 flex items-end gap-2"
-      >
-        <textarea
-          value={inputValue}
-          onChange={(event) => {
-            // WCAG 2.2.1 Timing Adjustable: a user who has started typing
-            // their next question has told us they are staying -- mark
-            // navigationCancelled for the newest message the same way
-            // "Stay here" does, before updating the input value.
-            if (latestAssistantId !== null) {
-              setNavigationCancelled((prev) => ({ ...prev, [latestAssistantId]: true }))
-            }
-            setInputValue(event.target.value)
-          }}
-          disabled={isStreaming}
-          placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
-          rows={2}
-          className="input-field max-h-40 min-h-[3rem] flex-1 resize-none overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={isStreaming || inputValue.trim().length === 0}
-          className="btn btn-success"
-        >
-          {isStreaming ? 'Investigating…' : 'Ask Copilot'}
-        </button>
-      </form>
     </div>
   )
 }

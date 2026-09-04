@@ -25,11 +25,11 @@ import { fetchActionProposals, fetchAssuranceCards, type ActionProposalData } fr
 // SUMMARY.md Deviations for why the exact box-shadow value could not be
 // reproduced on an SVG spotlight path).
 const JOYRIDE_OPTIONS = {
-  arrowColor: '#0f172a', // slate-900
-  backgroundColor: '#0f172a', // slate-900
-  overlayColor: 'rgba(2, 6, 23, 0.75)', // slate-950 @ 75%
-  primaryColor: '#059669', // emerald-600
-  textColor: '#f1f5f9', // slate-100
+  arrowColor: '#111726', // --color-surface-2, matches TourTooltip's glass panel
+  backgroundColor: '#111726', // --color-surface-2
+  overlayColor: 'rgba(5, 7, 13, 0.75)', // --color-canvas @ 75%
+  primaryColor: '#2fd889', // --color-mint
+  textColor: '#f3f5fb', // --color-ink
   width: 400,
   // This tour requires REAL user clicks on real product controls (submit the
   // hero query, Generate CAPA, Approve). react-joyride's default
@@ -57,7 +57,7 @@ const ASYNC_TARGET_STEP_INDEXES = new Set([
 const JOYRIDE_STYLES = {
   spotlight: {
     style: {
-      filter: 'drop-shadow(0 0 4px rgba(5, 150, 105, 0.4))', // emerald-600 glow, not a new hue
+      filter: 'drop-shadow(0 0 4px rgba(47, 216, 137, 0.4))', // --color-mint glow, not a new hue
     },
   },
 }
@@ -343,6 +343,11 @@ export default function GuidedTourOverlay() {
     const waitOverride = ASYNC_TARGET_STEP_INDEXES.has(idx)
       ? { targetWaitTimeout: ASYNC_TARGET_WAIT_MS }
       : {}
+    // `skipBeacon` on every step: react-joyride's default is a pulsing
+    // dot the user must find and click before the tooltip explaining that
+    // step even appears -- for a "Start Guided Tour" click a visitor just
+    // made, a silent beacon with no visible instruction reads as broken,
+    // not as an invitation. The tooltip should be what appears immediately.
     if (idx === REMEDIATION_STEP_INDEX) {
       if (remediationPhase === 'approve') {
         return {
@@ -350,16 +355,17 @@ export default function GuidedTourOverlay() {
           title: s.title,
           content: skipNote ?? APPROVE_PHASE_CONTENT,
           targetWaitTimeout: ASYNC_TARGET_WAIT_MS,
+          skipBeacon: true,
         }
       }
-      return { target: s.target, title: s.title, content: s.content, ...waitOverride }
+      return { target: s.target, title: s.title, content: s.content, skipBeacon: true, ...waitOverride }
     }
     if (s.target === '') {
       // Closing step (id:8): a centered, target-less modal per react-joyride's
       // documented pattern for a final "you're done" message.
-      return { target: 'body', placement: 'center', title: s.title, content: s.content }
+      return { target: 'body', placement: 'center', title: s.title, content: s.content, skipBeacon: true }
     }
-    return { target: s.target, title: s.title, content: s.content, ...waitOverride }
+    return { target: s.target, title: s.title, content: s.content, skipBeacon: true, ...waitOverride }
   })
 
   return (
