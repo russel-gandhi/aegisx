@@ -30,7 +30,7 @@ That contract expects one of five conclusions per control question — Demonstra
 
 An `N/A` conclusion has no AegisX equivalent by design — the deterministic-first architecture (Bible Section 1.3) never lets a check silently mark itself not-applicable; an inapplicable check simply passes (no finding is emitted).
 
-## Prerequisites
+## Prerequisites-
 
 - **Docker Desktop** with Compose v2 (on Windows: WSL2 backend enabled)
 - **Node 20+** — needed by the Vite frontend from Stage 1 onward, and by `infra/health-check.sh` for its host-side port probes
