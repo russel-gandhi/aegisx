@@ -57,16 +57,62 @@ def test_select_provider_routes_by_task():
 
 
 def test_select_provider_routes_remediation_to_groq_not_ollama(monkeypatch):
-    """260826-rsw: 'remediation' lives on `groq_gpt_oss`, not the local
-    provider that now covers every other judgment/synthesis task. This
-    must hold in both directions -- the moved key resolves to Groq, and
-    the tasks that stay on `ollama_qwen` (orchestrator, synthesis) are
-    unaffected."""
+    """260826-rsw: 'remediation' lives on `groq_gpt_oss', not the local
+    provider that covers the other judgment tasks. This must hold in both
+    directions -- the moved key resolves to Groq, and a task that stays
+    on `ollama_qwen` (orchestrator) is unaffected."""
     assert select_provider("remediation") == "groq_gpt_oss"
     assert select_provider("orchestrator") == "ollama_qwen"
-    assert select_provider("synthesis") == "ollama_qwen"
     assert "remediation" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
     assert "remediation" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+
+
+def test_select_provider_routes_synthesis_to_groq_not_ollama():
+    """2026-09-08: 'synthesis' moved from `ollama_qwen` to `groq_gpt_oss`.
+
+    The local hop was measured at 35.8s/52.7s on the real 13-excerpt
+    Copilot prompt against a 10s default budget, so it could never
+    complete and the Copilot emitted its deterministic fallback on every
+    query. Asserted in both directions so a future edit cannot silently
+    move it back and reintroduce a permanently-degraded answer path."""
+    assert select_provider("synthesis") == "groq_gpt_oss"
+    assert "synthesis" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+    assert "synthesis" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
+
+
+def test_rerank_also_routes_to_groq_not_ollama():
+    """'rerank' moved with synthesis: 130.1s on the local model against
+    the graph's own 45s ceiling means it could never complete there."""
+    assert select_provider("rerank") == "groq_gpt_oss"
+    assert "rerank" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+    assert "rerank" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
+
+
+def test_rerank_plus_synthesis_fit_one_groq_token_minute_together():
+    """The constraint that makes co-locating rerank and synthesis on Groq
+    safe at all, asserted against the real request-estimator rather than
+    the hand-written numbers in the comments. Both calls land in the same
+    user query, so their combined estimate must clear `groq_gpt_oss`'s
+    real 8,000 tpm ceiling -- at the previous 800-char rerank excerpt they
+    summed to ~9,159 and blew it on every single query."""
+    from app.retrieval.hybrid_search import (
+        RERANK_EXCERPT_MAX_CHARS,
+        RERANK_MAX_CANDIDATES,
+        RERANK_SYSTEM_PROMPT,
+    )
+    from app.routes.copilot_query import SYNTHESIS_SYSTEM_PROMPT
+
+    # ~90 chars of "[i] chunk_id=... | section=... | text=" scaffolding per line.
+    rerank_prompt = "x" * (RERANK_MAX_CANDIDATES * (RERANK_EXCERPT_MAX_CHARS + 90))
+    rerank_estimate = _estimate_request_tokens("rerank", rerank_prompt, RERANK_SYSTEM_PROMPT)
+    # 13 excerpts x ~1,000 chars is the real measured synthesis prompt.
+    synthesis_estimate = _estimate_request_tokens("synthesis", "y" * 13248, SYNTHESIS_SYSTEM_PROMPT)
+
+    tpm_limit = PROVIDER_CONFIG["groq_gpt_oss"]["tpm_limit"]
+    assert rerank_estimate + synthesis_estimate < tpm_limit, (
+        f"rerank ({rerank_estimate}) + synthesis ({synthesis_estimate}) must fit "
+        f"Groq's {tpm_limit} tpm ceiling or they starve each other"
+    )
 
 
 def test_select_provider_raises_keyerror_on_unknown_task():
@@ -207,6 +253,57 @@ def test_call_llm_cascades_to_openrouter_on_500_and_timeout(monkeypatch):
     result, openrouter_route = asyncio.run(_run_timeout())
     assert openrouter_route.called
     assert result.degraded is False
+
+
+def test_call_llm_cascades_on_200_response_missing_choices_key(monkeypatch):
+    """A provider can return HTTP 200 with a body that isn't the expected
+    `choices[0].message.content` shape (observed live: OpenRouter's
+    fallback route returning an error payload with a 200 status). This
+    must cascade to the next provider -- not crash `call_llm` with an
+    unhandled KeyError, which would violate its documented never-raises
+    contract."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+
+    async def _run():
+        with respx.mock:
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"error": {"message": "rate limited"}})
+            )
+            respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"error": {"message": "rate limited"}})
+            )
+            openrouter_route = respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json=OPENAI_COMPATIBLE_SUCCESS_BODY)
+            )
+            result = await call_llm(task="orchestrator", prompt="q")
+            return result, openrouter_route
+
+    result, openrouter_route = asyncio.run(_run())
+    assert openrouter_route.called
+    assert result.degraded is False
+    assert result.text == OPENAI_COMPATIBLE_SUCCESS_BODY["choices"][0]["message"]["content"]
+
+
+def test_call_llm_all_providers_return_malformed_response_returns_degraded_not_raise(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-openrouter-key")
+
+    async def _run():
+        with respx.mock:
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"unexpected": "shape"})
+            )
+            respx.post("https://api.groq.com/openai/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"unexpected": "shape"})
+            )
+            respx.post("https://openrouter.ai/api/v1/chat/completions").mock(
+                return_value=httpx.Response(200, json={"unexpected": "shape"})
+            )
+            return await call_llm(task="orchestrator", prompt="q")
+
+    result = asyncio.run(_run())
+    assert result.degraded is True
 
 
 def test_call_llm_ollama_unreachable_cascades_without_needing_a_key(monkeypatch):
@@ -359,6 +456,23 @@ def test_build_openai_compatible_request_ollama_never_carries_groq_vendor_fields
     request = _build_openai_compatible_request(entry, "k", "p", "s", json_output)
     assert "reasoning_effort" not in request["json"]
     assert "max_completion_tokens" not in request["json"]
+
+
+def test_build_openai_compatible_request_ollama_carries_keep_alive():
+    """Ollama unloads a model from memory after its own default idle
+    window, paying a real multi-second reload on the next call. Requesting
+    a longer `keep_alive` keeps it resident across the gap between one
+    query and the next in normal operation -- the fix for repeated
+    rerank-call timeouts, not a timeout-tuning workaround."""
+    entry = PROVIDER_CONFIG["ollama_qwen"]
+    request = _build_openai_compatible_request(entry, "k", "p", "s", False)
+    assert request["json"]["keep_alive"] == "30m"
+
+
+def test_build_openai_compatible_request_non_ollama_omits_keep_alive():
+    entry = PROVIDER_CONFIG["groq_gpt_oss"]
+    request = _build_openai_compatible_request(entry, "k", "p", "s", False)
+    assert "keep_alive" not in request["json"]
 
 
 def test_call_llm_remediation_task_reaches_groq_with_json_mode_on_the_wire(monkeypatch):

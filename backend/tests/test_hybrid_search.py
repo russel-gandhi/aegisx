@@ -22,6 +22,7 @@ import pytest
 import respx
 
 from app.db import get_pool
+from app.llm_router import LLMResponse
 from app.retrieval import hybrid_search
 from app.retrieval.embeddings import EMBEDDING_DIMENSIONS
 from app.retrieval.hybrid_search import (
@@ -144,6 +145,18 @@ def _install_fake_qdrant(monkeypatch, hits: List[DenseHit], client_unavailable: 
 
 def _run(coro):
     return asyncio.run(coro)
+
+
+@pytest.fixture(autouse=True)
+def _rerank_enabled_by_default(monkeypatch):
+    """`RERANK_ENABLED` ships ON, but is env-overridable
+    (`AEGISX_RERANK_ENABLED=0`). Pin it True for the suite so a developer
+    with that variable exported in their shell does not silently turn a
+    dozen rerank assertions into vacuous passes.
+
+    Tests that assert on the flag itself monkeypatch it inside their own
+    body, which runs after this fixture and therefore wins."""
+    monkeypatch.setattr(hybrid_search, "RERANK_ENABLED", True)
 
 
 def _bm25_rows_with_distractor(chunk_id: str, content: str) -> List[Dict[str, Any]]:
@@ -1141,3 +1154,59 @@ def test_integration_hybrid_retrieve_against_live_postgres_and_qdrant(monkeypatc
                 await client.delete(collection_name="gxp_document_chunks", points_selector=[chunk_id])
 
         asyncio.run(_cleanup())
+
+
+# ---------------------------------------------------------------------------
+# RERANK_ENABLED flag (2026-09-08)
+# ---------------------------------------------------------------------------
+
+
+def test_rerank_batch_disabled_makes_zero_llm_calls_and_returns_degraded_pair(monkeypatch):
+    """With the flag off (the default), `rerank_batch` must short-circuit
+    BEFORE touching any provider. The whole point of the flag is that
+    rerank stopped starving `task="synthesis"` of the shared Groq
+    token-per-minute budget, so "returns the fallback pair" is not enough
+    on its own -- it must also make no call at all."""
+    called = False
+
+    async def _must_not_be_called(**_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("rerank_batch called an LLM while disabled")
+
+    monkeypatch.setattr(hybrid_search, "RERANK_ENABLED", False)
+    monkeypatch.setattr(hybrid_search, "call_llm", _must_not_be_called)
+
+    scores, model_id = _run(
+        hybrid_search.rerank_batch("q", [{"chunk_id": "c1", "content": "text", "section": "s"}])
+    )
+
+    assert called is False
+    assert scores == {}
+    assert model_id == "deterministic-fallback"
+
+
+def test_rerank_batch_enabled_still_calls_the_provider(monkeypatch):
+    """The flag must be a real switch in both directions -- flipping it on
+    restores the LLM hop rather than leaving dead code behind."""
+    seen = {}
+
+    async def _fake_call_llm(**kwargs):
+        seen.update(kwargs)
+        return LLMResponse(
+            text=json.dumps({"scores": [{"chunk_id": "c1", "score": 0.9}]}),
+            model_id="test-model",
+            provider="test",
+            degraded=False,
+        )
+
+    monkeypatch.setattr(hybrid_search, "RERANK_ENABLED", True)
+    monkeypatch.setattr(hybrid_search, "call_llm", _fake_call_llm)
+
+    scores, model_id = _run(
+        hybrid_search.rerank_batch("q", [{"chunk_id": "c1", "content": "text", "section": "s"}])
+    )
+
+    assert seen["task"] == "rerank"
+    assert scores == {"c1": 0.9}
+    assert model_id == "test-model"

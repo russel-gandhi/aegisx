@@ -118,6 +118,20 @@ def _retry_delay_seconds(attempt: int, response: httpx.Response) -> float:
 # deliberately empty -- Ollama's local HTTP API has no auth, and
 # `_resolve_entry()` below treats an empty tuple as "no key required",
 # not "key missing".
+# 2026-09-08: embeddings hold their OWN concurrency gate, separate from
+# the "ollama" key `llm_router` uses for generation against the same
+# server. Both workloads are Ollama, but they are not the same workload:
+# `nomic-embed-text` answers in ~0.02s warm, while `qwen2.5:7b-instruct`
+# holds a slot for tens of seconds. Sharing one 6-slot gate meant a single
+# investigate request -- which fans A1..A6 out in parallel, several of them
+# routed to the local model -- held every slot long enough that the NEXT
+# request's embedding call exhausted OLLAMA_MAX_WAIT_SECONDS and raised
+# `GateBusyError`. That surfaced as `INSUFFICIENT_EVIDENCE` with zero
+# retrieved items: not a retrieval-quality problem at all, just embeddings
+# queued behind generation. Observed live, twice, on back-to-back queries.
+OLLAMA_EMBED_GATE_KEY: str = "ollama_embed"
+
+
 EMBEDDING_PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     "ollama_embedding": {
         "provider": "ollama",
@@ -254,8 +268,13 @@ async def call_embedding(
                 # `app.concurrency_gate`'s module docstring. `GateBusyError`
                 # is caught below and degrades this call immediately rather
                 # than retrying into the same saturated gate.
+                #
+                # 2026-09-08: gate key is OLLAMA_EMBED_GATE_KEY, not the
+                # "ollama" key the LLM router uses -- see that constant's
+                # own comment. Sharing one gate let slow generation calls
+                # starve embeddings and take retrieval down with them.
                 if entry["provider"] == "ollama":
-                    async with acquire_slot("ollama"):
+                    async with acquire_slot(OLLAMA_EMBED_GATE_KEY):
                         response = await client.post(
                             url, params=params, json=body, timeout=timeout
                         )
@@ -394,9 +413,11 @@ async def _call_batch_group(
                     await acquire_rate_limit(entry_key, entry["rpm_limit"])
                     client = get_shared_client()
                     # SENT-8-03: bounded local concurrency, Ollama only --
-                    # see `app.concurrency_gate`'s module docstring.
+                    # see `app.concurrency_gate`'s module docstring, and
+                    # OLLAMA_EMBED_GATE_KEY for why embeddings hold their
+                    # own gate rather than the LLM router's.
                     if entry["provider"] == "ollama":
-                        async with acquire_slot("ollama"):
+                        async with acquire_slot(OLLAMA_EMBED_GATE_KEY):
                             response = await client.post(
                                 url, params=params, json=body, timeout=timeout
                             )

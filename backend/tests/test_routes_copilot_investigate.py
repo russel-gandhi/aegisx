@@ -31,6 +31,7 @@ import httpx
 import respx
 
 from app.db import get_pool
+from app.llm_router import LLMResponse
 from app.graph.evidence_graph import build_graph, persist_graph
 from app.retrieval import hybrid_search
 from app.retrieval.embeddings import EMBEDDING_DIMENSIONS, EmbeddingResponse
@@ -44,8 +45,11 @@ from app.retrieval.qdrant_store import (
 from app.routes import copilot_query
 from app.routes.copilot_query import (
     EVIDENCE_SUPPORT_BANDS,
+    GRAPH_INVOKE_TIMEOUT_SECONDS,
     INSUFFICIENT_EVIDENCE_ANSWER,
+    SYNTHESIS_TIMEOUT_SECONDS,
     _deterministic_fallback_answer,
+    _safe_synthesis_call,
     _synthesis_prompt,
     compute_navigation_target,
     evidence_support_band,
@@ -115,6 +119,49 @@ def test_evidence_support_bands_table_is_descending_and_floors_at_zero():
     thresholds = [t for t, _ in EVIDENCE_SUPPORT_BANDS]
     assert thresholds == sorted(thresholds, reverse=True)
     assert thresholds[-1] == 0.0
+
+
+def test_safe_synthesis_call_passes_explicit_timeout_not_the_10s_default(monkeypatch):
+    """2026-09-08 regression guard. `_safe_synthesis_call` used to omit
+    `timeout=`, inheriting `call_llm`'s 10s default -- unreachable for a
+    prompt the local hop needs 35.8s-52.7s to finish, so every synthesis
+    timed out and the route emitted its deterministic fallback. Asserts
+    the explicit budget is actually handed to `call_llm`."""
+    captured = {}
+
+    async def _fake_call_llm(**kwargs):
+        captured.update(kwargs)
+        return LLMResponse(text="ok", model_id="m", provider="p", degraded=False)
+
+    monkeypatch.setattr(copilot_query, "call_llm", _fake_call_llm)
+    response = asyncio.run(_safe_synthesis_call("prompt"))
+
+    assert response is not None
+    assert captured["timeout"] == SYNTHESIS_TIMEOUT_SECONDS
+    assert captured["timeout"] > 10.0, "must not silently fall back to call_llm's default"
+    assert captured["task"] == "synthesis"
+
+
+def test_synthesis_timeout_is_generous_enough_for_the_measured_local_hop():
+    """The budget must clear the 35.8s worst case measured on the local
+    provider, while staying under the graph budget's order of magnitude.
+    Synthesis runs AFTER `ainvoke()` returns, so the two are sequential
+    and this is a sanity bound, not a shared-budget constraint."""
+    assert SYNTHESIS_TIMEOUT_SECONDS >= 36.0
+    assert SYNTHESIS_TIMEOUT_SECONDS <= GRAPH_INVOKE_TIMEOUT_SECONDS
+
+
+def test_safe_synthesis_call_still_returns_none_when_call_llm_raises(monkeypatch):
+    """The failure path the deterministic fallback depends on: any
+    exception is swallowed and reported as `None`, which the route treats
+    exactly like a degraded response. Raising the timeout must not have
+    made this path unreachable."""
+
+    async def _boom(**_kwargs):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(copilot_query, "call_llm", _boom)
+    assert asyncio.run(_safe_synthesis_call("p")) is None
 
 
 def test_synthesis_prompt_contains_untrusted_data_framing_and_excerpt_ids():

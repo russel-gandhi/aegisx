@@ -78,6 +78,17 @@ async def query_copilot(request: CopilotQueryRequest) -> CopilotQueryResponse:
 # (T-06.1-11, six concurrent specialists, several LLM calls).
 GRAPH_INVOKE_TIMEOUT_SECONDS: float = 45.0
 
+# Per-request budget for the single synthesis `call_llm` below, replacing
+# that function's 10s default (2026-09-08). Sized so a cascade that falls
+# through to the local Ollama hop can actually finish -- measured at 35.8s
+# and 52.7s on the real 13-excerpt prompt -- instead of guaranteeing a
+# timeout. Groq, now the first hop for `task="synthesis"`, answers the same
+# prompt in ~1.7s, so this ceiling is the degraded-path allowance, not the
+# expected latency. Deliberately outside `GRAPH_INVOKE_TIMEOUT_SECONDS`:
+# synthesis happens after `ainvoke()` returns, so the two budgets are
+# sequential, never shared.
+SYNTHESIS_TIMEOUT_SECONDS: float = 40.0
+
 # 06.1-UI-SPEC.md Copywriting Contract, transcribed verbatim (D-09: no
 # evidence above threshold gets this honest sentence, never a
 # model-knowledge answer).
@@ -182,13 +193,25 @@ async def _safe_synthesis_call(prompt: str) -> Optional[LLMResponse]:
     host no test explicitly mocks raises `respx.AllMockedAssertionError`,
     a type `call_llm()`'s own `except` clauses do not name. Returns `None`
     on any such failure -- treated identically to a degraded response by
-    the caller below."""
+    the caller below.
+
+    Passes `SYNTHESIS_TIMEOUT_SECONDS` explicitly rather than inheriting
+    `call_llm`'s 10s default (2026-09-08). That default was measured to be
+    unreachable for this call: the real synthesis prompt runs 13 evidence
+    excerpts / ~13k chars, which the local Ollama hop completes in 35.8s
+    to 52.7s, so every synthesis timed out and this route emitted
+    `_deterministic_fallback_answer` every time. Raising it costs the
+    graph nothing -- synthesis runs in this route AFTER `ainvoke()` has
+    already returned (see the module docstring), so it sits outside the
+    `GRAPH_INVOKE_TIMEOUT_SECONDS` budget entirely rather than competing
+    with the six specialists for it."""
     try:
         return await call_llm(
             task="synthesis",
             json_output=False,
             system_instruction=SYNTHESIS_SYSTEM_PROMPT,
             prompt=prompt,
+            timeout=SYNTHESIS_TIMEOUT_SECONDS,
         )
     except Exception:  # noqa: BLE001 - see this function's own docstring
         logger.warning("Synthesis call raised unexpectedly; falling back to deterministic answer.", exc_info=True)

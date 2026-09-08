@@ -118,9 +118,15 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # guard rather than a calibrated ceiling, mirroring
         # `embeddings.EMBEDDING_PROVIDER_CONFIG["ollama_embedding"]`.
         "rpm_limit": 6000,
+        # 2026-09-08: "synthesis" and "rerank" both moved off this entry
+        # to `groq_gpt_oss` -- see that entry's comment for the measured
+        # latencies. Neither could ever complete here: synthesis needs
+        # 35.8s-52.7s against a 10s default budget, and rerank needs
+        # 130.1s inside a graph capped at 45s. Every other task below is
+        # unchanged and still leads with this local provider.
         "use_for": [
-            "orchestrator", "synthesis",  # was gemini_flash_thinking
-            "compliance", "knowledge", "change", "rerank",  # was gemini_flash_fast
+            "orchestrator",  # was gemini_flash_thinking
+            "compliance", "knowledge", "change",  # was gemini_flash_fast
             "risk_assessment",  # was deepseek_r1
         ],
     },
@@ -140,7 +146,31 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # entry) means "no known token constraint, request-count limiting
         # only" -- the acquire_rate_limit token check is a no-op for them.
         "tpm_limit": 8000,
-        "use_for": ["incident", "access", "high_volume", "narration", "remediation"],
+        # 2026-09-08: "synthesis" added here, taken from `ollama_qwen`.
+        # Measured live this session on the real Copilot synthesis prompt
+        # (13 evidence excerpts, 13,248 chars): Ollama qwen2.5:7b-instruct
+        # took 35.8s and 52.7s across two runs, this entry took 1.8s and
+        # 1.6s and returned a correctly-citing grounded answer. Against
+        # the 10s default `call_llm` timeout the Ollama hop could never
+        # complete, so every synthesis timed out, tripped the circuit
+        # breaker, and the route emitted its deterministic fallback --
+        # i.e. the Copilot never produced an LLM-written answer at all.
+        # Ollama stays reachable for both via FALLBACK_CASCADE; it just
+        # stops being the first hop.
+        #
+        # "rerank" moved here for the same reason -- 130.1s on the local
+        # model against the graph's own 45s ceiling, versus 3.9s here --
+        # but it only fits alongside synthesis because
+        # `hybrid_search.RERANK_EXCERPT_MAX_CHARS` was cut to 250 in the
+        # same change. At the previous 800 the two calls estimated at
+        # 5,447 + 3,712 = 9,159 tokens and blew the 8,000 `tpm_limit`
+        # below every single query; at 250 they are ~3,657 + ~3,712 =
+        # ~7,369 and fit inside one minute together. Anything that grows
+        # either prompt needs to be re-checked against that ceiling.
+        "use_for": [
+            "incident", "access", "high_volume", "narration", "remediation",
+            "synthesis", "rerank",
+        ],
     },
     "openrouter_fallback": {
         "provider": "openrouter",
@@ -365,13 +395,33 @@ def _build_openai_compatible_request(entry: Dict[str, Any], api_key: str, prompt
         body["max_completion_tokens"] = (
             GROQ_MAX_COMPLETION_TOKENS_JSON if json_output else GROQ_MAX_COMPLETION_TOKENS_DEFAULT
         )
+    if entry["provider"] == "ollama":
+        # Ollama unloads a model from memory ~5 minutes after its last
+        # request (its own default `keep_alive`), so any two calls spaced
+        # further apart than that pay a real ~15s cold-start reload before
+        # generation even begins -- live-measured on this project's own
+        # hardware: a trivial 2-token completion took 15.1s cold vs 0.8s
+        # warm. Against `rerank_batch`'s 20s call_llm timeout (itself
+        # bounded by the whole graph's 45s `GRAPH_INVOKE_TIMEOUT_SECONDS`
+        # budget, so raising the timeout instead would eat every other
+        # agent's share of it), a cold load alone can exhaust the budget
+        # before a single token of the actual rerank output is produced.
+        # Ollama's OpenAI-compatible endpoint honors the same `keep_alive`
+        # field its native API does; requesting 30 minutes keeps the model
+        # resident across the gap between one query and the next in normal
+        # (non-idle-for-half-an-hour) operation, which is the actual fix --
+        # this is a real infra cause, not a timeout tuning problem.
+        body["keep_alive"] = "30m"
     url = f"{entry['base_url']}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "content-type": "application/json"}
     return {"url": url, "headers": headers, "json": body}
 
 
 def _parse_google_response(entry: Dict[str, Any], data: Dict[str, Any]) -> LLMResponse:
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise _MalformedResponseError(entry["provider"]) from exc
     return LLMResponse(text=text, model_id=entry["model"], provider=entry["provider"])
 
 
@@ -382,7 +432,19 @@ def _parse_openai_compatible_response(entry: Dict[str, Any], data: Dict[str, Any
     # rather than letting a null propagate into LLMResponse's `text: str`
     # field, which would raise a Pydantic ValidationError that call_llm does
     # not catch and that would surface to the route as an uncaught 500.
-    text = data["choices"][0]["message"]["content"] or ""
+    #
+    # A 2xx response is not a guarantee the body is actually the expected
+    # `choices[0].message.content` shape -- an OpenAI-compatible proxy
+    # (OpenRouter's fallback route observed doing exactly this live) can
+    # return an error payload (e.g. `{"error": {...}}`) with a 200 status.
+    # `raise_for_status()` in `_send_one` cannot catch that, so this parser
+    # must, and it must raise something `_classify_failure` recognizes --
+    # an unguarded KeyError here would violate `call_llm`'s documented
+    # "never raises" contract exactly like a missing API key would.
+    try:
+        text = data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError) as exc:
+        raise _MalformedResponseError(entry["provider"]) from exc
     model_id = data.get("model") or entry["model"]
     return LLMResponse(text=text, model_id=model_id, provider=entry["provider"])
 
@@ -469,6 +531,19 @@ class _MissingKeyError(Exception):
         super().__init__(f"No API key configured for {entry_key!r}")
 
 
+class _MalformedResponseError(Exception):
+    """Module-private: raised by `_parse_google_response`/
+    `_parse_openai_compatible_response` when a 2xx response body does not
+    contain the expected shape (e.g. an error payload returned with a 200
+    status). Caught only inside `call_llm()`, classified as cascadable by
+    `_classify_failure` -- the same treatment as a real 5xx, since this
+    provider clearly did not produce a usable answer."""
+
+    def __init__(self, provider: str):
+        self.provider = provider
+        super().__init__(f"Malformed response body from provider {provider!r}")
+
+
 # Status codes that mean "this provider's account/credentials are broken
 # right now" rather than "this request is malformed": an expired/invalid
 # key (401), no billing/credits (402), or an access-scope rejection (403).
@@ -519,6 +594,8 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
     """
     if isinstance(exc, _MissingKeyError):
         return f"missing_key:{exc.entry_key}", True
+    if isinstance(exc, _MalformedResponseError):
+        return f"malformed_response:{exc.provider}", True
     if isinstance(exc, TokenBudgetExceededError):
         return f"token_budget_exceeded:{entry_key}", True
     if isinstance(exc, GateBusyError):
@@ -615,8 +692,8 @@ async def call_llm(
             record_success(current_key)
             return response
         except (
-            _MissingKeyError, TokenBudgetExceededError, GateBusyError, httpx.TimeoutException,
-            httpx.HTTPStatusError, httpx.RequestError,
+            _MissingKeyError, _MalformedResponseError, TokenBudgetExceededError, GateBusyError,
+            httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError,
         ) as exc:
             reason, cascadable = _classify_failure(current_key, exc)
 
