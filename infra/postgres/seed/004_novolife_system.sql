@@ -21,8 +21,8 @@
 -- or UI layer would mean hand-typing C1 confidence grades, OPA rule ids and
 -- graph relationships that nothing actually computed -- exactly the failure
 -- this product exists to prevent (CLAUDE.md, "Core Value"). Rows keep
--- A2 -> C1 -> OPA and the NetworkX traversal fully real; only the *data* is
--- hardcoded.
+-- A2 -> C1 -> OPA and the NetworkX traversal fully real; this file adds
+-- *data* only.
 --
 -- Provenance discipline. Every id, name, title, date, status and free-text
 -- value below is lifted from a named .docx's own controlled fields. Where a

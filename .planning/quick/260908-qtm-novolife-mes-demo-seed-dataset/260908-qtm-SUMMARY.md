@@ -1,6 +1,6 @@
 ---
 id: 260908-qtm
-slug: expand-seed-sql-with-hardcoded-novolife-
+slug: novolife-mes-demo-seed-dataset
 date: 2026-09-08
 mode: quick
 status: complete
@@ -14,7 +14,7 @@ Evidence Investigation, CAPA, and Blast Radius render substantial,
 mutually-consistent, document-grounded content.
 
 **No backend Python and no Rego policy was modified.** A2 → C1 → OPA and the
-NetworkX traversal are untouched; only data is hardcoded. This was the explicit
+NetworkX traversal are untouched; this adds seed data only. That was the explicit
 point of the approach (see PLAN.md "Why seed data and not response stubs").
 
 ## Commits

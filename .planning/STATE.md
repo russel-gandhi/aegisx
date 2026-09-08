@@ -95,7 +95,7 @@ Items acknowledged and deferred at milestone close, most recent first:
 
 | ID | Task | Date | Status |
 |----|------|------|--------|
-| 260908-qtm | Seed the NOVOLIFE MES PAS-X demo dataset (384 rows) from the 34 Dummy_data docs, so Evidence Investigation, CAPA and Blast Radius render document-grounded content | 2026-09-08 | complete |
+| 260908-qtm | Seed the NOVOLIFE MES PAS-X demo dataset (384 rows) from the 34-document source package, so Evidence Investigation, CAPA and Blast Radius render document-grounded content | 2026-09-08 | complete |
 
 ## Session Continuity
 
