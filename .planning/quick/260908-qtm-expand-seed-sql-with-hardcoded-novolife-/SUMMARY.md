@@ -123,13 +123,41 @@ CAPA binds to its real finding rather than floating unattached. `model_id` is
 scope expansion under CLAUDE.md Rule 7 and was deliberately excluded. If more
 cards are wanted, that is a separate, properly-contracted ticket.
 
+## Backend test suite
+
+Full suite against the worktree: **672 passed, 10 failed** (9m58s).
+
+**All 10 failures are pre-existing and unrelated to this task.** Verified by
+running the same tests against the untouched `bugFix` branch, which reproduces
+all 10 identically:
+
+- 8 × `test_evidence_graph.py` / `test_routes_evidence_graph.py` — these assert
+  `GXP-MFG-DEMO-01` builds to exactly 14 nodes / 9 edges. The shared dev database
+  holds 38 `documents` rows for that system where `001_seed.sql` defines 1; the
+  extras are `UPLOADED`/`TEXT` rows created 2026-09-04 by Knowledge-page uploads.
+  Each adds a node plus a `GOVERNS` edge, inflating the live graph to 50/45.
+- 2 × `test_hybrid_search` / `test_routes_copilot_investigate` — `test_integration_*`
+  tests against live Qdrant state.
+
+This task adds **no rows to `GXP-MFG-DEMO-01`**: the only two mentions of that id
+in the new seed files are prose comments (`004_novolife_system.sql` lines 11 and
+136), confirmed by grep.
+
+These integration tests couple to mutable shared-database state, so they fail
+whenever anyone uploads a document. Worth a separate ticket; deliberately not
+fixed here (out of contract).
+
+One further flake, `test_routes_actions.py::test_find_finding_server_side_issues_
+exactly_one_narration_call_on_a_match`, failed in one subset run but passes in
+isolation in both trees and passes in a full-file run — order-dependent, not
+seed-related.
+
 ## Not verified
 
-The backend pytest suite was started against the worktree but had not finished at
-the time of writing. The worktree has no `node_modules`, so the frontend Vitest
-suite was not run there; the T5 edits are additive entries to `SYSTEM_OPTIONS` /
-`KNOWLEDGE_SYSTEM_IDS`, and the existing frontend tests select systems by explicit
-value with no length assertions, so the regression risk is low but unproven.
+The worktree has no `node_modules`, so the frontend Vitest suite was not run
+there. The T5 edits are additive entries to `SYSTEM_OPTIONS` /
+`KNOWLEDGE_SYSTEM_IDS`; the existing frontend tests select systems by explicit
+value with no length assertions, so regression risk is low but unproven.
 
 Work is on branch `worktree-agent-a5c8918176f34d723` and has not been merged to
 `bugFix`.
