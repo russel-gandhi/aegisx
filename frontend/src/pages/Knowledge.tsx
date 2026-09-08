@@ -40,7 +40,19 @@ import {
  * would without the param.
  */
 
-export const KNOWLEDGE_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
+// 'GXP-MES-NOVOLIFE-01' added by quick task 260908-qtm alongside the same
+// id in FindingInvestigation.tsx and BlastRadius.tsx, so the seeded system is
+// selectable here too.
+//
+// Known consequence, not a bug: its 35 `documents` rows were seeded by
+// infra/postgres/seed/004_novolife_system.sql rather than uploaded through
+// `POST /api/documents`, so they have no `document_chunks`. `GET
+// /api/documents` derives `ingestion_status` from `COUNT(chunk_id)`, so all
+// 35 render FAILED here -- the same thing GXP-MFG-DEMO-01's two seeded
+// documents already do. Ingesting the source .docx files through this page's
+// own upload flow is what moves them to READY; a seed file cannot, because
+// chunking and embedding are pipeline work, not INSERTs.
+export const KNOWLEDGE_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'GXP-MES-NOVOLIFE-01', 'BUS-IT-DEMO-02']
 
 export const INGESTION_STAGE_LABELS = [
   'Uploading',
