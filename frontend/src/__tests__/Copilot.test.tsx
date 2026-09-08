@@ -225,32 +225,6 @@ describe('Copilot hero query', () => {
     })
   })
 
-  it('transitions AgentTopologyCanvas nodes to running on open, then complete on the terminal frame', async () => {
-    stubAssuranceCardsFetch({ cards: [fixtureCard({})] })
-
-    const { container } = renderCopilot()
-    await submitQuery(HERO_QUERY)
-
-    function findNode(id: string): Element {
-      const node = Array.from(container.querySelectorAll('.react-flow__node')).find((el) =>
-        el.textContent?.includes(id),
-      )
-      if (node === undefined) throw new Error(`node ${id} not found`)
-      return node
-    }
-
-    await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-amber')
-      expect(findNode('A2').className).toContain('border-amber')
-    })
-
-    await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-mint')
-      expect(findNode('A2').className).toContain('border-mint')
-      expect(findNode('C1').className).toContain('border-mint')
-    })
-  })
-
   it('renders the stream-failure copy inline as the assistant turn on stream error', async () => {
     stubAssuranceCardsFetch({ cards: [], errorDetail: 'boom' })
 

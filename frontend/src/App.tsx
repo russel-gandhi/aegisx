@@ -1,5 +1,4 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import PrototypeBanner from './components/PrototypeBanner'
 import NavBar from './components/NavBar'
 import RoleSelector from './components/RoleSelector'
 import GuidedTourOverlay from './components/GuidedTourOverlay'
@@ -21,7 +20,6 @@ export function AppShell() {
     <div className="relative min-h-screen bg-canvas text-ink">
       <div className="app-ambient" aria-hidden="true" />
       <div className="relative z-10">
-        <PrototypeBanner />
         <NavBar />
         <RoleSelector />
         <GuidedTourOverlay />
