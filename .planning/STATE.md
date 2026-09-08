@@ -91,6 +91,12 @@ Items acknowledged and deferred at milestone close, most recent first:
 |----------|------|--------|-------------|-----------|
 | Architecture direction | ~~User raised pivoting toward a multimodal RAG system~~ — **resolved 2026-08-28: scoped into Phase 06.1 (Advanced Retrieval & Real Copilot)**, inserted after Phase 6. See Roadmap Evolution entry above for the approved scope (Bible Section 15 hybrid retrieval, AGT-01/HARD-04 scope override, hosted-embedding decision, schema deviation, format list). | scoped → Phase 06.1 | 2026-08-28 | v1 (current) |
 
+## Quick Tasks Completed
+
+| ID | Task | Date | Status |
+|----|------|------|--------|
+| 260908-qtm | Seed the NOVOLIFE MES PAS-X demo dataset (384 rows) from the 34 Dummy_data docs, so Evidence Investigation, CAPA and Blast Radius render document-grounded content | 2026-09-08 | complete |
+
 ## Session Continuity
 
 Last session: 2026-08-27T12:35:13.053Z
