@@ -148,9 +148,12 @@ whenever anyone uploads a document. Worth a separate ticket; deliberately not
 fixed here (out of contract).
 
 One further flake, `test_routes_actions.py::test_find_finding_server_side_issues_
-exactly_one_narration_call_on_a_match`, failed in one subset run but passes in
-isolation in both trees and passes in a full-file run — order-dependent, not
-seed-related.
+exactly_one_narration_call_on_a_match`, failed in one mixed-file subset run
+(`test_routes_systems` + `test_routes_findings` + `test_routes_actions` +
+`test_db` together). It passes in isolation in both trees, and the whole
+`test_routes_actions.py` file passes on the untouched `bugFix` branch (20
+passed). Order-dependent — shared `narration_cache` / respx state across files —
+not seed-related.
 
 ## Not verified
 
