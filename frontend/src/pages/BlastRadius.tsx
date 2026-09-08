@@ -12,6 +12,12 @@ import {
 
 const SYSTEM_OPTIONS = [
   { id: 'GXP-MFG-DEMO-01', label: 'GXP-MFG-DEMO-01 (NovaSynth MES)' },
+  // Quick task 260908-qtm: seeded by infra/postgres/seed/004-007_novolife_*.sql.
+  // This is the system with a graph worth traversing -- 004-006 seed the
+  // requirements, test cases, test results, design elements and
+  // change_affects rows that evidence_graph.py's VERIFIED_BY, HAS_RESULT and
+  // AFFECTS edges need, three of which had no rows at all before.
+  { id: 'GXP-MES-NOVOLIFE-01', label: 'GXP-MES-NOVOLIFE-01 (Novo Life MES PAS-X)' },
   { id: 'BUS-IT-DEMO-02', label: 'BUS-IT-DEMO-02 (non-GxP)' },
 ]
 
