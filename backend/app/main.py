@@ -90,6 +90,7 @@ from app.prewarm import prewarm_narration_cache
 from app.retrieval.qdrant_store import aclose_qdrant_client
 from app.routes.actions import router as actions_router
 from app.routes.audit import router as audit_router
+from app.routes.changes import router as changes_router
 from app.routes.copilot_query import router as copilot_query_router
 from app.routes.documents import router as documents_router
 from app.routes.evidence_graph import router as evidence_graph_router
@@ -160,6 +161,7 @@ app.include_router(opa_router)
 app.include_router(suppliers_router)
 app.include_router(trust_centre_router)
 app.include_router(reports_router)
+app.include_router(changes_router)
 
 
 @app.get("/api/health")

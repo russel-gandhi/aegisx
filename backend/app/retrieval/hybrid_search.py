@@ -147,11 +147,24 @@ RERANK_MAX_CANDIDATES: int = 40
 # each candidate the model reads, not how many it sees.
 RERANK_EXCERPT_MAX_CHARS: int = 250
 
-# Kill switch for the LLM reranking hop, default ON. Set
-# `AEGISX_RERANK_ENABLED=0` to fall back to the deterministic dense/BM25
-# gate alone -- useful when a provider budget is exhausted and a
-# lower-precision answer beats no answer at all.
-RERANK_ENABLED: bool = os.getenv("AEGISX_RERANK_ENABLED", "1").strip().lower() in ("1", "true", "yes")
+# Kill switch for the LLM reranking hop. Ships OFF; set
+# `AEGISX_RERANK_ENABLED=1` to turn it back on.
+#
+# Reranking genuinely improves precision -- the eval harness measures
+# precision@5 of 1.0 with an oracle reranker versus 0.2 on the
+# deterministic gate alone -- so this default is a resource decision, not a
+# quality one. Even trimmed to RERANK_EXCERPT_MAX_CHARS, a rerank call
+# estimates at ~3,657 tokens against Groq's real 8,000-per-minute ceiling,
+# and it runs BEFORE synthesis. Observed live, repeatedly: rerank consumed
+# the budget, `token_budget_exceeded` tripped Groq's breaker, and the
+# synthesis call behind it -- the one that writes the answer the user
+# reads -- had nowhere to go, so the Copilot returned its deterministic
+# fallback instead of an answer.
+#
+# Sharper ranking of evidence nobody gets to read is worth less than a
+# grounded answer over slightly noisier evidence. Turn this back on when
+# the reranker has a token budget it does not share with synthesis.
+RERANK_ENABLED: bool = os.getenv("AEGISX_RERANK_ENABLED", "0").strip().lower() in ("1", "true", "yes")
 
 # Bible Section 15.7's parent-context expansion cap (Task 3).
 PARENT_CONTEXT_MAX_CHARS: int = 2000

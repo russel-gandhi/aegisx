@@ -9,6 +9,7 @@ import Copilot, {
   STREAM_FAILURE_COPY,
   INVESTIGATE_FAILURE_COPY,
   COPILOT_SYSTEM_IDS,
+  __resetCopilotCacheForTests,
 } from '../pages/Copilot'
 import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
 import { stubAssuranceCardsFetch } from './helpers/sseFetch'
@@ -136,6 +137,10 @@ async function submitQuery(text: string) {
 }
 
 beforeEach(() => {
+  // The page now caches its conversation state at module scope (Copilot.tsx)
+  // so it survives a route navigation -- reset it here so that persistence
+  // doesn't leak state from one test's <Copilot /> render into the next.
+  __resetCopilotCacheForTests()
   mockInvestigateCopilot.mockReset()
   // Default: a grounded, non-blocked, sufficient-evidence answer -- the
   // common case for any test that doesn't care about the exact response.

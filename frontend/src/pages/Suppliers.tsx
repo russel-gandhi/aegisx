@@ -97,7 +97,7 @@ export default function Suppliers() {
         )}
       </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-white/[0.08]">
+      <div data-tour="suppliers-table" className="mt-6 overflow-x-auto rounded-xl border border-white/[0.08]">
         {status === 'loading' && <p className="p-6 text-sm text-ink-muted">Loading suppliers&hellip;</p>}
         {status === 'error' && (
           <p className="p-6 text-sm text-red">Couldn&rsquo;t load the supplier registry. Refresh to retry.</p>

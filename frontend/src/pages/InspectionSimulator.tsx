@@ -15,6 +15,52 @@ import { investigateCopilot, type CopilotInvestigateResult } from '../lib/api'
 const DEMO_SYSTEM = 'GXP-MFG-DEMO-01'
 const TIME_LIMIT_SECONDS = 30
 
+// `insufficient_evidence` describes RAG retrieval ONLY -- it means no
+// document passage cleared the relevance threshold. It says nothing about
+// whether a compliance finding was verified, because A2/A4..A6 findings are
+// corroborated against Postgres and OPA directly and legitimately cite zero
+// retrieved passages.
+//
+// Rendering the two as one status produced the worst possible frame: a
+// finding C1 graded HIGH, with db_record_found and opa_corroborated both
+// true, displayed under an "INSUFFICIENT EVIDENCE" badge -- the exact
+// inverse of what the pipeline actually concluded. The helpers below keep
+// the two questions separate: did retrieval find passages, and did C1
+// verify the findings.
+
+const VERIFIED_CONFIDENCES = new Set(['HIGH', 'MEDIUM'])
+
+/** True when C1 corroborated at least one finding against real DB/OPA state. */
+function hasVerifiedFinding(result: CopilotInvestigateResult): boolean {
+  return result.findings.some((f) => {
+    const verdict = result.verification_results[f.finding_id]
+    return verdict !== undefined && VERIFIED_CONFIDENCES.has(verdict.confidence)
+  })
+}
+
+function answeredTone(result: CopilotInvestigateResult): 'verified' | 'unverified' {
+  return hasVerifiedFinding(result) ? 'verified' : 'unverified'
+}
+
+function headlineVerdict(result: CopilotInvestigateResult): string {
+  if (hasVerifiedFinding(result)) return 'VERIFIED FINDING'
+  if (result.findings.length > 0) return 'FINDING — UNVERIFIED'
+  return 'NO EVIDENCE RETRIEVED'
+}
+
+function confidenceBadge(confidence: string | undefined): string {
+  switch (confidence) {
+    case 'HIGH':
+      return 'badge-mint'
+    case 'MEDIUM':
+      return 'badge-blue'
+    case 'LOW':
+      return 'badge-amber'
+    default:
+      return 'badge-neutral'
+  }
+}
+
 interface InspectionQuestion {
   id: string
   observation: string
@@ -129,8 +175,12 @@ export default function InspectionSimulator() {
   }
 
   const answeredCount = Object.values(states).filter((s) => s.phase === 'answered').length
+  // A question passes when C1 verified a finding for it in time -- NOT when
+  // RAG happened to return passages. Scoring on `insufficient_evidence`
+  // marked every deterministic compliance answer (which cites zero
+  // retrieved passages by design) as a failure.
   const passedCount = Object.values(states).filter(
-    (s) => s.phase === 'answered' && !s.result.insufficient_evidence && s.elapsedSeconds <= TIME_LIMIT_SECONDS,
+    (s) => s.phase === 'answered' && hasVerifiedFinding(s.result) && s.elapsedSeconds <= TIME_LIMIT_SECONDS,
   ).length
 
   return (
@@ -148,7 +198,7 @@ export default function InspectionSimulator() {
           {QUESTIONS.map((q, i) => {
             const s = states[q.id]
             const dotClass =
-              s.phase === 'answered' && !s.result.insufficient_evidence
+              s.phase === 'answered' && hasVerifiedFinding(s.result)
                 ? 'bg-mint'
                 : s.phase === 'answered' || s.phase === 'timed_out'
                   ? 'bg-orange'
@@ -173,7 +223,7 @@ export default function InspectionSimulator() {
         </span>
       </div>
 
-      <div className="card mt-6 p-6">
+      <div data-tour="inspection-simulator-panel" className="card mt-6 p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="eyebrow">
@@ -230,33 +280,71 @@ export default function InspectionSimulator() {
           {state.phase === 'answered' && (
             <div
               className={`rounded-xl border p-4 ${
-                state.result.insufficient_evidence
-                  ? 'border-orange/30 bg-orange-soft'
-                  : 'border-mint/30 bg-mint-soft'
+                answeredTone(state.result) === 'verified'
+                  ? 'border-mint/30 bg-mint-soft'
+                  : 'border-orange/30 bg-orange-soft'
               }`}
             >
               <div className="flex flex-wrap items-center gap-2">
                 <span
                   className={`badge ${
-                    state.result.insufficient_evidence ? 'badge-orange' : 'badge-mint'
+                    answeredTone(state.result) === 'verified' ? 'badge-mint' : 'badge-orange'
                   }`}
                 >
-                  {state.result.insufficient_evidence ? 'INSUFFICIENT EVIDENCE' : 'ANSWERED'}
+                  {headlineVerdict(state.result)}
                 </span>
                 <span className="font-mono text-xs text-ink-faint">{state.elapsedSeconds.toFixed(1)}s</span>
-                <span className="text-xs text-ink-faint">&middot; {state.result.evidence.length} evidence items</span>
+                {/* Retrieval count is about RAG passages only. It is NOT a
+                    statement about whether a finding was verified -- a
+                    deterministic A2/A4-plus-OPA finding legitimately cites
+                    zero retrieved excerpts. Labelled so it can never again
+                    be read as "this finding has no evidence". */}
+                <span className="text-xs text-ink-faint">
+                  &middot; {state.result.evidence.length} retrieved passage
+                  {state.result.evidence.length === 1 ? '' : 's'}
+                </span>
               </div>
               {state.result.findings.length > 0 && (
-                <ul className="mt-3 space-y-2">
-                  {state.result.findings.map((f) => (
-                    <li key={f.finding_id} className="text-sm text-ink-muted">
-                      <span className="font-mono text-xs text-ink-faint">[{f.regulatory_citations.join(', ')}]</span>{' '}
-                      {f.claim}
-                    </li>
-                  ))}
+                <ul className="mt-3 space-y-3">
+                  {state.result.findings.map((f) => {
+                    // C1's real verdict, keyed by finding_id. Never read the
+                    // finding's own confidence field -- every agent hardcodes
+                    // it to "UNVERIFIED" (see CopilotVerificationResult in
+                    // lib/api, and the backend contract test that enforces
+                    // this: tests/test_confidence_field_contract.py).
+                    const verdict = state.result.verification_results[f.finding_id]
+                    return (
+                      <li key={f.finding_id} className="text-sm text-ink-muted">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`badge ${confidenceBadge(verdict?.confidence)}`}>
+                            {verdict ? `C1 ${verdict.confidence}` : 'C1 NOT RUN'}
+                          </span>
+                          <span className="font-mono text-xs text-ink-faint">
+                            [{f.regulatory_citations.join(', ')}]
+                          </span>
+                        </div>
+                        <p className="mt-1">{f.claim}</p>
+                        {verdict && (
+                          <p className="mt-1 font-mono text-xs text-ink-faint">
+                            {verdict.db_record_found ? 'DB record found' : 'no DB record'}
+                            {' · '}
+                            {verdict.opa_corroborated ? 'OPA corroborated' : 'not OPA corroborated'}
+                            {verdict.evidence_ids.length > 0 && ` · ${verdict.evidence_ids.join(', ')}`}
+                          </p>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
-              {state.result.answer && (
+              {/* When insufficient_evidence fires but findings exist, the
+                  server's generic RAG-empty copy ("found nothing relevant")
+                  would directly contradict the findings list just rendered
+                  above it -- those findings ARE the answer, just sourced
+                  from A2/OPA compliance checks rather than RAG evidence.
+                  Suppress the generic fallback text in that case; it stays
+                  for the true no-findings-either case. */}
+              {state.result.answer && !(state.result.insufficient_evidence && state.result.findings.length > 0) && (
                 <p className="mt-3 text-sm text-ink-muted">{state.result.answer}</p>
               )}
             </div>

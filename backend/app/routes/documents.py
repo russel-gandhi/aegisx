@@ -74,7 +74,12 @@ from app.retrieval.ingest import (
 )
 from app.retrieval.qdrant_store import ensure_collection, get_qdrant_client
 from app.routes.evidence_graph import _system_exists
-from app.schemas import DocumentListResponse, DocumentSummary, DocumentUploadResponse
+from app.schemas import (
+    DocumentApproveResponse,
+    DocumentListResponse,
+    DocumentSummary,
+    DocumentUploadResponse,
+)
 
 router = APIRouter()
 
@@ -422,6 +427,9 @@ async def list_documents(
                 else "READY" if row["chunk_count"] > 0 else "FAILED"
             ),
             failed_stage=None,
+            # See DocumentSummary's own docstring-comment: the stored
+            # column verbatim, orthogonal to ingestion_status above.
+            approval_status=row["status"],
         )
         for row in rows
     ]
@@ -434,3 +442,63 @@ async def list_documents(
         limit=limit,
         offset=offset,
     )
+
+
+@router.post(
+    "/api/documents/{document_id}/approve",
+    response_model=DocumentApproveResponse,
+)
+async def approve_document(
+    document_id: str,
+    identity: RequestIdentity = Depends(require_identity),
+) -> DocumentApproveResponse:
+    """Closes the gap `a2_compliance.verify_urs_approved` (and the URS
+    branch of every check reading `documents.status`) otherwise leaves
+    unreachable: `upload_document` above always inserts a row with
+    `status='READY'`, an ingestion-pipeline status, and prior to this
+    route there was no way for any uploaded document to ever reach
+    `status='APPROVED'` -- only a row written directly into Postgres by a
+    seed script could satisfy that check.
+
+    Gated to "QA/Compliance" -- document approval is that role's real-world
+    responsibility per the Bible's own agent Permission Matrix (which
+    grants QA/Compliance A1-A6 but withholds A7 remediation-triggering,
+    the inverse split of IT System Manager's administrative actions like
+    `POST /api/systems`). RBAC is checked before the pool guard, matching
+    every other write route in this codebase.
+
+    A QUARANTINED document can never be approved through this route --
+    C2's injection-detection quarantine is a permanent, deliberate
+    decision (see `upload_document`'s own comment on this), not a
+    reversible ingestion-pipeline state; approving quarantined content
+    would defeat the point of quarantining it. Approving an
+    already-APPROVED document is treated as idempotent success (no-op,
+    still 200) rather than an error -- a QA reviewer re-submitting an
+    approval action they already took should never see a failure.
+    """
+    if identity.role != "QA/Compliance":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role {identity.role} may not approve documents",
+        )
+
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+
+    row = await pool.fetchrow("SELECT status FROM documents WHERE id = $1", document_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Unknown document_id: {document_id}")
+
+    if row["status"] == "QUARANTINED":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Document {document_id} is quarantined and cannot be approved",
+        )
+
+    if row["status"] != "APPROVED":
+        await pool.execute(
+            "UPDATE documents SET status = 'APPROVED' WHERE id = $1", document_id
+        )
+
+    return DocumentApproveResponse(document_id=document_id, status="APPROVED")

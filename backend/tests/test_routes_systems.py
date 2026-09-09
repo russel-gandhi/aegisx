@@ -59,3 +59,73 @@ def test_readiness_known_system_returns_seeded_score_and_open_findings_breakdown
     assert isinstance(body["score"], int)
     assert "open_findings" in body["breakdown"]
     assert isinstance(body["breakdown"]["open_findings"], int)
+
+
+ITSM_HEADERS = {"X-User-Id": "u-itsm-test", "X-User-Role": "IT System Manager"}
+QA_HEADERS = {"X-User-Id": "u-qa-test", "X-User-Role": "QA/Compliance"}
+
+_CREATE_BODY = {
+    "id": "TEST-CREATE-SYS-01",
+    "name": "Test Created System",
+    "description": "Created by test_routes_systems.py",
+    "system_owner": "Test Owner",
+    "lifecycle_state": "OPERATIONAL",
+    "gxp_impact": True,
+}
+
+
+def _delete_test_system(system_id: str) -> None:
+    async def _run():
+        pool = await db.acquire_pool_or_none()
+        if pool is not None:
+            await pool.execute("DELETE FROM gxp_systems WHERE id = $1", system_id)
+
+    asyncio.run(_run())
+
+
+def test_create_system_as_itsm_returns_201_and_persists():
+    _delete_test_system(_CREATE_BODY["id"])
+    try:
+        resp = client.post("/api/systems", json=_CREATE_BODY, headers=ITSM_HEADERS)
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["id"] == _CREATE_BODY["id"]
+        assert body["readiness_score"] == 0
+        assert body["last_backup_test_ns"] is None
+
+        list_resp = client.get("/api/systems")
+        ids = {row["id"] for row in list_resp.json()}
+        assert _CREATE_BODY["id"] in ids
+    finally:
+        _delete_test_system(_CREATE_BODY["id"])
+
+
+def test_create_system_duplicate_id_returns_409():
+    _delete_test_system(_CREATE_BODY["id"])
+    try:
+        first = client.post("/api/systems", json=_CREATE_BODY, headers=ITSM_HEADERS)
+        assert first.status_code == 201
+        second = client.post("/api/systems", json=_CREATE_BODY, headers=ITSM_HEADERS)
+        assert second.status_code == 409
+    finally:
+        _delete_test_system(_CREATE_BODY["id"])
+
+
+def test_create_system_non_itsm_role_returns_403():
+    resp = client.post("/api/systems", json=_CREATE_BODY, headers=QA_HEADERS)
+    assert resp.status_code == 403
+    ids = {row["id"] for row in client.get("/api/systems").json()}
+    assert _CREATE_BODY["id"] not in ids
+
+
+def test_create_system_missing_identity_headers_returns_422():
+    resp = client.post("/api/systems", json=_CREATE_BODY)
+    assert resp.status_code == 422
+
+
+def test_create_system_postgres_unreachable_returns_503(monkeypatch, reset_db_pool):
+    monkeypatch.setattr(
+        db, "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:1/sentinel"
+    )
+    resp = client.post("/api/systems", json=_CREATE_BODY, headers=ITSM_HEADERS)
+    assert resp.status_code == 503

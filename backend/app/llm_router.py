@@ -124,10 +124,19 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # 35.8s-52.7s against a 10s default budget, and rerank needs
         # 130.1s inside a graph capped at 45s. Every other task below is
         # unchanged and still leads with this local provider.
+        # "findings_synthesis" is DELIBERATELY here and not on Groq. It runs
+        # on the path where RAG retrieved nothing but C1 still verified real
+        # findings -- which is most targeted compliance questions, since A0
+        # routes those to A2/A4/A6 and never activates A1 at all. That makes
+        # it the most frequently hit synthesis path in the product, and
+        # Groq's 8,000 tpm ceiling cannot absorb it on top of rerank and the
+        # main synthesis call. Ollama has no per-minute quota, so a slower
+        # local answer beats a fast provider that runs out mid-demo.
         "use_for": [
             "orchestrator",  # was gemini_flash_thinking
             "compliance", "knowledge", "change",  # was gemini_flash_fast
             "risk_assessment",  # was deepseek_r1
+            "findings_synthesis",
         ],
     },
     "groq_gpt_oss": {
@@ -221,6 +230,7 @@ _TASK_COMPLETION_TOKEN_BUDGET: Dict[str, int] = {
     "rerank": 150,
     "orchestrator": 400,
     "synthesis": 400,
+    "findings_synthesis": 500,
     "compliance": 500,
     "knowledge": 500,
     "change": 500,
@@ -618,6 +628,7 @@ async def call_llm(
     system_instruction: str = "",
     timeout: float = 10.0,
     json_output: bool = False,
+    allow_open_circuit: bool = False,
 ) -> LLMResponse:
     """Route `task` to its configured provider, call it, and return a
     typed `LLMResponse`.
@@ -663,7 +674,18 @@ async def call_llm(
         # `_send_one` -- every concurrent agent call in the same burst
         # that discovers the same failure independently would otherwise
         # each pay a full wasted round trip to re-learn it.
-        if not is_available(current_key):
+        # `allow_open_circuit` callers try the provider anyway (2026-09-08).
+        # The breaker's job is to stop a burst of concurrent agents each
+        # paying a wasted round trip to re-learn the same failure -- which
+        # is right for the six specialist narrations, every one of which has
+        # a deterministic fallback sentence. It is wrong for the single call
+        # that writes the answer a user reads: those narrations, firing on
+        # the local provider with the 10s default budget, trip Ollama's
+        # breaker after three timeouts and the synthesis call behind them
+        # was then skipped without ever being attempted. One real attempt is
+        # worth more than a saved round trip when the alternative is the
+        # user getting no answer at all.
+        if not is_available(current_key) and not allow_open_circuit:
             reason = f"circuit_open:{current_key}"
             reasons.append(reason)
             tried_providers.add(PROVIDER_CONFIG[current_key]["provider"])

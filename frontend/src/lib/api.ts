@@ -455,11 +455,29 @@ export interface DocumentSummary {
   chunk_count: number
   ingestion_status: string
   failed_stage: string | null
+  // `documents.status` verbatim -- orthogonal to ingestion_status (see
+  // backend/app/schemas.py's DocumentSummary comment). "READY" until a
+  // QA/Compliance user approves it via approveDocument() below.
+  approval_status: string
 }
 
 export interface DocumentListResult {
   system_id: string | null
   documents: DocumentSummary[]
+}
+
+// "Fill the gap" feature: a document uploaded through the UI previously had
+// no path to ever satisfy `verify_urs_approved` (which requires
+// `documents.status == 'APPROVED'`). Mirrors
+// `backend/app/routes/documents.py`'s `POST /api/documents/{id}/approve`,
+// gated server-side to the "QA/Compliance" role.
+export interface DocumentApproveResult {
+  document_id: string
+  status: string
+}
+
+export function approveDocument(documentId: string): Promise<DocumentApproveResult> {
+  return apiPost<DocumentApproveResult>(`/api/documents/${encodeURIComponent(documentId)}/approve`)
 }
 
 // Bible Section 15.7's 16 named fields, transcribed one-for-one from
@@ -524,6 +542,24 @@ export interface CopilotFinding {
   model_attribution: string
 }
 
+/**
+ * C1's independent verdict on one finding, keyed by `finding_id` in
+ * `CopilotInvestigateResult.verification_results`.
+ *
+ * This is the ONLY real confidence grade. `CopilotFinding.confidence_score`
+ * is an emission-time placeholder every agent hardcodes to "UNVERIFIED" --
+ * see the warning on the backend `AgentFinding.confidence_score` field in
+ * `backend/app/schemas.py`. Render this, never that.
+ */
+export interface CopilotVerificationResult {
+  confidence: string // HIGH | MEDIUM | LOW | INSUFFICIENT_EVIDENCE
+  db_record_found: boolean
+  opa_corroborated: boolean
+  opa_rule_ids: string[]
+  evidence_ids: string[]
+  opa_bundle_hash?: string
+}
+
 export interface CopilotInvestigateResult {
   answer: string
   insufficient_evidence: boolean
@@ -532,7 +568,10 @@ export interface CopilotInvestigateResult {
   evidence: RetrievalEvidenceItem[]
   stages: InvestigationStage[]
   findings: CopilotFinding[]
-  verification_results: Record<string, unknown>
+  // Typed (was `Record<string, unknown>`) so call sites can actually read
+  // C1's verdict instead of silently falling back to the placeholder on
+  // the finding itself.
+  verification_results: Record<string, CopilotVerificationResult | undefined>
   evidence_support: string
   model_attribution: string
   navigation_target: NavigationTarget | null
@@ -597,4 +636,72 @@ export interface TrustCentreResponse {
 
 export function fetchTrustCentre(): Promise<TrustCentreResponse> {
   return apiGet<TrustCentreResponse>('/api/trust-centre')
+}
+
+// Mirrors `backend/app/schemas.py`'s `SystemRecord`/`SystemCreateRequest`
+// ("add a new system" feature).
+export interface SystemRecord {
+  id: string
+  name: string
+  description: string | null
+  system_owner: string
+  lifecycle_state: string
+  gxp_impact: boolean
+  readiness_score: number
+  last_backup_test_ns: number | null
+}
+
+export interface SystemCreateRequest {
+  id: string
+  name: string
+  description?: string | null
+  system_owner: string
+  lifecycle_state: string
+  gxp_impact: boolean
+}
+
+export function fetchSystems(): Promise<SystemRecord[]> {
+  return apiGet<SystemRecord[]>('/api/systems')
+}
+
+export function createSystem(body: SystemCreateRequest): Promise<SystemRecord> {
+  return apiPost<SystemRecord>('/api/systems', body)
+}
+
+// "Fill the gap" feature: `change_affects` (backing the evidence graph's
+// `CHANGE --AFFECTS--> X` edge) previously had no write path -- only a
+// static 3-row seed fixture for the one demo change record. Mirrors
+// `backend/app/routes/changes.py`'s `POST /api/changes/{change_id}/affects`,
+// gated server-side to the "IT System Manager" role. Note: this does NOT
+// trigger an evidence-graph rebuild (explicit-rebuild-only, D-01/D-02) --
+// call `POST /api/systems/{system_id}/evidence-graph/rebuild` afterward
+// (or use the Blast Radius page's own rebuild action) for the new edge to
+// actually appear in a graph read.
+export const CHANGE_AFFECTS_ENTITY_TYPES = [
+  'REQUIREMENT',
+  'TEST_CASE',
+  'DOCUMENT',
+  'DESIGN_ELEMENT',
+  'RISK',
+] as const
+
+export interface ChangeAffectsCreateRequest {
+  entity_type: string
+  entity_id: string
+}
+
+export interface ChangeAffectsRecord {
+  change_id: string
+  entity_type: string
+  entity_id: string
+}
+
+export function createChangeAffects(
+  changeId: string,
+  body: ChangeAffectsCreateRequest,
+): Promise<ChangeAffectsRecord> {
+  return apiPost<ChangeAffectsRecord>(
+    `/api/changes/${encodeURIComponent(changeId)}/affects`,
+    body,
+  )
 }

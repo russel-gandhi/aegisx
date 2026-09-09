@@ -52,6 +52,8 @@ const ASYNC_TARGET_STEP_INDEXES = new Set([
   2, // "Evidence, Verified" -- [data-tour="copilot-messages"] renders only after the hero query is submitted and streams
   3, // "Blast Radius" -- FindingInvestigation must load its finding first
   6, // "Audit Integrity" -- CommandCentre mini-cards await /api/audit/verify
+  7, // "Full Impact Graph" -- [data-tour="blast-radius-canvas"] renders only once fetchEvidenceGraph resolves with nodes
+  8, // "Compliance Heat Map" -- [data-tour="audit-readiness-heatmap"] renders only once fetchAssuranceCards resolves
 ])
 
 const JOYRIDE_STYLES = {
@@ -393,12 +395,18 @@ export default function GuidedTourOverlay() {
           {targetNotFoundNote}
         </div>
       )}
+      {/* Anchored bottom-LEFT, not bottom-right. The app shell has no left
+          sidebar (see App.tsx -- nav is a top bar and `main` is a centred
+          max-w-[1400px] column), so this corner is empty on every page,
+          whereas bottom-right is where pages put their own primary control:
+          the Copilot composer's send button and the Inspection Simulator's
+          Next button both sat underneath this launcher. */}
       {!run && (
         <button
           type="button"
           data-testid="start-guided-tour"
           onClick={start}
-          className="btn btn-success fixed right-6 bottom-6 z-50"
+          className="btn btn-success fixed bottom-6 left-6 z-50"
         >
           Start Guided Tour
         </button>

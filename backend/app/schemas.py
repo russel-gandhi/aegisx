@@ -157,6 +157,35 @@ class SystemReadinessScore(BaseModel):
     breakdown: Dict[str, int]
 
 
+# `POST /api/systems` request/response (SENT-7 follow-up, "add a new
+# system" feature). `id` is caller-supplied, not server-generated --
+# every other domain table's `system_id` foreign key expects the same
+# human-readable id scheme the seed data already uses (e.g.
+# "GXP-MFG-DEMO-01"), so there is no separate internal id to hide behind
+# a generated UUID. `readiness_score` defaults to 0 (matching the
+# `gxp_systems.readiness_score` column default) rather than a guessed
+# starting value -- a freshly created system genuinely has no computed
+# posture yet.
+class SystemCreateRequest(BaseModel):
+    id: str = Field(min_length=1, max_length=50)
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+    system_owner: str = Field(min_length=1, max_length=100)
+    lifecycle_state: str = Field(min_length=1, max_length=50)
+    gxp_impact: bool = True
+
+
+class SystemRecord(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    system_owner: str
+    lifecycle_state: str
+    gxp_impact: bool
+    readiness_score: int
+    last_backup_test_ns: Optional[int] = None
+
+
 class AgentExecutionTrace(BaseModel):
     agent_id: str
     start_time: datetime
@@ -551,6 +580,30 @@ class DocumentSummary(BaseModel):
     chunk_count: int
     ingestion_status: str
     failed_stage: Optional[str] = None
+    # `documents.status` read verbatim (POST /api/documents/{id}/approve
+    # follow-up) -- deliberately separate from `ingestion_status` above,
+    # which is derived from `chunk_count`/quarantine state and answers "did
+    # ingestion succeed", not "has QA approved this document". A document
+    # can be `ingestion_status="READY"` and `approval_status="READY"`
+    # (uploaded, not yet approved) or `approval_status="APPROVED"` (moved
+    # by the approve endpoint) -- the two fields are orthogonal.
+    approval_status: str = "READY"
+
+
+class DocumentApproveResponse(BaseModel):
+    document_id: str
+    status: str
+
+
+class ChangeAffectsCreateRequest(BaseModel):
+    entity_type: str
+    entity_id: str = Field(min_length=1, max_length=50)
+
+
+class ChangeAffectsRecord(BaseModel):
+    change_id: str
+    entity_type: str
+    entity_id: str
 
 
 class DocumentListResponse(BaseModel):

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AssuranceCard from '../components/AssuranceCard'
+import ChromeSlot from '../components/ChromeSlot'
 import {
   ApiError,
   fetchEvidenceGraph,
@@ -170,7 +171,10 @@ export default function FindingInvestigation() {
         (EVID-03, Bible Section 1.3).
       </p>
 
-      <div className="mt-4 flex items-center gap-2">
+      {/* Painted into the role bar's right-hand chrome slot (quick UI
+          change 2026-09-08). State, option list and the stream reset in `onChange` are
+          unchanged -- only the DOM position moves. */}
+      <ChromeSlot>
         <label htmlFor="findings-system" className="text-sm text-ink-muted">
           System
         </label>
@@ -190,7 +194,7 @@ export default function FindingInvestigation() {
             </option>
           ))}
         </select>
-      </div>
+      </ChromeSlot>
 
       <div className="mt-6 space-y-4">
         {/* The loading line stays visible for the whole stream, not just

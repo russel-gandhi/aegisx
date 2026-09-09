@@ -1,0 +1,1290 @@
+<title>Inside AegisX AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,800;1,400&family=Public+Sans:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper:      #f6f8f6;
+    --surface:    #ffffff;
+    --surface-2:  #eef1ee;
+    --ink:        #131a18;
+    --slate:      #5b6a64;
+    --faint:      #8b978f;
+    --seal:       #0f6b4f;
+    --seal-soft:  #e2efe8;
+    --flag:       #a8431d;
+    --flag-soft:  #f6e8e1;
+    --rule:       #dbe0dc;
+    --rule-firm:  #c2cbc4;
+
+    --f-display: "Spectral", "Iowan Old Style", Georgia, serif;
+    --f-body: "Public Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:      #0e1311;
+      --surface:    #151c19;
+      --surface-2:  #1b2320;
+      --ink:        #e7ece9;
+      --slate:      #9aa79f;
+      --faint:      #71807a;
+      --seal:       #52c793;
+      --seal-soft:  #14291f;
+      --flag:       #e59168;
+      --flag-soft:  #2b1c14;
+      --rule:       #26302b;
+      --rule-firm:  #38443d;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:      #0e1311;
+    --surface:    #151c19;
+    --surface-2:  #1b2320;
+    --ink:        #e7ece9;
+    --slate:      #9aa79f;
+    --faint:      #71807a;
+    --seal:       #52c793;
+    --seal-soft:  #14291f;
+    --flag:       #e59168;
+    --flag-soft:  #2b1c14;
+    --rule:       #26302b;
+    --rule-firm:  #38443d;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16.5px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 0 28px 120px;
+  }
+
+  /* ---------- Masthead ---------- */
+
+  .masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 44px 0 22px;
+    margin-bottom: 8px;
+  }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--f-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--seal);
+    border: 1px solid var(--seal);
+    border-radius: 2px;
+    padding: 5px 10px;
+  }
+
+  .stamp b { font-weight: 600; }
+
+  h1 {
+    font-family: var(--f-display);
+    font-weight: 800;
+    font-size: clamp(38px, 6.2vw, 66px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 22px 0 0;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-family: var(--f-display);
+    font-size: clamp(18px, 2.2vw, 22px);
+    line-height: 1.5;
+    color: var(--slate);
+    max-width: 60ch;
+    margin: 16px 0 0;
+  }
+
+  .colophon {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px;
+    margin-top: 28px;
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--faint);
+  }
+
+  .colophon div { display: flex; flex-direction: column; gap: 3px; }
+  .colophon dt { letter-spacing: 0.1em; text-transform: uppercase; font-size: 10px; }
+  .colophon dd { margin: 0; color: var(--ink); }
+
+  /* ---------- Two-column frame ---------- */
+
+  .frame {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 48px;
+    margin-top: 52px;
+  }
+
+  @media (min-width: 1060px) {
+    .frame { grid-template-columns: 218px minmax(0, 1fr); gap: 64px; }
+    .rail { position: sticky; top: 28px; align-self: start; max-height: calc(100vh - 56px); overflow-y: auto; }
+  }
+
+  .rail nav { display: flex; flex-direction: column; gap: 2px; }
+
+  .rail-title {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .rail a {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 4px;
+    color: var(--slate);
+    text-decoration: none;
+    font-size: 13.5px;
+    line-height: 1.35;
+    padding: 6px 0;
+    border-bottom: 1px solid transparent;
+  }
+
+  .rail a span:first-child { font-family: var(--f-mono); font-size: 11px; color: var(--faint); padding-top: 2px; }
+  .rail a:hover { color: var(--seal); }
+  .rail a:hover span:first-child { color: var(--seal); }
+  .rail a:focus-visible { outline: 2px solid var(--seal); outline-offset: 3px; }
+
+  /* ---------- Sections ---------- */
+
+  section { scroll-margin-top: 24px; }
+  section + section { margin-top: 76px; }
+
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-top: 2px solid var(--ink);
+    padding-top: 14px;
+    margin-bottom: 26px;
+  }
+
+  .sec-num {
+    font-family: var(--f-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--seal);
+    letter-spacing: 0.06em;
+    flex: none;
+  }
+
+  h2 {
+    font-family: var(--f-display);
+    font-weight: 700;
+    font-size: clamp(26px, 3.4vw, 36px);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h3 {
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: 21px;
+    line-height: 1.25;
+    margin: 40px 0 12px;
+    text-wrap: balance;
+  }
+
+  h4 {
+    font-family: var(--f-body);
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.02em;
+    margin: 26px 0 8px;
+  }
+
+  p { margin: 0 0 16px; max-width: var(--measure); }
+  ul, ol { max-width: var(--measure); padding-left: 22px; margin: 0 0 16px; }
+  li { margin-bottom: 8px; }
+  li::marker { color: var(--faint); }
+
+  strong { font-weight: 700; }
+  em { font-style: italic; }
+
+  code {
+    font-family: var(--f-mono);
+    font-size: 0.86em;
+    background: var(--surface-2);
+    border-radius: 2px;
+    padding: 1.5px 5px;
+    color: var(--ink);
+    word-break: break-word;
+  }
+
+  a.inline { color: var(--seal); }
+
+  /* ---------- Plain-English callout ---------- */
+
+  .plain {
+    background: var(--seal-soft);
+    border-left: 3px solid var(--seal);
+    padding: 20px 22px;
+    margin: 24px 0;
+    max-width: var(--measure);
+  }
+
+  .plain-label {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--seal);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .plain p { margin: 0; }
+  .plain p + p { margin-top: 12px; }
+
+  /* ---------- Fallback note ---------- */
+
+  .fallback {
+    background: var(--flag-soft);
+    border-left: 3px solid var(--flag);
+    padding: 14px 18px;
+    margin: 18px 0;
+    max-width: var(--measure);
+    font-size: 15px;
+  }
+
+  .fallback-label {
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--flag);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .fallback p { margin: 0; }
+
+  /* ---------- Agent spec object ---------- */
+
+  .agents { display: flex; flex-direction: column; gap: 0; margin: 28px 0; }
+
+  .agent {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: 20px;
+    padding: 22px 0;
+    border-top: 1px solid var(--rule);
+    align-items: start;
+  }
+
+  .agent:last-child { border-bottom: 1px solid var(--rule); }
+
+  .agent-id {
+    font-family: var(--f-mono);
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--seal);
+    line-height: 1.2;
+  }
+
+  .agent-kind {
+    display: block;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  .agent-body h4 { margin: 0 0 6px; font-size: 16px; font-family: var(--f-display); font-weight: 600; letter-spacing: 0; }
+  .agent-body p { margin: 0 0 10px; font-size: 15.5px; }
+  .agent-body p:last-child { margin-bottom: 0; }
+
+  .agent-fallback {
+    font-size: 14.5px;
+    color: var(--slate);
+    border-left: 2px solid var(--flag);
+    padding-left: 12px;
+    margin-top: 12px !important;
+  }
+
+  .agent-fallback b { color: var(--flag); font-weight: 600; }
+
+  /* ---------- Tables ---------- */
+
+  .table-wrap { overflow-x: auto; margin: 24px 0; border-bottom: 1px solid var(--rule); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14.5px; min-width: 560px; }
+
+  th {
+    text-align: left;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    font-weight: 500;
+    padding: 0 16px 10px 0;
+    border-bottom: 1px solid var(--rule-firm);
+    vertical-align: bottom;
+  }
+
+  td {
+    padding: 12px 16px 12px 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    font-variant-numeric: tabular-nums;
+  }
+
+  tr:last-child td { border-bottom: none; }
+  td code { background: none; padding: 0; color: var(--seal); font-size: 13px; }
+  .num { font-family: var(--f-mono); color: var(--faint); font-size: 12.5px; white-space: nowrap; }
+
+  .sev {
+    font-family: var(--f-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .sev-crit { background: var(--flag); color: var(--paper); }
+  .sev-high { background: var(--flag-soft); color: var(--flag); border: 1px solid var(--flag); }
+  .sev-med  { background: var(--surface-2); color: var(--slate); border: 1px solid var(--rule-firm); }
+
+  /* ---------- Diagram ---------- */
+
+  figure { margin: 32px 0; }
+
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 26px 20px;
+    overflow-x: auto;
+  }
+
+  .diagram svg { display: block; min-width: 720px; width: 100%; height: auto; }
+
+  figcaption {
+    font-size: 13.5px;
+    color: var(--slate);
+    margin-top: 12px;
+    max-width: var(--measure);
+  }
+
+  .d-box { fill: var(--surface-2); stroke: var(--rule-firm); }
+  .d-box-key { fill: var(--seal-soft); stroke: var(--seal); stroke-width: 1.6; }
+  .d-label { font-family: var(--f-mono); font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .d-sub { font-family: var(--f-body); font-size: 10px; fill: var(--slate); }
+  .d-key-label { fill: var(--seal); }
+  .d-line { stroke: var(--rule-firm); stroke-width: 1.4; fill: none; }
+  .d-cap { font-family: var(--f-mono); font-size: 9.5px; fill: var(--faint); letter-spacing: 0.08em; }
+
+  /* ---------- Confidence math ---------- */
+
+  .math {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 22px 24px;
+    margin: 24px 0;
+    max-width: var(--measure);
+    font-family: var(--f-mono);
+    font-size: 14px;
+    line-height: 1.9;
+  }
+
+  .math .op { color: var(--flag); }
+  .math .cm { color: var(--faint); font-family: var(--f-body); font-size: 13px; font-style: italic; }
+  .math .grade { color: var(--seal); font-weight: 600; }
+
+  /* ---------- Pipeline / step list ---------- */
+
+  .steps { counter-reset: step; list-style: none; padding: 0; max-width: var(--measure); }
+
+  .steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+    margin: 0;
+  }
+
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--f-mono);
+    font-size: 12px;
+    color: var(--seal);
+    padding-top: 3px;
+  }
+
+  .steps li b { display: block; font-size: 15.5px; }
+  .steps li span { font-size: 15px; color: var(--slate); }
+
+  /* ---------- Stat strip ---------- */
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin: 30px 0;
+  }
+
+  .fact { background: var(--paper); padding: 18px 16px; }
+
+  .fact b {
+    display: block;
+    font-family: var(--f-display);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fact span {
+    display: block;
+    font-family: var(--f-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+
+  /* ---------- Glossary ---------- */
+
+  .glossary { border-top: 1px solid var(--rule); margin-top: 24px; }
+
+  .gloss-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  @media (min-width: 720px) {
+    .gloss-row { grid-template-columns: 190px minmax(0, 1fr); gap: 24px; }
+  }
+
+  .gloss-row dt { font-family: var(--f-mono); font-size: 13.5px; font-weight: 500; color: var(--seal); }
+  .gloss-row dd { margin: 0; font-size: 15px; color: var(--slate); }
+
+  /* ---------- Footer ---------- */
+
+  .doc-foot {
+    margin-top: 90px;
+    padding-top: 20px;
+    border-top: 2px solid var(--ink);
+    font-family: var(--f-mono);
+    font-size: 11.5px;
+    color: var(--faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 32px;
+    justify-content: space-between;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <span class="stamp"><b>AegisX AI</b> · Architecture Reference</span>
+    <h1>Inside AegisX AI</h1>
+    <p class="standfirst">A complete walkthrough of how the system is built &mdash; every agent, every deterministic check, every fallback &mdash; written for someone who has never read a line of its code.</p>
+    <dl class="colophon">
+      <div><dt>Subject</dt><dd>Audit-ready GxP IT system management</dd></div>
+      <div><dt>Stack</dt><dd>FastAPI &middot; LangGraph &middot; Postgres &middot; Qdrant &middot; OPA &middot; React</dd></div>
+      <div><dt>Reader</dt><dd>No prior AI knowledge assumed</dd></div>
+    </dl>
+  </header>
+
+  <div class="frame">
+
+    <aside class="rail">
+      <div class="rail-title">Contents</div>
+      <nav>
+        <a href="#what"><span>01</span><span>What the system does</span></a>
+        <a href="#idea"><span>02</span><span>The central idea</span></a>
+        <a href="#map"><span>03</span><span>The machinery</span></a>
+        <a href="#pipeline"><span>04</span><span>The request pipeline</span></a>
+        <a href="#agents"><span>05</span><span>The eleven stations</span></a>
+        <a href="#c1"><span>06</span><span>How verification works</span></a>
+        <a href="#rag"><span>07</span><span>Searching the documents</span></a>
+        <a href="#rego"><span>08</span><span>The rulebook</span></a>
+        <a href="#audit"><span>09</span><span>The tamper-evident log</span></a>
+        <a href="#graph"><span>10</span><span>The evidence graph</span></a>
+        <a href="#router"><span>11</span><span>The model router</span></a>
+        <a href="#fallbacks"><span>12</span><span>Every fallback</span></a>
+        <a href="#ui"><span>13</span><span>What the user sees</span></a>
+        <a href="#glossary"><span>14</span><span>Glossary</span></a>
+      </nav>
+    </aside>
+
+    <main>
+
+      <!-- 01 -->
+      <section id="what">
+        <div class="sec-head"><span class="sec-num">01</span><h2>What the system does</h2></div>
+
+        <p>Pharmaceutical companies run software that touches how medicine gets made. Regulators &mdash; the FDA in the US, the EMA in Europe &mdash; require that this software be proven trustworthy at all times, not just on the day it was installed. That proof lives in an enormous pile of documents, test records, change tickets, incident reports and access reviews. The industry term for this regime is <strong>GxP</strong>: "good practice" regulations.</p>
+
+        <p>When an inspector arrives, someone has to answer questions like <em>"show me that this system's user requirements are all traceable to executed tests"</em> or <em>"prove the periodic review of this system happened on schedule."</em> Answering takes days of manual evidence-hunting across a dozen disconnected systems.</p>
+
+        <p><strong>AegisX AI is a co-pilot for that job.</strong> You ask a question in plain English &mdash; <em>"Is GXP-MFG-DEMO-01 audit ready?"</em> &mdash; and the system investigates across its records, finds the gaps, and hands back findings that have each been independently checked against the real database and a formal rulebook before you ever see them.</p>
+
+        <div class="facts">
+          <div class="fact"><b>11</b><span>Pipeline stations</span></div>
+          <div class="fact"><b>10</b><span>Formal policy rules</span></div>
+          <div class="fact"><b>27</b><span>Database tables</span></div>
+          <div class="fact"><b>9</b><span>Data-integrity dimensions</span></div>
+          <div class="fact"><b>11</b><span>Interface pages</span></div>
+        </div>
+      </section>
+
+      <!-- 02 -->
+      <section id="idea">
+        <div class="sec-head"><span class="sec-num">02</span><h2>The central idea: the AI never gets the last word</h2></div>
+
+        <p>Most AI products work like this: a language model reads some documents, writes an answer, and you decide whether to believe it. That is unacceptable in a regulated setting. A model that invents a plausible-sounding regulation, or confidently states a test was executed when it wasn't, is worse than no tool at all.</p>
+
+        <p>AegisX is built on the opposite arrangement, which the project calls <strong>deterministic-first</strong>.</p>
+
+        <div class="plain">
+          <span class="plain-label">In plain English</span>
+          <p>"Deterministic" means: given the same input, you get exactly the same output, every single time, because the answer is computed by fixed rules rather than generated by a model. Ordinary arithmetic is deterministic. A language model is not.</p>
+          <p>AegisX splits the work along that line. The AI is allowed to <em>investigate, read, and phrase things</em>. It is never allowed to <em>decide</em> anything that matters.</p>
+        </div>
+
+        <p>Four kinds of decision are permanently closed to the AI, enforced structurally rather than by instruction:</p>
+
+        <ul>
+          <li><strong>Is this claim actually supported by evidence?</strong> &mdash; decided by fetching the real database record and running a formal policy engine over it.</li>
+          <li><strong>Is this user allowed to do this?</strong> &mdash; decided by a fixed permission table in Python.</li>
+          <li><strong>Is this input an attack?</strong> &mdash; decided by pattern matching and a mathematical randomness measurement.</li>
+          <li><strong>What relationships exist between records?</strong> &mdash; decided by walking real foreign-key links in a graph, never by inference.</li>
+        </ul>
+
+        <p>The consequence is a system that can say <strong>"I don't have enough evidence to answer that"</strong> and mean it &mdash; because that verdict is produced by a check that failed, not by a model deciding to be cautious.</p>
+      </section>
+
+      <!-- 03 -->
+      <section id="map">
+        <div class="sec-head"><span class="sec-num">03</span><h2>The machinery: five services on one machine</h2></div>
+
+        <p>Everything runs locally as a set of cooperating services, each with one job.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Service</th><th>Port</th><th>What it is, in plain terms</th></tr></thead>
+            <tbody>
+              <tr><td><code>Postgres</code></td><td class="num">5432</td><td>The system of record. 27 tables holding systems, documents, requirements, tests, risks, incidents, changes, access records, suppliers, findings and the audit log. This is the only source of truth.</td></tr>
+              <tr><td><code>Qdrant</code></td><td class="num">6333</td><td>A vector database &mdash; a search index that finds text by <em>meaning</em> rather than by exact words. Explained fully in section 07.</td></tr>
+              <tr><td><code>OPA</code></td><td class="num">8181</td><td>Open Policy Agent: a standalone rules engine. The compliance rulebook lives here as code, entirely outside the application.</td></tr>
+              <tr><td><code>FastAPI</code></td><td class="num">8000</td><td>The Python backend. Hosts the agent pipeline and roughly twenty HTTP endpoints plus a live WebSocket stream.</td></tr>
+              <tr><td><code>Vite / React</code></td><td class="num">3000</td><td>The browser interface: eleven pages, described in section 13.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>A local model server (<strong>Ollama</strong>) runs alongside these, hosting the language model and the embedding model on the machine's own GPU, so that ordinary operation requires no external AI provider at all.</p>
+      </section>
+
+      <!-- 04 -->
+      <section id="pipeline">
+        <div class="sec-head"><span class="sec-num">04</span><h2>The request pipeline</h2></div>
+
+        <p>Every question travels the same fixed route through eleven stations. The route never changes shape &mdash; what changes is which of the six specialists in the middle wake up for a given question.</p>
+
+        <figure>
+          <div class="diagram">
+            <svg viewBox="0 0 880 300" role="img" aria-label="Request flow diagram: C2 gateway, then A0 orchestrator, fanning out to six parallel specialists A1 through A6, converging on C1 verifier, then A7 remediation, then C3 action gateway.">
+              <!-- connectors -->
+              <path class="d-line" d="M126 150 H166"></path>
+              <path class="d-line" d="M282 150 H310"></path>
+              <path class="d-line" d="M310 150 V52 H336"></path>
+              <path class="d-line" d="M310 150 V91 H336"></path>
+              <path class="d-line" d="M310 150 V130 H336"></path>
+              <path class="d-line" d="M310 150 V169 H336"></path>
+              <path class="d-line" d="M310 150 V208 H336"></path>
+              <path class="d-line" d="M310 150 V247 H336"></path>
+              <path class="d-line" d="M452 52 H478 V150"></path>
+              <path class="d-line" d="M452 91 H478 V150"></path>
+              <path class="d-line" d="M452 130 H478 V150"></path>
+              <path class="d-line" d="M452 169 H478 V150"></path>
+              <path class="d-line" d="M452 208 H478 V150"></path>
+              <path class="d-line" d="M452 247 H478 V150"></path>
+              <path class="d-line" d="M478 150 H508"></path>
+              <path class="d-line" d="M624 150 H664"></path>
+              <path class="d-line" d="M760 150 H800"></path>
+
+              <!-- C2 -->
+              <rect class="d-box d-box-key" x="16" y="126" width="110" height="48" rx="2"></rect>
+              <text class="d-label d-key-label" x="71" y="147" text-anchor="middle">C2</text>
+              <text class="d-sub" x="71" y="162" text-anchor="middle">Safety gateway</text>
+
+              <!-- A0 -->
+              <rect class="d-box" x="166" y="126" width="116" height="48" rx="2"></rect>
+              <text class="d-label" x="224" y="147" text-anchor="middle">A0</text>
+              <text class="d-sub" x="224" y="162" text-anchor="middle">Orchestrator</text>
+
+              <!-- specialists -->
+              <rect class="d-box" x="336" y="38" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="57">A1</text>
+              <text class="d-sub" x="374" y="56">Knowledge</text>
+
+              <rect class="d-box" x="336" y="77" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="96">A2</text>
+              <text class="d-sub" x="374" y="95">Compliance</text>
+
+              <rect class="d-box" x="336" y="116" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="135">A3</text>
+              <text class="d-sub" x="374" y="134">Risk</text>
+
+              <rect class="d-box" x="336" y="155" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="174">A4</text>
+              <text class="d-sub" x="374" y="173">Change</text>
+
+              <rect class="d-box" x="336" y="194" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="213">A5</text>
+              <text class="d-sub" x="374" y="212">Incident</text>
+
+              <rect class="d-box" x="336" y="233" width="116" height="28" rx="2"></rect>
+              <text class="d-label" x="350" y="252">A6</text>
+              <text class="d-sub" x="374" y="251">Access</text>
+
+              <text class="d-cap" x="394" y="284" text-anchor="middle">RUN IN PARALLEL</text>
+
+              <!-- C1 -->
+              <rect class="d-box d-box-key" x="508" y="126" width="116" height="48" rx="2"></rect>
+              <text class="d-label d-key-label" x="566" y="147" text-anchor="middle">C1</text>
+              <text class="d-sub" x="566" y="162" text-anchor="middle">Verifier</text>
+
+              <!-- A7 -->
+              <rect class="d-box" x="664" y="126" width="96" height="48" rx="2"></rect>
+              <text class="d-label" x="712" y="147" text-anchor="middle">A7</text>
+              <text class="d-sub" x="712" y="162" text-anchor="middle">Remediation</text>
+
+              <!-- C3 -->
+              <rect class="d-box d-box-key" x="800" y="126" width="66" height="48" rx="2"></rect>
+              <text class="d-label d-key-label" x="833" y="147" text-anchor="middle">C3</text>
+              <text class="d-sub" x="833" y="162" text-anchor="middle">Actions</text>
+
+              <text class="d-cap" x="71" y="200" text-anchor="middle">NO AI</text>
+              <text class="d-cap" x="566" y="200" text-anchor="middle">NO AI</text>
+              <text class="d-cap" x="833" y="200" text-anchor="middle">NO AI</text>
+            </svg>
+          </div>
+          <figcaption>The fixed topology. The three highlighted stations &mdash; C2, C1 and C3 &mdash; are permanently closed to any language model; they are the decision points. Everything between them investigates and drafts.</figcaption>
+        </figure>
+
+        <p>This is built with <strong>LangGraph</strong>, a framework for wiring AI components into a defined graph rather than letting them call each other freely. Two details matter:</p>
+
+        <ul>
+          <li><strong>The fan-out is genuinely parallel.</strong> The six specialists run concurrently, not one after another, so a six-agent investigation costs roughly the time of the slowest agent rather than the sum of all six.</li>
+          <li><strong>Their results are merged, not overwritten.</strong> The shared state uses an accumulating merge for findings, so six agents each returning findings produce a combined list. Without this, five of the six would silently vanish &mdash; a bug that would look like a suspiciously thorough system rather than an error.</li>
+        </ul>
+      </section>
+
+      <!-- 05 -->
+      <section id="agents">
+        <div class="sec-head"><span class="sec-num">05</span><h2>The eleven stations, one at a time</h2></div>
+
+        <p>Every agent below has a defined job, a defined check, and &mdash; critically &mdash; a defined behaviour when something goes wrong. The failure behaviour is part of each agent's contract, not an afterthought.</p>
+
+        <div class="agents">
+
+          <div class="agent">
+            <div class="agent-id">C2<span class="agent-kind">No AI</span></div>
+            <div class="agent-body">
+              <h4>Policy &amp; Safety Gateway</h4>
+              <p>The front door. Two checks run before anything else happens, both in plain Python with no model involved.</p>
+              <p><strong>Permissions.</strong> A fixed table maps each of three roles to the agents it may invoke. An <em>IT System Manager</em> reaches all seven agents. <em>QA/Compliance</em> reaches A1&ndash;A6 but is structurally barred from A7, the remediation agent &mdash; the role simply isn't in that set. An <em>Auditor</em> reaches only A1 and A2, read-only investigation.</p>
+              <p><strong>Injection detection.</strong> A "prompt injection" is text crafted to hijack an AI's instructions &mdash; for example, a sentence buried in an uploaded document telling the model to ignore its rules. Two independent detectors run: a pattern matcher for known jailbreak phrasings, and a <em>Shannon entropy</em> measurement.</p>
+              <p style="color: var(--slate); font-size: 15px;">Entropy measures how random a piece of text looks, in bits per character. Ordinary English sits well below 4.5; base64-encoded payloads approach 6. Any token of 12+ characters scoring above 4.5 bits is flagged, which catches attacks that have been encoded to slip past the pattern matcher. Neither leg consults a model &mdash; an attack cannot talk its way past a detector that isn't listening.</p>
+              <p class="agent-fallback"><b>Fails closed.</b> An unrecognised or missing role is rejected <em>before</em> injection detection even runs. A blocked request publishes an empty permitted-agent set, so even if the block flag were ignored downstream, the fan-out would still reach nothing.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A0</div>
+            <div class="agent-body">
+              <h4>Orchestrator</h4>
+              <p>Reads the question and decides which specialists are relevant &mdash; a question about access reviews shouldn't wake the incident agent. This is a single classification call to a language model, returning strict JSON naming the agents to activate.</p>
+              <p>It runs under a hard <strong>2-second budget</strong>. Not a soft deadline: the classification task is genuinely cancelled when the timer expires.</p>
+              <p class="agent-fallback"><b>Falls back to all six.</b> Timeout, malformed JSON, a schema failure, an empty list, or an agent name it doesn't recognise &mdash; every failure path lands on the same result: run the full diagnostic set A1&ndash;A6. A routing decision that can't be made is never an error; it just means doing the thorough thing instead of the fast thing.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A1</div>
+            <div class="agent-body">
+              <h4>System Knowledge &mdash; the document search agent</h4>
+              <p>Confirms the system being asked about actually exists, then performs the full hybrid document retrieval described in section 07: semantic search, keyword search, fusion, reranking, and a relevance gate. Its output rides separate state channels from the compliance findings, so retrieved evidence and rule violations never get confused for one another.</p>
+              <p class="agent-fallback"><b>Abstains.</b> If the system id isn't in the database, or the database is unreachable, A1 returns a defined abstain finding rather than guessing. If retrieval produces nothing above the relevance threshold, it reports insufficient evidence rather than serving the closest bad match.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A2</div>
+            <div class="agent-body">
+              <h4>Compliance &amp; Audit Readiness &mdash; the workhorse</h4>
+              <p>Runs four deterministic checks in SQL, each answering a yes/no question about real records:</p>
+              <ul style="font-size: 15px; margin-top: 4px;">
+                <li><code>verify_urs_approved</code> &mdash; are the user requirements actually approved?</li>
+                <li><code>verify_periodic_eval_current</code> &mdash; is the scheduled periodic review overdue?</li>
+                <li><code>verify_test_traceability</code> &mdash; does every requirement link to an executed, non-draft test?</li>
+                <li><code>verify_no_stale_documents</code> &mdash; is anything superseded or withdrawn being relied on as current evidence?</li>
+              </ul>
+              <p>The pass/fail verdict is decided entirely by the SQL. The language model's only job is turning an already-computed gap into a readable sentence. It cannot flip a verdict, and findings are only ever assembled from checks that have <em>already</em> failed.</p>
+              <p class="agent-fallback"><b>Narrates deterministically.</b> If the model is unavailable, the gap is described with a fixed template sentence instead. The finding still exists, still carries its record ids, and is still verified downstream &mdash; only the prose is plainer.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A3</div>
+            <div class="agent-body">
+              <h4>Risk</h4>
+              <p>Flags risk assessments that have gone past their annual review cycle under ICH Q9(R1), the international quality risk management guideline. Computes a numeric risk score from severity and probability and classifies it.</p>
+              <p class="agent-fallback"><b>Downgrades, then templates.</b> If its preferred model is unavailable the router moves to the next provider; if every provider fails, a deterministic sentence is used.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A4</div>
+            <div class="agent-body">
+              <h4>Change</h4>
+              <p>Catches change records marked CLOSED that still have open linked actions &mdash; paperwork closed while the work underneath is unfinished. It also pulls a downstream impact summary from the evidence graph (section 10) for the change in question.</p>
+              <p class="agent-fallback"><b>Degrades to direct metadata.</b> If the graph can't be loaded, the check still runs against the change record's own fields.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A5</div>
+            <div class="agent-body">
+              <h4>Incident</h4>
+              <p>Flags P1 &mdash; highest-severity &mdash; incidents that have been open more than seven days with no root cause analysis started.</p>
+              <p class="agent-fallback"><b>Templates on model failure</b>, like every other specialist.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A6</div>
+            <div class="agent-body">
+              <h4>Access</h4>
+              <p>Two checks: access reviews overdue past their scheduled date, and <em>orphaned privileged accounts</em> &mdash; administrator-level accounts still active for people who have left the organisation. Each is raised as an independently verifiable finding.</p>
+              <p class="agent-fallback"><b>Templates on model failure.</b></p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">C1<span class="agent-kind">No AI</span></div>
+            <div class="agent-body">
+              <h4>Evidence &amp; Grounding Verifier &mdash; the thesis of the product</h4>
+              <p>Every finding produced upstream arrives here unverified and must earn its confidence grade. Section 06 covers this station in full &mdash; it is the reason the rest of the architecture is shaped the way it is.</p>
+              <p class="agent-fallback"><b>Never trusts by default.</b> With no findings it returns an empty result, never a hardcoded "verified". With no database connection every finding grades <em>INSUFFICIENT_EVIDENCE</em>.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">A7</div>
+            <div class="agent-body">
+              <h4>Remediation</h4>
+              <p>Drafts corrective-action narratives &mdash; CAPA, in industry terms &mdash; for findings that have <em>already been verified</em>. It reads C1's computed confidence grade and never re-derives one of its own, so it cannot launder an unverified claim into a proposal.</p>
+              <p>It is the one station in the whole topology permitted to generate substantial prose, and it only fires when a human explicitly asks for remediation on a finding already on screen. Asking a question never triggers it as a side effect.</p>
+              <p class="agent-fallback"><b>Produces nothing by default.</b> Absent an explicit remediation request, A7 returns an empty proposal list &mdash; opt-in by design.</p>
+            </div>
+          </div>
+
+          <div class="agent">
+            <div class="agent-id">C3<span class="agent-kind">No AI</span></div>
+            <div class="agent-body">
+              <h4>Action Gateway</h4>
+              <p>Sorts every proposed action into one of five categories by looking up its type in a fixed table, and each category has a fixed disposition:</p>
+              <div class="table-wrap" style="margin: 14px 0 10px;">
+                <table style="min-width: 420px;">
+                  <thead><tr><th>Category</th><th>What happens</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>READ</code></td><td>Runs automatically.</td></tr>
+                    <tr><td><code>DRAFT</code></td><td>Saved locally, runs automatically.</td></tr>
+                    <tr><td><code>MOCK_WRITE_LOW_RISK</code></td><td>Queued for human approval; executes as a mock once approved.</td></tr>
+                    <tr><td><code>GXP_RELEVANT_WRITE</code></td><td>Queued for approval, and even when approved it <em>stops</em> &mdash; real execution is out of band. The system never mutates a validated GxP record itself.</td></tr>
+                    <tr><td><code>PROHIBITED</code></td><td>Blocked outright. Deleting an audit event or disabling the audit trail live here.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <p class="agent-fallback"><b>Fails closed.</b> An action type not in the table resolves to <em>PROHIBITED</em>, not to the permissive default. Approval dialogs render from server-held proposal data, never from model-generated text.</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 06 -->
+      <section id="c1">
+        <div class="sec-head"><span class="sec-num">06</span><h2>How verification actually works</h2></div>
+
+        <p>C1 is where the product's promise is kept. A finding arrives saying something like <em>"the periodic evaluation record PE-2024-01 is overdue."</em> C1's job is to establish whether that is true, using nothing the AI said.</p>
+
+        <h3>Step one: fetch the real record</h3>
+        <p>Each finding carries a rule id and the ids of the records it claims as evidence. C1 looks up which database table that rule concerns &mdash; from a frozen internal table, never from anything in the request &mdash; and fetches the actual row.</p>
+        <p><strong>If the record doesn't exist, the process stops immediately</strong> and the finding grades <em>INSUFFICIENT_EVIDENCE</em>. No policy call is needed to know that evidence is absent.</p>
+
+        <h3>Step two: ask the rules engine, independently</h3>
+        <p>C1 assembles the real rows into the shape the policy engine expects and calls OPA over HTTP. OPA re-evaluates the rule against that raw data and returns the violations it finds. C1 then checks whether OPA independently flagged <em>the same rule</em> on <em>the same record</em>.</p>
+        <div class="plain">
+          <span class="plain-label">Why this matters</span>
+          <p>The AI said there's a violation. A separate engine, which has never seen the AI's output and is running rules written by hand, is asked the same question against the same raw data. If the two disagree, the AI loses.</p>
+        </div>
+
+        <h3>Step three: score data integrity across nine dimensions</h3>
+        <p>Regulators assess record quality against a framework called <strong>ALCOA+</strong>. AegisX scores every fetched record against all nine dimensions by inspecting its actual column values:</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Dimension</th><th>What the system checks on the real row</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Attributable</strong></td><td>Does a person's name attach to it &mdash; author, owner, reviewer, tester?</td></tr>
+              <tr><td><strong>Legible</strong></td><td>Are its text fields actually populated rather than blank?</td></tr>
+              <tr><td><strong>Contemporaneous</strong></td><td>Does it carry a timestamp that isn't in the future?</td></tr>
+              <tr><td><strong>Original</strong></td><td>Does it carry a version marker, where the table has a versioning concept?</td></tr>
+              <tr><td><strong>Accurate</strong></td><td>Are its status fields set rather than null?</td></tr>
+              <tr><td><strong>Complete</strong></td><td>Is every column on the row populated?</td></tr>
+              <tr><td><strong>Consistent</strong></td><td>Is the fetched record genuinely one the finding cites &mdash; proving the right row was retrieved?</td></tr>
+              <tr><td><strong>Enduring</strong></td><td>True by construction: the row was just read back from durable storage.</td></tr>
+              <tr><td><strong>Available</strong></td><td>True by construction: it was retrieved through the same path any authorised user would use.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>Step four: compute the confidence grade</h3>
+        <p>The three inputs &mdash; record found, ALCOA+ score, OPA agreement &mdash; combine through fixed arithmetic. No model participates.</p>
+
+        <div class="math">
+          score = <b>100</b><br>
+          <span class="op">if</span> no database record &rarr; <span class="grade">INSUFFICIENT_EVIDENCE</span> <span class="cm">stop here</span><br>
+          score <span class="op">&minus;=</span> (9 &minus; alcoa_dimensions_passed) &times; 10<br>
+          <span class="op">if</span> OPA did not corroborate &rarr; score <span class="op">&minus;=</span> 100 <span class="cm">contradicts formal policy</span><br>
+          <br>
+          score &gt; 80 &nbsp;&rarr; <span class="grade">HIGH</span><br>
+          score &ge; 50 &nbsp;&rarr; <span class="grade">MEDIUM</span><br>
+          score &gt; 0 &nbsp;&nbsp;&rarr; <span class="grade">LOW</span><br>
+          otherwise &nbsp;&rarr; <span class="grade">INSUFFICIENT_EVIDENCE</span>
+        </div>
+
+        <p>Note the shape of that penalty: <strong>failing OPA corroboration costs a full 100 points</strong> &mdash; the entire budget. A claim the formal rulebook won't confirm cannot reach any positive grade, no matter how pristine its record. That single line is the deterministic-first principle expressed as arithmetic.</p>
+
+        <p>Each verification also records which version of the policy bundle produced it, so a finding can always be traced back to the exact rulebook that judged it.</p>
+      </section>
+
+      <!-- 07 -->
+      <section id="rag">
+        <div class="sec-head"><span class="sec-num">07</span><h2>Searching the documents, from first principles</h2></div>
+
+        <p>The system ingests real regulatory documents &mdash; validation reports, requirement specifications, data integrity assessments &mdash; and has to find the right passage when you ask a question. This is the part usually called <strong>RAG</strong>: Retrieval-Augmented Generation. Here is what that actually means, assuming no prior knowledge.</p>
+
+        <figure>
+          <div class="diagram">
+            <svg viewBox="0 0 980 250" role="img" aria-label="Retrieval pipeline: question, embedding, parallel dense and keyword search, rank fusion, database hydration, reranking, relevance gate, and final evidence set.">
+              <path class="d-line" d="M84 123 H104"></path>
+              <path class="d-line" d="M196 123 H206"></path>
+              <path class="d-line" d="M206 123 V67 H216"></path>
+              <path class="d-line" d="M206 123 V177 H216"></path>
+              <path class="d-line" d="M334 67 H350 V123"></path>
+              <path class="d-line" d="M334 177 H350 V123"></path>
+              <path class="d-line" d="M350 123 H364"></path>
+              <path class="d-line" d="M460 123 H480"></path>
+              <path class="d-line" d="M584 123 H604"></path>
+              <path class="d-line" d="M700 123 H720"></path>
+              <path class="d-line" d="M812 123 H832"></path>
+
+              <rect class="d-box" x="8" y="100" width="76" height="46" rx="2"></rect>
+              <text class="d-label" x="46" y="121" text-anchor="middle">Question</text>
+              <text class="d-sub" x="46" y="136" text-anchor="middle">plain English</text>
+
+              <rect class="d-box" x="104" y="100" width="92" height="46" rx="2"></rect>
+              <text class="d-label" x="150" y="121" text-anchor="middle">Embed</text>
+              <text class="d-sub" x="150" y="136" text-anchor="middle">768 numbers</text>
+
+              <rect class="d-box d-box-key" x="216" y="46" width="118" height="42" rx="2"></rect>
+              <text class="d-label d-key-label" x="275" y="65" text-anchor="middle">Meaning search</text>
+              <text class="d-sub" x="275" y="79" text-anchor="middle">Qdrant &middot; 20 candidates</text>
+
+              <rect class="d-box d-box-key" x="216" y="156" width="118" height="42" rx="2"></rect>
+              <text class="d-label d-key-label" x="275" y="175" text-anchor="middle">Keyword search</text>
+              <text class="d-sub" x="275" y="189" text-anchor="middle">BM25 &middot; 20 candidates</text>
+
+              <text class="d-cap" x="275" y="115" text-anchor="middle">RUN IN PARALLEL</text>
+
+              <rect class="d-box" x="364" y="100" width="96" height="46" rx="2"></rect>
+              <text class="d-label" x="412" y="121" text-anchor="middle">Fuse</text>
+              <text class="d-sub" x="412" y="136" text-anchor="middle">RRF &middot; k=60</text>
+
+              <rect class="d-box" x="480" y="100" width="104" height="46" rx="2"></rect>
+              <text class="d-label" x="532" y="121" text-anchor="middle">Hydrate</text>
+              <text class="d-sub" x="532" y="136" text-anchor="middle">from Postgres</text>
+
+              <rect class="d-box" x="604" y="100" width="96" height="46" rx="2"></rect>
+              <text class="d-label" x="652" y="121" text-anchor="middle">Rerank</text>
+              <text class="d-sub" x="652" y="136" text-anchor="middle">one batched call</text>
+
+              <rect class="d-box" x="720" y="100" width="92" height="46" rx="2"></rect>
+              <text class="d-label" x="766" y="121" text-anchor="middle">Gate</text>
+              <text class="d-sub" x="766" y="136" text-anchor="middle">score &ge; 0.35</text>
+
+              <rect class="d-box d-box-key" x="832" y="100" width="140" height="46" rx="2"></rect>
+              <text class="d-label d-key-label" x="902" y="121" text-anchor="middle">Top 8 + context</text>
+              <text class="d-sub" x="902" y="136" text-anchor="middle">parent &middot; graph edges</text>
+
+              <text class="d-cap" x="766" y="170" text-anchor="middle">DETERMINISTIC</text>
+              <text class="d-cap" x="412" y="170" text-anchor="middle">DETERMINISTIC</text>
+            </svg>
+          </div>
+          <figcaption>The retrieval pipeline. Two independent searches run in parallel and are fused by rank position; the model's only role is scoring relevance in the middle, and the decision about what actually counts as evidence is fixed arithmetic at the gate.</figcaption>
+        </figure>
+
+        <h3>Getting documents in</h3>
+        <p>Four formats are accepted &mdash; PDF, Word, CSV, and plain text or Markdown &mdash; up to 10 MB each. Each is parsed into blocks, and each format yields honestly different metadata: PDFs give real page numbers plus a best-effort heading guess; Word documents give real heading text but no page numbers, because the format has no reliable page model; CSVs get the filename as a section and row-block numbers as pages.</p>
+
+        <p>The text is then <strong>chunked</strong>: cut into overlapping pieces of <strong>350 words with 50 words of overlap</strong>, split on word boundaries. The overlap exists so a sentence spanning a cut point still appears whole in one of the two pieces.</p>
+
+        <h3>What an embedding is</h3>
+        <div class="plain">
+          <span class="plain-label">In plain English</span>
+          <p>An <strong>embedding</strong> turns a piece of text into a long list of numbers &mdash; here, 768 of them &mdash; positioned so that texts with similar <em>meaning</em> end up with similar number-lists, even when they share no words.</p>
+          <p>"The review is late" and "periodic evaluation overdue" contain almost no overlapping vocabulary, but land close together. That closeness is measurable as an angle between the two lists, called <em>cosine similarity</em>, which runs from 0 (unrelated) to 1 (identical).</p>
+        </div>
+        <p>The embedding model is <code>nomic-embed-text</code>, running locally through Ollama &mdash; so document text never leaves the machine to be indexed. Chunks are embedded 32 at a time, and every vector is L2-normalised before storage so cosine comparisons behave consistently. Rate-limit responses get three bounded retries at 1, 2 and 4 seconds, respecting the provider's own retry hint when it sends one.</p>
+
+        <p>Indexing is <strong>all-or-nothing</strong>: a document either lands completely or not at all. There is no partial index, because a half-indexed document would silently answer questions from an incomplete evidence base &mdash; which looks identical to a working system right up until it matters.</p>
+
+        <p>Every chunk is embedded once at upload and stored in Qdrant, and chunks retain a link to their parent section. When you ask a question, your question is embedded the same way, and Qdrant returns the chunks whose number-lists sit nearest to it.</p>
+
+        <h3>Why meaning-search alone isn't enough</h3>
+        <p>Embeddings blur exact identifiers. A GxP corpus is full of tokens like <code>URS-042</code>, <code>TC-2026-042</code> and <code>ANNEX11-S4-DOC-001</code>, and semantic similarity treats those as near-interchangeable noise. So a second, completely different search runs alongside it: <strong>BM25</strong>, a classic keyword-ranking algorithm that scores documents by term rarity and frequency. Its tokenizer deliberately keeps hyphenated identifiers intact, so <code>URS-042</code> stays one searchable term rather than splitting into "urs" and "042".</p>
+
+        <p>Both searches run <strong>concurrently</strong>, each returning up to 20 candidates.</p>
+
+        <h3>Fusing two incompatible rankings</h3>
+        <p>Now there's a problem: cosine similarity runs 0&ndash;1, while BM25 scores are unbounded and depend on the corpus. Averaging them is meaningless. The solution is <strong>Reciprocal Rank Fusion</strong>, which throws the scores away entirely and uses only <em>rank position</em>:</p>
+
+        <div class="math">
+          fused_score(chunk) = &Sigma; &nbsp; 1 / (k + rank) &nbsp;&nbsp;<span class="cm">summed across both result lists, k = 60</span>
+        </div>
+
+        <p>A chunk ranked 1st by both methods scores highest. A chunk both methods ranked reasonably beats one that a single method loved and the other ignored. No normalisation, no tuned weights.</p>
+
+        <h3>Reranking, then the gate</h3>
+        <p>The fused list goes to a language model in <strong>exactly one batched call</strong> &mdash; never one call per candidate, which at 20&ndash;40 candidates would take minutes &mdash; asking it to score each candidate's relevance from 0 to 1. The prompt states explicitly that the excerpts are untrusted data to be scored, not instructions to follow. Every returned score is coerced to a number, clamped to the 0&ndash;1 range, and discarded if it isn't numeric or names a chunk that wasn't in the candidate set.</p>
+
+        <p>Then the deterministic gate: only candidates scoring <strong>0.35 or above</strong> survive, and at most 8 are kept. A candidate the reranker never scored is excluded rather than assumed to pass.</p>
+
+        <div class="fallback">
+          <span class="fallback-label">If reranking is unavailable</span>
+          <p>A fallback gate takes over, requiring a semantic score of at least <strong>0.55</strong> or a BM25 score of at least <strong>1.0</strong>. That BM25 floor exists because of a real observation: an off-topic question about swallows still produced incidental keyword overlap scoring 0.28 on unrelated chunks, while a genuine match scored 3.22. Without a floor, that noise became a hedged answer instead of an honest refusal.</p>
+        </div>
+
+        <h3>Two enrichments before answering</h3>
+        <ul>
+          <li><strong>Parent context.</strong> Each surviving chunk's larger parent section is fetched &mdash; up to 2,000 characters &mdash; and attached for the answer-writing step. The chunk's own text is never modified, so the evidence panel always quotes exactly what was retrieved.</li>
+          <li><strong>Graph relationships.</strong> Up to five real relationships involving the source documents are pulled from the evidence graph, so an answer can cite structural facts like <em>"this document belongs to this system"</em> that no text search would surface.</li>
+        </ul>
+
+        <p>Finally, every piece of evidence carries a <strong>Python-composed</strong> explanation of why it was selected &mdash; naming the retrieval method and the actual scores. That sentence is assembled by code from real numbers, never written by a model, so the provenance shown to the user cannot itself be fabricated.</p>
+
+        <p>Every stage reports its own status to the interface as a live trace: <em>understanding, searching, combining, reranking, evaluating, preparing.</em> A stage that was skipped says so, and why.</p>
+
+        <h3>Where the answer is actually written</h3>
+        <p>One structural detail worth naming: <strong>the agent graph does not produce prose.</strong> It produces findings and retrieved evidence. The grounded, citing answer is composed afterwards, in the HTTP route, once the graph has returned &mdash; which keeps the fixed eleven-station topology untouched and keeps answer-writing clearly downstream of verification rather than tangled inside it.</p>
+
+        <p>When retrieval clears nothing above the gate, that path produces an explicit insufficient-evidence response that still names the documents it looked at, rather than a confident answer assembled from weak matches.</p>
+
+        <h3>The guard rails around all of this</h3>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Limit</th><th>Value</th><th>Why it exists</th></tr></thead>
+            <tbody>
+              <tr><td>Upload size</td><td class="num">10 MB</td><td>Bounds parse cost per document</td></tr>
+              <tr><td>Chunks per document</td><td class="num">500</td><td>Stops one document dominating the index</td></tr>
+              <tr><td>PDF pages</td><td class="num">500</td><td>Bounds parse time</td></tr>
+              <tr><td>CSV rows</td><td class="num">5,000</td><td>Grouped 25 rows per block</td></tr>
+              <tr><td>BM25 corpus per query</td><td class="num">5,000</td><td>Bound applied in the database query itself, not after fetching &mdash; an unbounded index build is a denial-of-service surface</td></tr>
+              <tr><td>Rerank candidates</td><td class="num">40</td><td>Hard ceiling before prompting; a correctness bound, not a tuning knob</td></tr>
+              <tr><td>Evidence returned</td><td class="num">8</td><td>Keeps the cited set reviewable by a human</td></tr>
+              <tr><td>Parent context</td><td class="num">2,000 chars</td><td>Enriches the answer without flooding the prompt</td></tr>
+              <tr><td>Graph relationships</td><td class="num">5</td><td>Structural evidence stays supplementary</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>The keyword index is deliberately <strong>rebuilt fresh on every query</strong> rather than cached. At this corpus size that is fast, and it removes an entire class of bug: a cached index can serve stale results for a document that was just re-uploaded, and a compliance tool quietly answering from a superseded document is precisely the failure this product exists to catch.</p>
+      </section>
+
+      <!-- 08 -->
+      <section id="rego">
+        <div class="sec-head"><span class="sec-num">08</span><h2>The rulebook: compliance as code</h2></div>
+
+        <p>The ten compliance rules live in a language called <strong>Rego</strong>, running inside OPA as a separate service. They are not Python functions inside the app &mdash; they are a policy bundle the application calls out to, which means they can be tested, reviewed and versioned entirely on their own, and the application cannot quietly reinterpret them.</p>
+
+        <p>Each rule maps to a named clause of real regulation and emits a violation object naming the rule, the offending record and a severity.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>#</th><th>Rule</th><th>Catches</th><th>Severity</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td><code>ANNEX11-S4-DOC-001</code></td><td>Operations &amp; maintenance manual still in draft</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">2</td><td><code>ANNEX11-S12-ACC-001</code></td><td>Access review overdue by more than 30 days</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">3</td><td><code>ICH-Q9-RSK-001</code></td><td>Risk assessment not reviewed within 12 months</td><td><span class="sev sev-med">MEDIUM</span></td></tr>
+              <tr><td class="num">4</td><td><code>ANNEX11-S13-INC-001</code></td><td>P1 incident open 7+ days with no root cause analysis</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">5</td><td><code>ANNEX11-S4-TRC-001</code></td><td>Requirement with no executed test evidence</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">6</td><td><code>ANNEX11-S3-SUP-001</code></td><td>Supplier reassessment overdue</td><td><span class="sev sev-med">MEDIUM</span></td></tr>
+              <tr><td class="num">7</td><td><code>ANNEX11-S11-PE-001</code></td><td>Periodic evaluation overdue</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">8</td><td><code>ANNEX11-S16-BCK-001</code></td><td>Backup restore test stale beyond a year</td><td><span class="sev sev-high">HIGH</span></td></tr>
+              <tr><td class="num">9</td><td><code>ANNEX11-S12-ACC-002</code></td><td>Privileged account still active for a departed user</td><td><span class="sev sev-crit">CRITICAL</span></td></tr>
+              <tr><td class="num">10</td><td><code>ANNEX11-S10-CHG-001</code></td><td>Change closed while linked actions remain open</td><td><span class="sev sev-high">HIGH</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>The rules share a corrected date helper. The obvious way to compute elapsed time in Rego returns a calendar breakdown, where the day component is a day-of-month remainder rather than a total &mdash; meaning a naive "more than 365 days" test could never be true. The bundle computes signed elapsed days from a raw nanosecond difference instead, so future-dated records yield negative values and correctly fail every overdue threshold.</p>
+
+        <p>The rules ship with their own test suite, run independently of the application.</p>
+      </section>
+
+      <!-- 09 -->
+      <section id="audit">
+        <div class="sec-head"><span class="sec-num">09</span><h2>The tamper-evident log</h2></div>
+
+        <p>21 CFR Part 11 &mdash; the US electronic records regulation &mdash; requires audit trails that can be shown not to have been altered. AegisX implements this with a <strong>hash chain</strong>.</p>
+
+        <div class="plain">
+          <span class="plain-label">In plain English</span>
+          <p>A <em>hash</em> is a fingerprint of some data: a fixed-length string where changing even one character of the input produces a completely different output, and you can't work backwards from it.</p>
+          <p>In a hash chain, every entry's fingerprint is computed from <em>its own content plus the previous entry's fingerprint</em>. Altering entry #5 changes its fingerprint, which breaks entry #6's link, which breaks #7's, and so on to the end. You cannot quietly edit history; you can only break the chain visibly.</p>
+        </div>
+
+        <p>Each event covers fourteen fields &mdash; session, user, role, agent, action type, target system and record, input hash, output summary, evidence ids, rule ids, model id, prompt version, approval id &mdash; serialised into a canonical, sorted-key form so that the write side and the read side hash byte-identical input. The chain begins from a genesis value of 64 zeroes.</p>
+
+        <p>Two engineering details make it actually hold up:</p>
+
+        <ul>
+          <li><strong>A canonical field list, not "whatever was passed."</strong> If the write side hashed only the keys a caller supplied while verification hashed the full row, an event omitting one optional field would produce different bytes on each side, and every legitimate entry would report as tampered. Both sides drive off the same fixed fourteen-field list.</li>
+          <li><strong>An exclusive table lock during writes.</strong> Two events written simultaneously could otherwise both read the same previous hash and fork the chain. The lock makes that impossible.</li>
+        </ul>
+
+        <p>Verification walks every row in order, recomputes each hash, and reports either <em>VERIFIED</em> with a count or <em>TAMPERED</em> with the exact index and event id where the chain broke.</p>
+
+        <p>There is also a deliberate demonstration endpoint that modifies a chosen event so the break can be shown live. It is the only code path permitted to alter an audit row after insert, the act of calling it is itself audit-logged before it runs, and it correctly reports <em>NO_SUCH_EVENT</em> when pointed at an id that doesn't exist &mdash; rather than modifying nothing and reporting a misleading pass.</p>
+      </section>
+
+      <!-- 10 -->
+      <section id="graph">
+        <div class="sec-head"><span class="sec-num">10</span><h2>The evidence graph and blast radius</h2></div>
+
+        <p>Compliance records are deeply interconnected: a requirement links to design elements, which link to test cases, which link to results; changes affect systems; incidents attach to systems. AegisX builds this into a <strong>directed graph</strong> &mdash; nodes joined by one-way arrows &mdash; using the NetworkX library.</p>
+
+        <p>Two rules govern what may become an edge, and they are strict:</p>
+        <ul>
+          <li>Every edge traces to a <strong>real declared foreign key</strong> or an explicit junction-table row.</li>
+          <li>No edge is ever derived from two records merely sharing a system id, from text similarity, or from anything a model inferred.</li>
+        </ul>
+
+        <p>Node ids are type-prefixed &mdash; <code>DOCUMENT:DOC-2089EBE8D568</code>, <code>SYSTEM:GXP-MFG-DEMO-01</code> &mdash; so two tables that happen to use the same raw id can never collide into one node.</p>
+
+        <h3>Blast radius</h3>
+        <p>Pick any node and ask: <em>if this changes, what else is affected?</em> One graph traversal answers nine questions at once &mdash; direct dependencies, indirect dependencies, and affected requirements, tests, risks, changes, controls and systems.</p>
+
+        <p>It also computes two judgements, both from graph structure alone:</p>
+        <ul>
+          <li><strong>Potential GxP impact</strong> is <em>HIGH</em> if anything downstream is a GxP-relevant system or a patient-safety-relevant incident; <em>MEDIUM</em> if there is downstream impact at all; <em>NONE</em> if nothing is downstream.</li>
+          <li><strong>Highest-impact downstream node</strong> is whichever affected node has the most descendants of its own, with ties broken by node type and then id &mdash; a total ordering, so the answer never depends on iteration order.</li>
+        </ul>
+
+        <p>A model may be asked to <em>explain</em> a computed blast radius. It is never asked to compute one.</p>
+      </section>
+
+      <!-- 11 -->
+      <section id="router">
+        <div class="sec-head"><span class="sec-num">11</span><h2>The model router and its safety nets</h2></div>
+
+        <p>Where language models <em>are</em> used, requests go through a router that treats provider failure as normal rather than exceptional. Three providers sit in a cascade:</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Order</th><th>Provider</th><th>Model</th><th>Role</th></tr></thead>
+            <tbody>
+              <tr><td class="num">1</td><td>Ollama <em>(local)</em></td><td><code>qwen2.5:7b-instruct</code></td><td>Runs on the machine's own GPU. Handles orchestration, synthesis, compliance narration, knowledge, change, risk and reranking &mdash; no network, no quota, no cost.</td></tr>
+              <tr><td class="num">2</td><td>Groq</td><td><code>openai/gpt-oss-120b</code></td><td>Hosted, fast. Handles incident, access, high-volume work and remediation.</td></tr>
+              <tr><td class="num">3</td><td>OpenRouter</td><td><code>openrouter/auto</code></td><td>Guaranteed last resort.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p>When a call fails, the router walks down this list, skipping any provider it has already tried, pausing one second between attempts so it doesn't hammer the next one. Every response reports the model id that actually produced it, so the interface can always name what answered.</p>
+
+        <p>Crucially, the router distinguishes failures that <em>should</em> move on from failures that shouldn't. A 401, 402 or 403 means <em>this provider's account is broken</em> &mdash; which says nothing about the others, so it cascades. A 400 or 422 means <em>the request itself is malformed</em>, which the next provider would reject identically, so it degrades immediately rather than wasting three round trips. A 200 response carrying an error payload &mdash; observed live from a proxy &mdash; is caught by the parser and treated as a real failure.</p>
+
+        <p>Four independent guards sit around this:</p>
+
+        <div class="agents">
+          <div class="agent">
+            <div class="agent-id" style="font-size: 15px;">01</div>
+            <div class="agent-body">
+              <h4>Circuit breaker</h4>
+              <p>Gives the router memory. When six agents fan out in parallel and the first discovers a provider is rate-limited, the other five would each pay a full wasted round trip to learn the same thing. Instead the first failure trips the breaker <em>open</em> and the rest skip that provider entirely. After a cooldown &mdash; taken from the provider's own reported reset time when it sends one &mdash; a single probe call is allowed through to test recovery.</p>
+            </div>
+          </div>
+          <div class="agent">
+            <div class="agent-id" style="font-size: 15px;">02</div>
+            <div class="agent-body">
+              <h4>Rate limiter</h4>
+              <p>Waits until a provider is back under its declared limits <em>before</em> sending, rather than reacting to a rejection afterwards. It tracks both requests per minute and tokens per minute &mdash; the latter matters because reasoning models silently consume hidden tokens, so request count alone badly understates real load.</p>
+            </div>
+          </div>
+          <div class="agent">
+            <div class="agent-id" style="font-size: 15px;">03</div>
+            <div class="agent-body">
+              <h4>Concurrency gate</h4>
+              <p>Applies to the local model only. A hosted provider manages its own concurrency; a 7-billion-parameter model on a single consumer GPU does not. When the gate is full, the request cascades to the next provider instead of piling onto a saturated GPU.</p>
+            </div>
+          </div>
+          <div class="agent">
+            <div class="agent-id" style="font-size: 15px;">04</div>
+            <div class="agent-body">
+              <h4>Model keep-alive</h4>
+              <p>Ollama unloads an idle model after five minutes, and reloading it costs around 15 seconds before a single token is generated &mdash; measured on this project's own hardware at 15.1s cold versus 0.8s warm. The router requests a 30-minute residency so the model stays in memory between questions. This is an infrastructure fix, not a timeout adjustment.</p>
+            </div>
+          </div>
+        </div>
+
+        <p>The router never raises an error to its caller. Exhausting every provider returns a clearly-marked degraded response carrying the full trail of what failed at each hop &mdash; and every caller is built to handle that.</p>
+      </section>
+
+      <!-- 12 -->
+      <section id="fallbacks">
+        <div class="sec-head"><span class="sec-num">12</span><h2>Every fallback, in one place</h2></div>
+
+        <p>The design principle throughout: <strong>degrade honestly, never fabricate.</strong> Each row below is a real, tested behaviour rather than an aspiration.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>When this fails</th><th>The system does this</th></tr></thead>
+            <tbody>
+              <tr><td>Routing takes longer than 2 seconds</td><td>Cancels it and runs all six specialists &mdash; the thorough path, not a guess</td></tr>
+              <tr><td>Routing returns invalid JSON or unknown agents</td><td>Same full-set fallback</td></tr>
+              <tr><td>The requested system doesn't exist</td><td>A1 abstains with a defined finding</td></tr>
+              <tr><td>Postgres is unreachable</td><td>Every finding grades <em>INSUFFICIENT_EVIDENCE</em></td></tr>
+              <tr><td>The evidence record isn't found</td><td>Immediate <em>INSUFFICIENT_EVIDENCE</em>; the policy call is skipped entirely</td></tr>
+              <tr><td>OPA doesn't corroborate the claim</td><td>Full 100-point penalty &mdash; the finding cannot reach a positive grade</td></tr>
+              <tr><td>The embedding model degrades</td><td>Retrieval continues keyword-only; the trace says so</td></tr>
+              <tr><td>Qdrant is unreachable</td><td>Same &mdash; the lexical leg alone can still surface real evidence</td></tr>
+              <tr><td>Both search legs return nothing</td><td>Honest insufficient-evidence result, no hedged answer</td></tr>
+              <tr><td>Reranking fails</td><td>Falls back to fixed score thresholds (0.55 semantic / 1.0 keyword)</td></tr>
+              <tr><td>Parent-context or graph enrichment fails</td><td>The answer still returns, just less enriched</td></tr>
+              <tr><td>A narration model is unavailable</td><td>Deterministic template sentence; the finding itself is unaffected</td></tr>
+              <tr><td>A provider is rate-limited</td><td>Circuit trips; siblings skip it; cascade continues</td></tr>
+              <tr><td>Every provider fails</td><td>Marked degraded response with the full failure trail</td></tr>
+              <tr><td>The role is unknown or missing</td><td>Blocked before anything else runs &mdash; fail closed</td></tr>
+              <tr><td>An action type isn't recognised</td><td>Categorised <em>PROHIBITED</em>, not permitted</td></tr>
+              <tr><td>The audit chain is broken</td><td>Reports <em>TAMPERED</em> with the exact breaking index and event id</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 13 -->
+      <section id="ui">
+        <div class="sec-head"><span class="sec-num">13</span><h2>What the user actually sees</h2></div>
+
+        <p>Eleven pages in React, sharing a role selector that switches the active identity between IT System Manager, QA/Compliance and Auditor &mdash; which genuinely changes what the backend permits, not just what the interface shows.</p>
+
+        <ol class="steps">
+          <li><b>Command Centre</b><span>Readiness dial and six health signals, computed live from backend state.</span></li>
+          <li><b>Ask GxP Copilot</b><span>The chat. Live agent-topology canvas showing which stations are running, streamed answers, inspectable evidence.</span></li>
+          <li><b>Evidence Investigation</b><span>The Assurance Card for a single finding &mdash; claim, evidence, rule, deterministic check result, ALCOA+ breakdown.</span></li>
+          <li><b>Audit Readiness</b><span>Aggregate compliance posture across the system.</span></li>
+          <li><b>Blast Radius</b><span>Interactive graph view. Pick a node, see everything downstream.</span></li>
+          <li><b>Knowledge</b><span>Document library and upload, with live ingestion progress through all six stages.</span></li>
+          <li><b>Supplier Intelligence</b><span>Supplier qualification and reassessment status.</span></li>
+          <li><b>Actions</b><span>The approval queue. Pending proposals rendered from server-held data, awaiting a human decision.</span></li>
+          <li><b>Assurance Lab</b><span>Where verification behaviour can be exercised directly.</span></li>
+          <li><b>Trust Centre</b><span>Audit chain verification and the live tamper demonstration.</span></li>
+          <li><b>Inspection Simulator</b><span>Practice inspection questions against the system.</span></li>
+        </ol>
+
+        <p>One design rule runs through all of them: <strong>the frontend never invents a destination.</strong> The backend sends a kind plus an entity id &mdash; never a URL &mdash; and a single closed route map in the frontend is the only place those become navigable addresses. No address ever crosses the API boundary, which closes an entire class of redirect vulnerability by construction.</p>
+      </section>
+
+      <!-- 14 -->
+      <section id="glossary">
+        <div class="sec-head"><span class="sec-num">14</span><h2>Glossary</h2></div>
+
+        <dl class="glossary">
+          <div class="gloss-row"><dt>GxP</dt><dd>"Good practice" regulations governing pharmaceutical manufacturing, clinical and laboratory work.</dd></div>
+          <div class="gloss-row"><dt>Annex 11</dt><dd>The EU GMP annex covering computerised systems &mdash; the source of most rules in the bundle.</dd></div>
+          <div class="gloss-row"><dt>21 CFR Part 11</dt><dd>The US FDA regulation on electronic records and electronic signatures.</dd></div>
+          <div class="gloss-row"><dt>ICH Q9</dt><dd>The international guideline on quality risk management.</dd></div>
+          <div class="gloss-row"><dt>ALCOA+</dt><dd>The nine-dimension data-integrity framework regulators assess records against.</dd></div>
+          <div class="gloss-row"><dt>URS</dt><dd>User Requirement Specification &mdash; what the system was required to do.</dd></div>
+          <div class="gloss-row"><dt>CAPA</dt><dd>Corrective and Preventive Action &mdash; the formal remediation record.</dd></div>
+          <div class="gloss-row"><dt>Embedding</dt><dd>A list of numbers representing text's meaning, so similar meanings sit close together.</dd></div>
+          <div class="gloss-row"><dt>Vector database</dt><dd>A store built to find the nearest embeddings to a query embedding, quickly.</dd></div>
+          <div class="gloss-row"><dt>BM25</dt><dd>A classic keyword-ranking algorithm scoring by term rarity and frequency.</dd></div>
+          <div class="gloss-row"><dt>RRF</dt><dd>Reciprocal Rank Fusion &mdash; merges two ranked lists using positions rather than scores.</dd></div>
+          <div class="gloss-row"><dt>Reranker</dt><dd>A second-pass relevance scorer applied to an already-shortlisted candidate set.</dd></div>
+          <div class="gloss-row"><dt>Rego</dt><dd>The policy language used by OPA to express rules as testable code.</dd></div>
+          <div class="gloss-row"><dt>Hash chain</dt><dd>A log where each entry's fingerprint includes the previous entry's, making edits detectable.</dd></div>
+          <div class="gloss-row"><dt>Prompt injection</dt><dd>Text crafted to hijack an AI's instructions, often hidden inside content it reads.</dd></div>
+          <div class="gloss-row"><dt>Fail closed</dt><dd>On uncertainty, deny rather than allow.</dd></div>
+        </dl>
+      </section>
+
+      <footer class="doc-foot">
+        <span>AegisX AI &middot; Architecture Reference</span>
+        <span>C2 &rarr; A0 &rarr; [A1&hellip;A6] &rarr; C1 &rarr; A7 &rarr; C3</span>
+      </footer>
+
+    </main>
+  </div>
+</div>

@@ -73,7 +73,7 @@ function ChainWidget() {
   const tampered = data?.status === 'TAMPERED'
 
   return (
-    <div className="card p-5">
+    <div data-tour="audit-chain-widget" className="card p-5">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-[15px] font-semibold text-ink">Audit Chain Integrity</p>

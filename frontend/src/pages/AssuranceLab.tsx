@@ -80,7 +80,7 @@ export default function AssuranceLab() {
         index &mdash; in real time, against the real pipeline.
       </p>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div data-tour="assurance-lab-actions" className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <button
           type="button"
           disabled={runStatus === 'running'}

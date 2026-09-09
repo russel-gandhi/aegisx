@@ -480,6 +480,15 @@ def live_eval_report(eval_corpus):
     async def _run() -> EvalReport:
         pool = await get_pool()
         relevant_ids_by_query = await _relevant_ids_by_query_text(pool, cases)
+        # This suite measures the "hybrid_reranked" configuration against an
+        # oracle reranker, so it must turn the reranking hop ON explicitly
+        # rather than inherit whatever `RERANK_ENABLED` currently defaults
+        # to. That default is an operational switch (it ships OFF, because a
+        # live reranker consumes the shared provider token budget the
+        # user-visible synthesis call needs); it is not a statement about
+        # whether reranking improves precision, which is what this file
+        # exists to measure.
+        monkeypatch.setattr(hybrid_search, "RERANK_ENABLED", True)
         monkeypatch.setattr(hybrid_search, "call_llm", _build_oracle_rerank_call_llm(relevant_ids_by_query))
         with respx.mock:
             _mock_embedding_routes()

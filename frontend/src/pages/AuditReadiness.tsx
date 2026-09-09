@@ -160,7 +160,7 @@ export default function AuditReadiness() {
 
       {status === 'ready' && (
         <>
-          <div className="card mt-8 p-5">
+          <div data-tour="audit-readiness-heatmap" className="card mt-8 p-5">
             <p className="text-[15px] font-semibold text-ink">Evidence Confidence Heat Map</p>
             <p className="mt-1 text-sm text-ink-muted">
               Open findings by evidence type and confidence level. Brighter cells mean more findings
