@@ -1,0 +1,2102 @@
+[
+ {
+  "q_id": "DA-01-001",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Walk through the proposed intended use, the patient, product-quality and data decisions it will support, and the evidence used to draw the GxP system boundary before funding was approved."
+ },
+ {
+  "q_id": "DA-01-002",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the concept team identified the predicate records, signatures, retention duties and inspection-access obligations for every jurisdiction and regulated business process in scope."
+ },
+ {
+  "q_id": "DA-01-003",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Describe the proposed data lifecycle from first capture through processing, review, reporting, retention and destruction, and show where the concept explicitly protects attributable, legible, contemporaneous, original, accurate, complete, consistent, enduring and available data."
+ },
+ {
+  "q_id": "DA-01-004",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Demonstrate how the concept distinguishes source data, raw data, metadata, official records, convenience copies and hybrid components, and how the authoritative version will be identified during an inspection."
+ },
+ {
+  "q_id": "DA-01-005",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Explain how preliminary risk assessment differentiated patient-safety, product-quality and data-integrity harm, and how that analysis changed scope, controls, budget or schedule."
+ },
+ {
+  "q_id": "DA-01-006",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the business case funds documented evidence that the system will remain fit for intended use across configuration, testing, release, operation, change and retirement."
+ },
+ {
+  "q_id": "DA-01-007",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Walk through the proposed shared-responsibility model and show which GxP controls remain with the regulated company when infrastructure, administration, backup or release activity is outsourced."
+ },
+ {
+  "q_id": "DA-01-008",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Demonstrate that the concept and procurement timetable allow risk-based supplier evaluation, technical assessment, audit where warranted, and remediation before supplier lock-in."
+ },
+ {
+  "q_id": "DA-01-009",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Describe the proposed identity lifecycle and authorization model from onboarding through role change, periodic review, emergency access and termination, and show how it supports attribution and least privilege."
+ },
+ {
+  "q_id": "DA-01-010",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Explain the proposed separation between business processing, record review, security administration, configuration and audit-trail oversight, including how a small operating team will control unavoidable conflicts."
+ },
+ {
+  "q_id": "DA-01-011",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the concept determines which actions require electronic signatures, their meaning, identity proofing, credential controls and permanent linkage to the signed record."
+ },
+ {
+  "q_id": "DA-01-012",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Walk through every proposed inbound and outbound interface, identifying the authoritative source, transformation, timing, error owner, reconciliation point and retained evidence for each critical data element."
+ },
+ {
+  "q_id": "DA-01-013",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Demonstrate how the business case accounts for migrating or preserving legacy records, metadata, audit trails, signatures and relationships while maintaining value and meaning."
+ },
+ {
+  "q_id": "DA-01-014",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Define each proposed algorithmic use, the decisions it may influence, the authoritative inputs and outputs, and the point at which a qualified human remains accountable for a GxP decision."
+ },
+ {
+  "q_id": "DA-01-015",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Explain how the concept identifies auditable events, preserves who/what/when/why, prevents audit-trail disablement, and resources risk-based review within the business process rather than as a technical afterthought."
+ },
+ {
+  "q_id": "DA-01-016",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the concept identifies infrastructure and platform services that must be qualified or controlled to support the validated application, including clocks, databases, identity, networks and monitoring."
+ },
+ {
+  "q_id": "DA-01-017",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Demonstrate how required retention periods, readable retrieval, metadata/audit-trail preservation, legal holds and inspector access were converted into lifecycle cost and architecture assumptions."
+ },
+ {
+  "q_id": "DA-01-018",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Explain how proposed recovery objectives were derived from product, patient, data and operational impact, and show that exact and complete backup plus restoration verification are included in cost and responsibilities."
+ },
+ {
+  "q_id": "DA-01-019",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Walk through the proposed business-continuity process during prolonged system or interface loss, including controlled manual records, approvals, inventory/status control and reconciliation after service restoration."
+ },
+ {
+  "q_id": "DA-01-020",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the operating model will assess supplier releases, configuration and infrastructure changes, perform proportionate regression, approve deployment and periodically confirm the system remains fit for intended use."
+ },
+ {
+  "q_id": "DA-01-021",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Describe how technical alerts, user errors, data-integrity concerns, security events and supplier incidents will enter the pharmaceutical quality system for impact assessment, investigation, CAPA and timely escalation."
+ },
+ {
+  "q_id": "DA-01-022",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Demonstrate that the business case identifies the competencies and capacity needed for process ownership, configuration, validation, data review, administration, supplier oversight and support throughout the lifecycle."
+ },
+ {
+  "q_id": "DA-01-023",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Present the major compliance assumptions and trade-offs in the approved business case and show how changes to cost, schedule or scope trigger independent quality reassessment and go/no-go decisions."
+ },
+ {
+  "q_id": "DA-01-024",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Explain how proposed benefits and performance indicators avoid incentivizing delayed recording, data exclusion, unofficial testing, inappropriate reprocessing or closure of exceptions without adequate investigation."
+ },
+ {
+  "q_id": "DA-01-025",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "question": "Show how the concept funds an exit strategy that preserves readable GxP records, metadata, audit trails, signatures, configurations and retrieval capability after contract termination or technology obsolescence."
+ },
+ {
+  "q_id": "DA-02-001",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how business, quality, technical and data owners converted the approved intended use into the URS, and show how conflicts, assumptions, exclusions and unresolved requirements are governed before design begins."
+ },
+ {
+  "q_id": "DA-02-002",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Trace each intended use and predicate-record obligation into specific URS requirements for creation, review, approval, retention, retrieval and inspection, including functions outside the primary application boundary."
+ },
+ {
+  "q_id": "DA-02-003",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how critical process steps, data elements, metadata, calculations, reports and configurations are identified in the URS and linked to preliminary risk decisions without using priority labels as a substitute for compliance."
+ },
+ {
+  "q_id": "DA-02-004",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Demonstrate how each URS statement expresses an observable outcome, boundary condition and acceptance criterion that can establish fitness for intended use rather than merely repeating policy words such as secure, compliant or user-friendly."
+ },
+ {
+  "q_id": "DA-02-005",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Describe the URS requirements that preserve the full record context—originator, event time, system time, units, status, method, version, reason and relationships—from first capture through every transformation."
+ },
+ {
+  "q_id": "DA-02-006",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Walk through the URS audit-event matrix and show how requirements capture secure, computer-generated, time-stamped who/what/when/why history for record, configuration, security and critical master-data changes without obscuring the prior value."
+ },
+ {
+  "q_id": "DA-02-007",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how the URS turns audit-trail review into a usable control by specifying reviewer views, context, filters, exception logic, review timing, evidence of completion and escalation before the associated quality decision."
+ },
+ {
+  "q_id": "DA-02-008",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Demonstrate how the URS specifies unique attribution, role-based least privilege, joiner/mover/leaver timing, periodic review and ownership for human, service, interface and robotic identities."
+ },
+ {
+  "q_id": "DA-02-009",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how requirements separate record creation, approval, configuration, security administration, audit review and release, and how unavoidable conflicts and emergency access are independently authorized, logged and reviewed."
+ },
+ {
+  "q_id": "DA-02-010",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Trace each regulated approval into URS requirements for signer identity, date/time, signature meaning, authentication, non-repudiation and permanent linkage to the exact record version and human-readable copy."
+ },
+ {
+  "q_id": "DA-02-011",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Walk through each critical workflow and show how the URS requires permitted sequence, prerequisite evidence, role authority, status transitions and prevention or controlled override of out-of-order processing."
+ },
+ {
+  "q_id": "DA-02-012",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how the URS differentiates input sources and requires validity, completeness, range, format, unit, identifier and duplicate checks while preserving rejected attempts and controlled corrections where they are GxP-relevant."
+ },
+ {
+  "q_id": "DA-02-013",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how each interface requirement defines source and target records, field-level transformations, units/precision, identifiers, sequencing, acknowledgements, retries, duplicate control, reconciliation and retention of transmission evidence."
+ },
+ {
+  "q_id": "DA-02-014",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Demonstrate how the URS defines each GxP calculation or rule, authoritative inputs, version, units, precision, rounding, boundary behavior, invalid/missing-data handling and reproducible output."
+ },
+ {
+  "q_id": "DA-02-015",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how the URS identifies critical configuration and master data, assigns creation/change/approval authority, preserves effective versions and prevents unapproved values from influencing records."
+ },
+ {
+  "q_id": "DA-02-016",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how requirements identify the complete original electronic record and specify accurate, complete, human-readable and electronic copies that preserve needed metadata, audit history, relationships and dynamic review capability."
+ },
+ {
+  "q_id": "DA-02-017",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Describe how the URS requires preservation or justified archival of legacy values, metadata, audit trails, signatures, status, links and record meaning, including reconciliation and handling of invalid or unmappable data."
+ },
+ {
+  "q_id": "DA-02-018",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Trace every record category to a requirement for retention start event, period, archive format, metadata/audit history, readability test, legal hold, authorized destruction and documented evidence of disposition."
+ },
+ {
+  "q_id": "DA-02-019",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how the URS specifies exact and complete backup scope, frequency, protection, separation, monitoring and periodic restoration with reconciliation to justified RPO and RTO."
+ },
+ {
+  "q_id": "DA-02-020",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Walk through URS requirements for controlled offline operation during application, interface, identity or site outages and for complete, duplicate-free reconciliation when service returns."
+ },
+ {
+  "q_id": "DA-02-021",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how the URS converts the GxP threat model into requirements for authentication, encryption, secure configuration, vulnerability handling, event logging, clock synchronization, monitoring and protection of data at rest and in transit."
+ },
+ {
+  "q_id": "DA-02-022",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Demonstrate how customer requirements define supplier versus company responsibilities for validation evidence, configuration, access, backup, incidents, changes, subcontractors, data location, inspection support and exit."
+ },
+ {
+  "q_id": "DA-02-023",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Show how the URS specifies control and evidence for configuration/code changes, supplier releases, emergency changes, incident detection, affected-record analysis, CAPA and periodic evaluation of validated state."
+ },
+ {
+  "q_id": "DA-02-024",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Explain how user and administrator requirements address workload, clear status, error prevention, accessibility, reviewer context, training environment and demonstrable competence for critical tasks."
+ },
+ {
+  "q_id": "DA-02-025",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "question": "Define URS requirements for every AI-enabled function covering intended use, prohibited decisions, data provenance, model/version identity, performance limits, explainability, qualified human review, drift monitoring, change and fallback."
+ },
+ {
+  "q_id": "DA-03-001",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Walk through the risk-assessment method, decision rules and governance used for this system, and demonstrate how the level of formality and documentation is proportionate to uncertainty, complexity and potential harm."
+ },
+ {
+  "q_id": "DA-03-002",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Demonstrate how the risk boundary follows the complete intended use across application, infrastructure, interfaces, records, people, procedures and external services rather than the procurement boundary."
+ },
+ {
+  "q_id": "DA-03-003",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Explain the categorisation rationale for each software and infrastructure component and show how category, novelty, configurability and actual intended use influence—but do not replace—function-level risk and assurance decisions."
+ },
+ {
+  "q_id": "DA-03-004",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Show how the assessment decomposed the system into software modules, configurations, custom code, reports, interfaces, infrastructure and supplier services at a level where distinct failure modes and controls can be evaluated."
+ },
+ {
+  "q_id": "DA-03-005",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "For each critical function, explain the credible failure modes and causal path from incorrect, missing, delayed or unauthorized system behavior to patient safety, product quality or supply impact."
+ },
+ {
+  "q_id": "DA-03-006",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Demonstrate how the assessment combines data criticality with lifecycle vulnerability and detectability for raw data, metadata, audit trails, derived results, master data and reports."
+ },
+ {
+  "q_id": "DA-03-007",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Show how the assessment distinguishes predicate-rule risk, Part 11 electronic-record controls and electronic-signature controls, and how each applicable clause maps to functions and risks without treating compliance as a negotiable score."
+ },
+ {
+  "q_id": "DA-03-008",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Explain how the risk assessment evaluates impersonation, orphaned access, excessive privilege, conflicting duties, direct database access, service accounts and supplier administration across the identity lifecycle."
+ },
+ {
+  "q_id": "DA-03-009",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Demonstrate how risk determines auditable events, protection, reason capture, review timing and reviewer context for data, configuration, access and administrative actions."
+ },
+ {
+  "q_id": "DA-03-010",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Walk through failure scenarios for identity proofing, credential sharing, signature meaning, authentication, record-version linkage, timestamp and post-signature change, and show how risk controls each scenario."
+ },
+ {
+  "q_id": "DA-03-011",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "For every interface, show how the assessment addresses partial, duplicate, delayed, out-of-order, corrupted, unmapped and unauthorized transfers plus transformation, precision and time-zone errors."
+ },
+ {
+  "q_id": "DA-03-012",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Explain how migration risks cover selection, extraction, transformation, mapping, load, reconciliation and preservation of metadata, audit trails, signatures, links and record meaning."
+ },
+ {
+  "q_id": "DA-03-013",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Demonstrate how supplier criticality is derived from reliance, product complexity, evidence transparency, regulated experience, quality-system maturity, support model and ability to remediate defects."
+ },
+ {
+  "q_id": "DA-03-014",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Map each GxP control to provider, subprocessor and regulated-company responsibilities, then show how tenancy, location, concentration, privileged support, evidence access and service termination affect risk."
+ },
+ {
+  "q_id": "DA-03-015",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Show how cybersecurity threats are translated into GxP harm scenarios involving unauthorized change, loss of chronology, unavailable records, corrupted backups, altered configuration or compromised interfaces."
+ },
+ {
+  "q_id": "DA-03-016",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "For each critical calculation or rule, demonstrate analysis of wrong formula/version, precision, rounding, unit, boundary, missing input, stale reference data and nonreproducible result."
+ },
+ {
+  "q_id": "DA-03-017",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Explain how the assessment evaluates data provenance, model limitations, bias, nondeterminism, drift, prompt/input manipulation, silent provider change, explainability and automation bias for each GxP use."
+ },
+ {
+  "q_id": "DA-03-018",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Show how risks from operating systems, databases, networks, time services, identity, virtualization, orchestration and monitoring are assessed in relation to application controls and validated state."
+ },
+ {
+  "q_id": "DA-03-019",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Derive maximum tolerable outage, RTO and RPO from GxP process impact and analyze failure of application, interface, identity, site and supplier, including risks introduced by manual fallback and reconciliation."
+ },
+ {
+  "q_id": "DA-03-020",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Distinguish archive and backup risks and show how the assessment covers retention duration, readability, metadata/audit-history completeness, legal holds, obsolescence, corruption, restore and authorized destruction."
+ },
+ {
+  "q_id": "DA-03-021",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Demonstrate how each function/data risk determines the type, rigor, independence and retained evidence of assurance activities while all applicable requirements remain verified."
+ },
+ {
+  "q_id": "DA-03-022",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Show how the assessment considers task complexity, interface design, workload, fatigue, ambiguous roles, training effectiveness, staff turnover and dependence on manual detective controls."
+ },
+ {
+  "q_id": "DA-03-023",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Explain how defects, deviations, security events, audit findings, recalls, workarounds and prior changes from this product, supplier and predecessor system informed failure likelihood and control selection."
+ },
+ {
+  "q_id": "DA-03-024",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "For every high or critical inherent risk, demonstrate that selected controls are specific, implemented by a named owner, testable, sustainable in operation and sufficient to justify the residual-risk conclusion."
+ },
+ {
+  "q_id": "DA-03-025",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "question": "Define the events and evidence that will trigger risk reassessment—requirements/design changes, supplier releases, incidents, drift, new threats, performance trends, periodic evaluation and retirement—and show how prior assumptions remain traceable."
+ },
+ {
+  "q_id": "DA-04-001",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Explain how supplier criticality was determined from intended use, control reliance, data access, service substitutability, complexity and failure impact, and show how that rating set the depth of due diligence and approval."
+ },
+ {
+  "q_id": "DA-04-002",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Walk through the supplier QMS from leadership oversight through document control, training, deviation/CAPA, change, internal audit and management review, and demonstrate its effectiveness with recent records rather than policy statements."
+ },
+ {
+  "q_id": "DA-04-003",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how the supplier controls requirements, architecture, secure coding, code review, configuration, testing, release, maintenance and retirement for the exact product and version proposed."
+ },
+ {
+  "q_id": "DA-04-004",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Show how regulated-domain competence, inspection/customer history, defect trends, organizational stability, financial viability and product roadmap were evaluated against the required service life and retention horizon."
+ },
+ {
+  "q_id": "DA-04-005",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Walk through the deployed architecture and identify standard functions, tenant configuration, custom code, low-code components, reports, integrations and shared services, showing which lifecycle evidence and owner covers each."
+ },
+ {
+  "q_id": "DA-04-006",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how supplier specifications, testing, certifications and release evidence are evaluated for relevance to the customer's exact version, configuration, intended use and risk before being leveraged."
+ },
+ {
+  "q_id": "DA-04-007",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Trace how test data, expected results, execution identity/time, environment, actual outcomes, deviations and defects are controlled so that passing status cannot be created by excluding failed or repeated runs."
+ },
+ {
+  "q_id": "DA-04-008",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Explain how the supplier's security governance, risk management, independent assessments and certifications apply to the exact service, regions and subprocessors, and how gaps are translated into GxP risk rather than accepted by badge."
+ },
+ {
+  "q_id": "DA-04-009",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how supplier employees, contractors, service accounts and emergency users are identity-proofed, authorized, segregated, monitored, periodically reviewed and revoked for customer environments."
+ },
+ {
+  "q_id": "DA-04-010",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Show how the product automatically captures and protects who, what, when and why for relevant record, configuration, master-data, access and administrator events, including prior/new values and customer control over enablement."
+ },
+ {
+  "q_id": "DA-04-011",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Walk through the shared-responsibility model and demonstrate how tenant isolation, configuration boundaries, monitoring, backup, encryption, changes and evidence delivery operate for the proposed service architecture."
+ },
+ {
+  "q_id": "DA-04-012",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Identify every subprocessor that can host, access, change, transmit, back up or support GxP data/services, and demonstrate risk-based qualification, contractual flow-down and ongoing change control."
+ },
+ {
+  "q_id": "DA-04-013",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Map where primary data, metadata, audit trails, backups, support copies and telemetry reside and who owns or controls each throughout active service, suspension, dispute and termination."
+ },
+ {
+  "q_id": "DA-04-014",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how the supplier specifies, tests and controls interface schemas, transformations, authentication, acknowledgements, retries, idempotency, error handling, version compatibility and retained transmission evidence."
+ },
+ {
+  "q_id": "DA-04-015",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Show the exact backup scope, schedules, retention, isolation, encryption, monitoring and restoration process for tenant data, metadata, audit trails, configuration, files and keys."
+ },
+ {
+  "q_id": "DA-04-016",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how the supplier derived and tested availability, capacity, RTO and RPO across application and external dependencies, and how customers are informed and supported during regional or prolonged disruption."
+ },
+ {
+  "q_id": "DA-04-017",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate that the service can retain and retrieve complete readable records—including metadata, audit trails, attachments, signatures and relationships—for customer-defined periods and provide accurate human-readable and electronic copies promptly."
+ },
+ {
+  "q_id": "DA-04-018",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Show how the supplier implements signer identity, date/time, meaning, reauthentication and inseparable linkage to the exact record version across user interface, API, export, archive and disaster recovery."
+ },
+ {
+  "q_id": "DA-04-019",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Trace the supplier's change process from request and impact assessment through design, test, approval, deployment, rollback and customer notification, including emergency changes and tenant configuration."
+ },
+ {
+  "q_id": "DA-04-020",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how the supplier identifies GxP-relevant service, data-integrity and security incidents, preserves evidence, determines affected tenants/records, performs root cause and CAPA, and notifies customers in time for product decisions."
+ },
+ {
+  "q_id": "DA-04-021",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Walk through vulnerability intake, GxP/security impact assessment, prioritization, patch testing, deployment, exception, monitoring and end-of-support planning for all product dependencies."
+ },
+ {
+  "q_id": "DA-04-022",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate how remote support is requested, authorized, time-limited, supervised, recorded and reviewed, including direct database/file access, data extracts, diagnostic copies and actions performed outside application controls."
+ },
+ {
+  "q_id": "DA-04-023",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Show how the supplier defines, verifies and maintains competence for developers, testers, quality reviewers, administrators, incident responders and support personnel whose work affects customer GxP controls."
+ },
+ {
+  "q_id": "DA-04-024",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Demonstrate the supplier's control of AI intended use, training/reference data provenance, model development, evaluation, versioning, prompts/configuration, monitoring, human oversight, security and customer notification of behavioral change."
+ },
+ {
+  "q_id": "DA-04-025",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "question": "Reconcile the qualification findings with the executed contract and quality agreement, showing enforceable ownership, evidence delivery, change/incident notice, audit/regulator access, retention, CAPA, subprocessor and exit obligations."
+ },
+ {
+  "q_id": "DA-05-001",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate how every approved URS requirement and risk control is allocated to functional, configuration, technical and procedural design, with bidirectional traceability through unresolved decisions and approved exclusions."
+ },
+ {
+  "q_id": "DA-05-002",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Walk through the logical and physical design from user and instrument to identity, application, middleware, databases, monitoring, backup and archive, showing how every GxP dependency is controlled and qualified where applicable."
+ },
+ {
+  "q_id": "DA-05-003",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Explain how the design model represents raw/source data, metadata, event and entry times, units, status, method/configuration versions, relationships, provenance and invalidated values throughout the data lifecycle."
+ },
+ {
+  "q_id": "DA-05-004",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate at field and event level how the design creates secure computer-generated time-stamped history showing who, what, when and why, including prior/new values, failed or prohibited actions where relevant, and changes by privileged or automated actors."
+ },
+ {
+  "q_id": "DA-05-005",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Show how the design converts raw audit events into contextual, risk-based reviewer views with source-record drill-down, filters, exception logic, review period, reviewer identity, completion evidence and escalation before disposition or release."
+ },
+ {
+  "q_id": "DA-05-006",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Walk through the permission model from business role to object, action, data scope and workflow state, showing unique attribution, least privilege, inheritance, conflicting rights and default-deny behavior."
+ },
+ {
+  "q_id": "DA-05-007",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate how the design separates administration from GxP processing and approval, limits direct data access, controls emergency privilege and provides independent, tamper-resistant oversight of every privileged action."
+ },
+ {
+  "q_id": "DA-05-008",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Explain how identity proofing, unique identifiers, MFA, credential issuance/reset, lockout, session timeout, reauthentication and nonhuman secrets are designed across normal, offline, recovery and support modes."
+ },
+ {
+  "q_id": "DA-05-009",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Trace the signature transaction from record rendering and signer reauthentication through stored identity, date/time, meaning, record-version digest/linkage, manifestation, export and archival retrieval."
+ },
+ {
+  "q_id": "DA-05-010",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Use the state model to demonstrate permitted transitions, prerequisites, role authority, status visibility, concurrency control, override conditions and audit behavior for normal and exceptional GxP workflows."
+ },
+ {
+  "q_id": "DA-05-011",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Show how each input channel validates source, identity, format, unit, range, sequence, completeness and duplication while distinguishing original event time from later entry and preserving controlled corrections or invalidations."
+ },
+ {
+  "q_id": "DA-05-012",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "For every critical formula and rule, identify authoritative inputs, source reference, version, units, precision, rounding, boundary/missing-data behavior, effective date and stored evidence needed to reproduce the result."
+ },
+ {
+  "q_id": "DA-05-013",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Walk each critical field and metadata element through the interface design, including schema/version, source authority, transformation, precision, authentication, sequencing, acknowledgement, retry, idempotency, error queue and reconciliation."
+ },
+ {
+  "q_id": "DA-05-014",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate how critical configuration, specifications, limits, methods, templates and reference data are created, verified, approved, activated, versioned, linked to records, changed, rolled back and retired."
+ },
+ {
+  "q_id": "DA-05-015",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Show how each report and export is derived from authoritative data and preserves required context, filters, units, versions, metadata, signatures and audit history so the output is accurate, complete and readily inspectable."
+ },
+ {
+  "q_id": "DA-05-016",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Explain how the migration design preserves value and meaning for data, metadata, audit trails, signatures, attachments, links and statuses, and how repeatable extraction, transformation, reconciliation, exception handling and rollback work."
+ },
+ {
+  "q_id": "DA-05-017",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Trace the complete record set across transactional storage, files, indexes, audit stores, configuration, encryption keys and backups, showing integrity protection, failure detection, RPO and validated restoration/reconciliation."
+ },
+ {
+  "q_id": "DA-05-018",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate how record-class retention start events, linked-object dependencies, archive format/viewer, readability checks, legal holds, authorized purge and destruction evidence are implemented without severing context."
+ },
+ {
+  "q_id": "DA-05-019",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Walk through design behavior during application, interface, identity, network and supplier outages, including controlled offline records, unique identifiers, event times, authority, queued transactions and complete reconciliation after recovery."
+ },
+ {
+  "q_id": "DA-05-020",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Show how the design protects GxP confidentiality, integrity, chronology and availability through trust boundaries, encryption/key management, secure configuration, trusted time, security monitoring and preserved forensic evidence."
+ },
+ {
+  "q_id": "DA-05-021",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate how specifications, code, configuration, master data, infrastructure and supplier releases are versioned, promoted through segregated environments, impact-assessed, tested, approved, deployed and rolled back while preserving the production baseline."
+ },
+ {
+  "q_id": "DA-05-022",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Show how monitoring, application errors, audit events, interface queues, security alerts and user reports feed a design that preserves evidence, identifies affected records/batches, supports root cause and links incidents to deviations, CAPA and change."
+ },
+ {
+  "q_id": "DA-05-023",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Reconcile the technical design with the quality agreement and shared-responsibility matrix for tenant configuration, privileged access, audit evidence, change, backup, incidents, data location, subprocessors, inspection and exit."
+ },
+ {
+  "q_id": "DA-05-024",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Explain the design for model and prompt/version control, input/output provenance, performance boundaries, nondeterminism, human review, drift, security, adverse-output handling, supplier updates, reproducibility and fallback for each GxP use."
+ },
+ {
+  "q_id": "DA-05-025",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "question": "Demonstrate that the specifications expose observable outcomes, diagnostic evidence and controllable test conditions for critical normal, boundary, negative, recovery and misuse cases, and that design outputs define role-specific training and competence needs."
+ },
+ {
+  "q_id": "DA-06-001",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Walk me through how every GxP-relevant configuration item in the implemented build is derived from an approved requirement or design decision and how unauthorized or undocumented settings are detected before testing."
+ },
+ {
+  "q_id": "DA-06-002",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how the regulated user established that internal and supplier development activities operated under an appropriate quality system, including defect control, review independence, records retention, and release discipline."
+ },
+ {
+  "q_id": "DA-06-003",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how traceability proves both that every approved GxP requirement is implemented and tested and that every GxP-relevant code or configuration element has a justified upstream requirement and risk control."
+ },
+ {
+  "q_id": "DA-06-004",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how source code, scripts, configuration-as-code, and report definitions are protected so that the approved version can be attributed, reviewed, reproduced, and linked to the deployed release."
+ },
+ {
+  "q_id": "DA-06-005",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Walk me through the controlled promotion path from development to test to production and show how the process prevents developers or suppliers from introducing untested content directly into the production-bound package."
+ },
+ {
+  "q_id": "DA-06-006",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how development, administration, testing, release approval, and production deployment privileges are separated according to risk and how unavoidable conflicts are detected and independently reviewed."
+ },
+ {
+  "q_id": "DA-06-007",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how review depth and reviewer independence are determined from GxP risk and how the review establishes more than stylistic compliance for critical logic and configuration."
+ },
+ {
+  "q_id": "DA-06-008",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how the organization establishes provenance for each production-bound artifact, including source revision, dependency versions, build environment, compiler or interpreter, build identity, and integrity verification."
+ },
+ {
+  "q_id": "DA-06-009",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how third-party libraries, containers, plugins, and embedded components are inventoried, approved, monitored for vulnerability and obsolescence, and assessed for GxP impact before inclusion in a release."
+ },
+ {
+  "q_id": "DA-06-010",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how insecure defaults, sample accounts, diagnostic functions, unnecessary services, and excessive permissions are identified and removed or justified in the configured solution before qualification."
+ },
+ {
+  "q_id": "DA-06-011",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how the audit-trail design identifies all GxP-relevant create, modify, delete, approve, invalidate, configuration, security, and administrative events and preserves the prior value, actor, time, object, and reason where required."
+ },
+ {
+  "q_id": "DA-06-012",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how the configured electronic-signature function preserves signer identity, date and time, signature meaning, record linkage, credential control, and prevention of signature reuse across every regulated signing context."
+ },
+ {
+  "q_id": "DA-06-013",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how critical inputs are validated at every entry path and how invalid, incomplete, out-of-sequence, duplicate, or malicious inputs are rejected or quarantined without loss of the original attempt and context."
+ },
+ {
+  "q_id": "DA-06-014",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how each regulated interface proves completeness, correct sequence, uniqueness, authenticity, and reconciliation from source creation through final processing, including retries and partial failures."
+ },
+ {
+  "q_id": "DA-06-015",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how GxP calculations, rounding, unit conversion, limits, status logic, and decision rules are specified, independently reviewed, and verified against authoritative reference results."
+ },
+ {
+  "q_id": "DA-06-016",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how database schemas, stored procedures, triggers, views, retention jobs, and direct data-fix scripts are versioned, reviewed, tested, and reconciled to the approved application release."
+ },
+ {
+  "q_id": "DA-06-017",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how credentials, API tokens, encryption keys, and certificates used by the configured system are generated, stored, rotated, recovered, revoked, and prevented from entering source code, test evidence, or logs."
+ },
+ {
+  "q_id": "DA-06-018",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how the design preserves trustworthy event chronology across clients, servers, databases, interfaces, cloud services, and devices when time zones, daylight-saving changes, offline operation, or clock drift occur."
+ },
+ {
+  "q_id": "DA-06-019",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how the configured solution makes processing failures visible, preserves diagnostic and business context, prevents silent continuation, and supports controlled recovery without altering original regulated records."
+ },
+ {
+  "q_id": "DA-06-020",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how the build identifies every component and datum required for a consistent recovery, including application, database, files, configuration, audit trails, keys, interfaces, and scheduler state."
+ },
+ {
+  "q_id": "DA-06-021",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how migration or conversion tooling preserves the value, context, metadata, relationships, audit history, signatures, and meaning of regulated records and produces independently verifiable reconciliation evidence."
+ },
+ {
+  "q_id": "DA-06-022",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how automated test tools, frameworks, scripts, simulators, and test environments were assessed as adequate for their intended use and how false passes, stale scripts, and unverified test data are prevented."
+ },
+ {
+  "q_id": "DA-06-023",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Explain how test data are designed to exercise GxP failure modes while preventing unauthorized use of live personal, patient, product, or confidential production records and preserving test reproducibility."
+ },
+ {
+  "q_id": "DA-06-024",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Show how cloud infrastructure, platform services, network policy, identity, logging, storage, backup, and region settings are defined as controlled configuration and reconciled to the qualified deployed state."
+ },
+ {
+  "q_id": "DA-06-025",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "question": "Demonstrate how low-code workflows, rules, forms, reports, dashboards, templates, and other administrator-configurable objects are treated as controlled software when they influence GxP records or decisions."
+ },
+ {
+  "q_id": "DA-07-001",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Walk me through how the IQ protocol scope was derived from the approved architecture, system description, risk assessment, supplier documentation, and prerequisite qualification status rather than from a generic installation template."
+ },
+ {
+  "q_id": "DA-07-002",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how the as-installed inventory identifies each GxP-relevant hardware, virtual resource, operating system, database, middleware, application, agent, library, interface component, and managed service with version and ownership."
+ },
+ {
+  "q_id": "DA-07-003",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how the installed physical and logical architecture, data flows, interfaces, prerequisites, and security boundaries were verified against the approved design and how every variance was dispositioned."
+ },
+ {
+  "q_id": "DA-07-004",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Explain how each installed environment is uniquely identified and segregated so that users, integrations, credentials, jobs, data, and deployment paths cannot be confused across development, test, qualification, training, and production."
+ },
+ {
+  "q_id": "DA-07-005",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how operating-system, database, middleware, runtime, and platform installations were verified against approved versions, options, patches, locale, services, and support prerequisites."
+ },
+ {
+  "q_id": "DA-07-006",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how the virtual-machine, hypervisor, cluster, container image, orchestration, and persistent-storage foundation supporting the application was qualified and tied to the application IQ boundary."
+ },
+ {
+  "q_id": "DA-07-007",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how installed network routes, ports, protocols, firewall rules, proxies, remote-access paths, and trust boundaries were verified against the minimum approved connectivity design."
+ },
+ {
+  "q_id": "DA-07-008",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how authentication integration with the identity provider was installed and verified, including tenant or domain, protocol, claims, groups, fail-safe behavior, certificate trust, and prevention of unintended local-account fallback."
+ },
+ {
+  "q_id": "DA-07-009",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how every installed service, integration, database, scheduler, and automation account is uniquely inventoried, owned, least-privileged, non-interactive where appropriate, and linked to a controlled secret."
+ },
+ {
+  "q_id": "DA-07-010",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how authoritative time synchronization, timezone, daylight-saving behavior, and drift monitoring were installed and verified across every system layer that creates or orders regulated events."
+ },
+ {
+  "q_id": "DA-07-011",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how installed certificates, trust stores, encryption settings, and keys match the approved security design and remain recoverable, monitorable, and attributable throughout their lifecycle."
+ },
+ {
+  "q_id": "DA-07-012",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how database and storage installations were verified for location, capacity, redundancy, integrity protection, access, encryption, transaction/log settings, retention, and separation of regulated records from transient data."
+ },
+ {
+  "q_id": "DA-07-013",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how every required application, database, file, configuration, audit-trail, key, and scheduler component was enrolled in backup with the approved frequency, retention, protection, and monitoring."
+ },
+ {
+  "q_id": "DA-07-014",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how health monitoring, application and security logging, alerting, endpoint protection, integrity monitoring, and log forwarding were installed on every in-scope component and verified as active."
+ },
+ {
+  "q_id": "DA-07-015",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate that required audit trails and administrative logs were enabled before regulated configuration or data creation and that their storage, access, time source, and retention settings match the approved design."
+ },
+ {
+  "q_id": "DA-07-016",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how identity, authentication, time, certificate, and record-linking dependencies required for electronic signatures were installed and verified before functional signature testing."
+ },
+ {
+  "q_id": "DA-07-017",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate that every approved interface endpoint, queue, topic, connector, schema, route, certificate, service account, and error store was installed in the correct environment and version."
+ },
+ {
+  "q_id": "DA-07-018",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how the regulated user verified the correct cloud tenant, account, subscription, region, availability model, managed services, data locations, logging, backup features, and shared responsibilities for the qualified instance."
+ },
+ {
+  "q_id": "DA-07-019",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how the qualified SaaS version, feature set, tenant configuration, enabled modules, extensions, and provider release channel were identified at IQ and protected from unnoticed change before OQ."
+ },
+ {
+  "q_id": "DA-07-020",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how connected instruments, controllers, terminals, scanners, printers, sensors, or other devices were uniquely identified, correctly installed, calibrated or qualified where required, and mapped to the computerized system."
+ },
+ {
+  "q_id": "DA-07-021",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how current supplier operating instructions, maintenance requirements, compatibility information, installation records, and licenses were collected, reviewed for suitability, controlled, and handed to accountable owners."
+ },
+ {
+  "q_id": "DA-07-022",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Show how supplier installation scripts, checklists, certificates, and executed records were reviewed and independently confirmed by the regulated user before being accepted as IQ evidence."
+ },
+ {
+  "q_id": "DA-07-023",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate that the installed hardening baseline is effective across application, operating system, database, middleware, cloud, and device layers and that every privileged access path is known and controlled."
+ },
+ {
+  "q_id": "DA-07-024",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Explain how IQ deviations, unexpected results, missing prerequisites, and as-built discrepancies were investigated for root cause and cumulative impact rather than closed individually as documentation issues."
+ },
+ {
+  "q_id": "DA-07-025",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "question": "Demonstrate how responsible personnel concluded that the installed system and infrastructure were suitable to enter OQ, including treatment of open items, baseline lock, document approval, and confirmation that the object to be tested is unchanged."
+ },
+ {
+  "q_id": "DA-08-001",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how the OQ strategy converts documented GxP and data-integrity risks into test coverage for functions, limits, error handling, security, records, interfaces, and recovery without allowing low-risk labels to hide critical control interactions."
+ },
+ {
+  "q_id": "DA-08-002",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how tester competence, independence, environment access, and data preparation were controlled so OQ results provide an objective challenge rather than confirmation by the people who configured the function."
+ },
+ {
+  "q_id": "DA-08-003",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Walk me through how OQ proves that each critical functional control operates as specified, remains traceable to an approved requirement, and cannot be bypassed through alternate screens, APIs, imports, jobs, or administrator functions."
+ },
+ {
+  "q_id": "DA-08-004",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how upper and lower operating limits and credible worst-case combinations were derived from process knowledge and challenged in OQ, including behavior just inside and outside each accepted boundary."
+ },
+ {
+  "q_id": "DA-08-005",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how OQ challenges invalid data, missing prerequisites, unavailable dependencies, interrupted transactions, unauthorized sequence, and partial failure while proving no silent loss, corruption, or uncontrolled continuation."
+ },
+ {
+  "q_id": "DA-08-006",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ proves complete and accurate audit-trail capture for risk-relevant creation, modification, deletion, approval, invalidation, configuration, security, and administrative events."
+ },
+ {
+  "q_id": "DA-08-007",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate that authorized reviewers can retrieve, filter, sequence, interpret, annotate, and retain complete audit-trail evidence for a defined review period without relying on privileged database support."
+ },
+ {
+  "q_id": "DA-08-008",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ challenges the permitted and prohibited actions of each GxP role, including cross-role conflicts, privileged functions, inherited access, and direct data or configuration paths."
+ },
+ {
+  "q_id": "DA-08-009",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how provisioning, modification, suspension, transfer, termination, recertification, and emergency-access workflows operate across all integrated identity and application layers."
+ },
+ {
+  "q_id": "DA-08-010",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ challenges authentication, failed attempts, lockout, timeout, re-authentication, concurrent sessions, token revocation, password or MFA controls, and emergency access according to risk."
+ },
+ {
+  "q_id": "DA-08-011",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate through adverse testing that electronic signatures remain unique, authenticated, meaning-specific, time-stamped, permanently linked, and non-transferable when records are copied, changed, exported, restored, or viewed later."
+ },
+ {
+  "q_id": "DA-08-012",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ proves that human-readable and electronic copies are accurate, complete, intelligible, and suitable for inspection, including metadata, audit history, signatures, units, attachments, and context."
+ },
+ {
+  "q_id": "DA-08-013",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how OQ challenges the full lifecycle of critical data so records remain attributable, legible, contemporaneous, original or true copy, accurate, complete, consistent, enduring, and available."
+ },
+ {
+  "q_id": "DA-08-014",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ verifies the configured additional accuracy check for critical manually entered data, including independence, source comparison, correction, override, and audit behavior."
+ },
+ {
+  "q_id": "DA-08-015",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate under normal and adverse conditions that each critical interface preserves completeness, value, meaning, sequence, uniqueness, security, and end-to-end reconciliation."
+ },
+ {
+  "q_id": "DA-08-016",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ independently verifies critical reports, dashboards, calculations, filters, totals, rounding, units, time periods, exports, and drill-down against authoritative source data."
+ },
+ {
+  "q_id": "DA-08-017",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate through OQ that backup and restore functions recover a consistent, readable, accurate, and complete system state, including configuration, audit trails, signatures, attachments, keys, and interface state."
+ },
+ {
+  "q_id": "DA-08-018",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ challenges component failure and failover while proving transaction consistency, controlled user experience, alerting, recovery timing, and return to normal service without untraceable manual intervention."
+ },
+ {
+  "q_id": "DA-08-019",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how OQ verifies scheduled and background jobs for correct sequence, dependencies, calendars, retries, duplicate prevention, late or missed execution, output reconciliation, and operator intervention."
+ },
+ {
+  "q_id": "DA-08-020",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ proves that alerts detect loss of service, processing failure, data-integrity exceptions, capacity threats, security events, backup failures, and interface backlog with actionable context and accountable routing."
+ },
+ {
+  "q_id": "DA-08-021",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate that OQ challenges anticipated peak load, data volume, concurrency, latency, storage growth, and long-running operations while preserving control effectiveness and record accuracy."
+ },
+ {
+  "q_id": "DA-08-022",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Show how OQ challenges time zones, daylight-saving transitions, clock drift, leap dates, offline events, and out-of-order messages while preserving unambiguous chronology and business-rule timing."
+ },
+ {
+  "q_id": "DA-08-023",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate through OQ that migration and conversion routines preserve value and meaning across supported record types, metadata, relationships, signatures, audit histories, attachments, units, and character sets."
+ },
+ {
+  "q_id": "DA-08-024",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Explain how OQ failures are preserved, investigated, corrected, impact-assessed, regression-tested, and independently reviewed without replacing the original evidence or narrowing acceptance criteria after seeing results."
+ },
+ {
+  "q_id": "DA-08-025",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "question": "Demonstrate how the OQ report establishes that the configured system operates as designed throughout its anticipated range and is suitable for PQ/UAT, including open defects, deviations, residual risks, baseline identity, and procedural readiness."
+ },
+ {
+  "q_id": "DA-09-001",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Walk me through how PQ/UAT demonstrates that the complete configured system supports its approved intended use within the real GxP business process, not merely that individual functions passed OQ."
+ },
+ {
+  "q_id": "DA-09-002",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate that the PQ/UAT environment is sufficiently equivalent to the production environment for the tested process, data volume, interfaces, security, devices, timing, and operational controls, and justify every material difference."
+ },
+ {
+  "q_id": "DA-09-003",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how business and quality owners defined acceptance, selected representative scenarios, reviewed actual evidence, and accepted residual risk rather than delegating PQ/UAT judgment entirely to IT or the supplier."
+ },
+ {
+  "q_id": "DA-09-004",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate that PQ/UAT used representative business, reviewer, quality, support, and administrator roles to prove both permitted work and practical segregation of duties in complete workflows."
+ },
+ {
+  "q_id": "DA-09-005",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how PQ/UAT data represent the actual range of record types, statuses, ages, languages, units, attachments, corrections, signatures, exceptions, and volumes expected in routine use."
+ },
+ {
+  "q_id": "DA-09-006",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate that PQ/UAT covers the business handling of rejected, quarantined, corrected, cancelled, overdue, failed, and escalated records, including ownership and evidence through final disposition."
+ },
+ {
+  "q_id": "DA-09-007",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how users identify and preserve the authoritative GxP record as data move through capture, transformation, review, decision, reporting, correction, retention, and retrieval."
+ },
+ {
+  "q_id": "DA-09-008",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate under representative operating conditions that the system, connected equipment or instruments, users, and procedures work together reproducibly to produce the intended GxP process outcome."
+ },
+ {
+  "q_id": "DA-09-009",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how PQ/UAT proves the complete business transaction across upstream and downstream systems, including ownership of failures, reconciliation, reprocessing, late data, and user visibility."
+ },
+ {
+  "q_id": "DA-09-010",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate how representative users verified that critical reports, dashboards, calculations, alerts, and decision-support outputs are complete, understandable, timely, and correctly used in the intended GxP decision."
+ },
+ {
+  "q_id": "DA-09-011",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how the people who will perform routine audit-trail review used representative records and risk-based review criteria during PQ/UAT to detect and evaluate meaningful events."
+ },
+ {
+  "q_id": "DA-09-012",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate that users understand and correctly apply each electronic-signature meaning at the intended decision point and that the signed content, responsibility, and subsequent record state are unambiguous."
+ },
+ {
+  "q_id": "DA-09-013",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how representative users execute the approved manual or alternate process during system unavailability and reconcile all interim records back into the system without duplication, loss, or backdating."
+ },
+ {
+  "q_id": "DA-09-014",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate that representative business users can resume the intended process after restore and verify record completeness, workflow state, signatures, reports, interfaces, and pending work at the recovery point."
+ },
+ {
+  "q_id": "DA-09-015",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how PQ/UAT proves that draft operating, review, administration, exception, and continuity procedures accurately reflect the configured system and real user decisions."
+ },
+ {
+  "q_id": "DA-09-016",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate how PQ/UAT establishes that representative users and support personnel can competently perform assigned GxP tasks, recognize abnormal conditions, and obtain help without uncontrolled workarounds."
+ },
+ {
+  "q_id": "DA-09-017",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how data owners and users verified migrated records for completeness, accuracy, meaning, usability, searchability, signatures, audit history, attachments, and process continuity before accepting the target."
+ },
+ {
+  "q_id": "DA-09-018",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate under representative concurrent use and data volume that critical business workflows complete within justified time and produce reproducible records and decisions without degraded controls."
+ },
+ {
+  "q_id": "DA-09-019",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Explain how the number of users, runs, records, sites, roles, devices, variants, and operating conditions selected for PQ/UAT provides defensible assurance of effective and reproducible intended use."
+ },
+ {
+  "q_id": "DA-09-020",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how every open defect, deviation, limitation, and workaround at PQ/UAT completion was evaluated in the actual business process and accepted by accountable business and quality owners."
+ },
+ {
+  "q_id": "DA-09-021",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate how PQ/UAT evaluates whether users can unambiguously select the correct record, unit, status, workflow action, and signature while the system prevents or detects predictable use errors."
+ },
+ {
+  "q_id": "DA-09-022",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how the intended support model handled real PQ/UAT questions, incidents, access requests, interface failures, and data issues using production-like intake, triage, escalation, evidence, and closure."
+ },
+ {
+  "q_id": "DA-09-023",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate how business role owners verified that the proposed production access model is sufficient for work, restrictive for prohibited actions, maintainable through personnel changes, and compatible with independent review."
+ },
+ {
+  "q_id": "DA-09-024",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Show how trained users retrieve a complete, accurate, human-readable, and electronic inspection package for a representative regulated record within an operationally justified time."
+ },
+ {
+  "q_id": "DA-09-025",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "question": "Demonstrate how the final PQ/UAT report concludes, from reconciled evidence, that the system performs effectively and reproducibly for intended use and is ready for controlled release, with every limitation and condition visible."
+ },
+ {
+  "q_id": "DA-10-001",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Walk me through the integrated evidence used by accountable business, IT, validation, and quality leaders to decide that the exact production release was fit for controlled GxP use."
+ },
+ {
+  "q_id": "DA-10-002",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that final traceability reconciles approved intended use, requirements, risks, design/configuration, changes, tests, defects, procedures, and released components with no unexplained orphan or excluded GxP item."
+ },
+ {
+  "q_id": "DA-10-003",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how all open defects, deviations, limitations, temporary controls, and accepted risks were evaluated collectively for go-live and converted into visible operational obligations."
+ },
+ {
+  "q_id": "DA-10-004",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate how the production change and release record authorized the exact validated package, database/configuration changes, timing, implementers, verification, rollback criteria, and segregation of duties before execution."
+ },
+ {
+  "q_id": "DA-10-005",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how the final production configuration baseline was captured after deployment and independently reconciled to the tested/approved baseline before regulated use."
+ },
+ {
+  "q_id": "DA-10-006",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate how the cutover sequence, dependencies, timing, decision points, communications, verification, abort criteria, and rollback were rehearsed under realistic conditions and updated from lessons learned."
+ },
+ {
+  "q_id": "DA-10-007",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how final production migration proves complete and accurate transfer of values, meaning, metadata, relationships, signatures, audit history, attachments, and exceptions before source restrictions or retirement."
+ },
+ {
+  "q_id": "DA-10-008",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate how production users, administrators, service accounts, suppliers, and emergency roles were activated from approved sources at go-live and reconciled for least privilege and segregation of duties."
+ },
+ {
+  "q_id": "DA-10-009",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how production audit trails were confirmed active before GxP use and how trained reviewers, review scope, frequency, tools, escalation, and retained review evidence were operationally ready."
+ },
+ {
+  "q_id": "DA-10-010",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that production electronic-signature identities, credentials, meanings, record linkage, time, human-readable copies, policies, and user certification obligations were ready before any regulated signing."
+ },
+ {
+  "q_id": "DA-10-011",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how all procedures and work instructions required for operation, review, administration, access, change, incident, backup, continuity, retention, and inspection were approved, effective, accessible, and aligned to the released system."
+ },
+ {
+  "q_id": "DA-10-012",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that only personnel who completed role-specific training and any required competency assessment received production access before performing assigned GxP tasks."
+ },
+ {
+  "q_id": "DA-10-013",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how project responsibilities were transferred to named process, system, data, service, security, supplier, validation, and quality owners with accepted obligations, records, access, and decision authority."
+ },
+ {
+  "q_id": "DA-10-014",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that production monitoring and alerts cover critical service, transaction, data-integrity, security, capacity, backup, interface, and job conditions and reach staffed, competent responders from the first regulated use."
+ },
+ {
+  "q_id": "DA-10-015",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how production backup enrollment, first successful jobs, restore evidence, recovery runbook, keys, alternate infrastructure, recovery objectives, and responder readiness were confirmed before reliance on the system."
+ },
+ {
+  "q_id": "DA-10-016",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that documented manual or alternate arrangements can be activated within the justified business tolerance from the first day of operation and preserve attributable, complete, and reconcilable records."
+ },
+ {
+  "q_id": "DA-10-017",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how hypercare distinguishes service issues, GxP incidents, data-integrity events, validation deviations, and change requests while preserving evidence and escalating quality impact without delay."
+ },
+ {
+  "q_id": "DA-10-018",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that supplier and internal-provider support obligations, service levels, named contacts, escalation, remote access, evidence availability, patch/change notification, continuity, and exit responsibilities were operational at handover."
+ },
+ {
+  "q_id": "DA-10-019",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how the production release was assessed for known vulnerabilities, unsupported components, hardening gaps, exposed paths, and security exceptions, with explicit GxP and data-integrity impact before go-live."
+ },
+ {
+  "q_id": "DA-10-020",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that all production endpoints, credentials, certificates, routes, queues, schedules, calendars, dependencies, alerts, and reconciliations were activated and verified without creating uncontrolled test or duplicate records."
+ },
+ {
+  "q_id": "DA-10-021",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how retention, legal/quality hold, archive, deletion, readability, integrity, and retrieval controls were configured and operational for each regulated record type before production records accumulated."
+ },
+ {
+  "q_id": "DA-10-022",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate that the GxP system inventory, system description, physical/logical arrangements, data flows, interfaces, prerequisites, security measures, owners, and validation status were updated to the production as-built state at handover."
+ },
+ {
+  "q_id": "DA-10-023",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Show how the validation summary report objectively reconciles planned and executed lifecycle evidence, deviations, changes, traceability, acceptance criteria, residual risk, and the precise released version before formal authorization for GxP use."
+ },
+ {
+  "q_id": "DA-10-024",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Where the system supports batch certification, product disposition, laboratory release, or another regulated release decision, demonstrate that only authorized roles can act and that the decision, identity, time, meaning, source evidence, and record status are complete at go-live."
+ },
+ {
+  "q_id": "DA-10-025",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "question": "Demonstrate how handover established the first periodic evaluation, access and audit-trail reviews, backup/restore checks, supplier reviews, vulnerability/patch governance, metrics, open-risk follow-up, and hypercare exit based on system risk."
+ },
+ {
+  "q_id": "DA-11-001",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Reconstruct the most recent periodic evaluation from its source populations and show how the conclusion that the system remains fit for intended use, in a validated state, and compliant was reached."
+ },
+ {
+  "q_id": "DA-11-002",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate that the approved system inventory entry and system description represent the live physical and logical arrangement, GxP functions, interfaces, data flows, prerequisites, hosting locations, and security boundaries as of today."
+ },
+ {
+  "q_id": "DA-11-003",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Using the complete current privileged-access population, demonstrate how each administrative entitlement is justified by job responsibility, independently approved, technically constrained, monitored, and periodically recertified."
+ },
+ {
+  "q_id": "DA-11-004",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Trace the joiner, mover, and leaver control from the authoritative HR event through identity-provider and application entitlements to prove that access is granted, changed, and removed within approved risk-based time limits."
+ },
+ {
+  "q_id": "DA-11-005",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate how every non-human identity is inventoried, uniquely purposed, least-privileged, credential-managed, monitored, and assigned to a current accountable owner throughout operation."
+ },
+ {
+  "q_id": "DA-11-006",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Using an auditor-selected GxP record, demonstrate how audit-trail review identifies, evaluates, and resolves every material creation, modification, deletion, reprocessing, status change, and security event relevant to the quality decision."
+ },
+ {
+  "q_id": "DA-11-007",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Select a completed electronic signature and prove from the live record and underlying controls that the signer identity, date and time, signature meaning, credential use, and permanent linkage to the exact signed record version remain unambiguous and non-transferable."
+ },
+ {
+  "q_id": "DA-11-008",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Retrieve an auditor-selected record from the oldest active retention cohort and demonstrate that its content, context, critical metadata, audit trail, and associated signatures remain accurate, readable, intelligible, and available for review without relying on undocumented expert intervention."
+ },
+ {
+  "q_id": "DA-11-009",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Reconcile the approved inventory of GxP data, metadata, audit trails, configurations, encryption material, and supporting components to the live backup job definitions and demonstrate that the backup scope remains complete after system changes."
+ },
+ {
+  "q_id": "DA-11-010",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Reperform the evidence chain for the last recovery exercise and show that the recovered service met approved recovery time and recovery point objectives while preserving record completeness, data meaning, audit trails, interfaces, security, and business-process usability."
+ },
+ {
+  "q_id": "DA-11-011",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Trace a complete GxP data transfer from authoritative source through middleware to target and downstream report, demonstrating how completeness, accuracy, sequence, attribution, timestamps, and processing status are reconciled in routine operation."
+ },
+ {
+  "q_id": "DA-11-012",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Starting from the full alert population, demonstrate how quality-relevant alarms are rationalized, prioritized, routed, acknowledged, investigated, and closed within defined limits, including periods when the primary responder is unavailable."
+ },
+ {
+  "q_id": "DA-11-013",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Show how the periodic evaluation derives and challenges incident, deviation, problem, and service-request trends from complete source populations rather than relying on ticket labels or manually selected quality events."
+ },
+ {
+  "q_id": "DA-11-014",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "For the highest-risk recurring problem, demonstrate that root cause and CAPA effectiveness were established with objective evidence and that recurrence was assessed across related systems, sites, records, and supplier services."
+ },
+ {
+  "q_id": "DA-11-015",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Using the complete change and release history since the previous evaluation, demonstrate how cumulative effects on intended use, data integrity, security, performance, interfaces, supplier dependencies, and validation status were assessed."
+ },
+ {
+  "q_id": "DA-11-016",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Compare the live production configuration to the approved baseline and demonstrate how authorized differences, temporary settings, feature flags, emergency changes, and supplier-managed parameters are detected and governed."
+ },
+ {
+  "q_id": "DA-11-017",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Trace the vulnerability population for the system to patch, mitigation, acceptance, or retirement decisions and demonstrate how product quality, data integrity, availability, exploitability, supplier constraints, and validation impact determine remediation priority."
+ },
+ {
+  "q_id": "DA-11-018",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate that security logging covers the events capable of affecting regulated data or validated configuration and that detections remain effective when logs are delayed, malformed, tampered with, or unavailable."
+ },
+ {
+  "q_id": "DA-11-019",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "For one critical provider-managed control, demonstrate how the regulated company obtains sufficient ongoing assurance from contract obligations, service evidence, performance data, exceptions, and independent verification rather than relying solely on a certification."
+ },
+ {
+  "q_id": "DA-11-020",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate how capacity, response time, job completion, error rate, queue depth, storage growth, and availability trends are converted into risk-based actions before degraded service affects data completeness or regulated decisions."
+ },
+ {
+  "q_id": "DA-11-021",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "For each role capable of creating, reviewing, administering, changing, recovering, or investigating GxP records, demonstrate that current procedures and task-specific competence were effective before the person performed unsupervised work."
+ },
+ {
+  "q_id": "DA-11-022",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate through the most recent exercise or outage that the manual or alternative process can be activated within the approved time and produces complete, attributable, controlled records that are accurately reconciled when the system returns."
+ },
+ {
+  "q_id": "DA-11-023",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Produce an accurate and complete human-readable copy and electronic copy of an auditor-selected record and demonstrate that both preserve the content, context, metadata, audit trail, signatures, units, calculations, and relationships needed for independent review."
+ },
+ {
+  "q_id": "DA-11-024",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Demonstrate how hardware, operating-system, database, application, integration, certificate, and supplier-support obsolescence is identified early and converted into funded, time-bound risk controls or replacement decisions."
+ },
+ {
+  "q_id": "DA-11-025",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "question": "Show how accountable business, system, and Quality owners converted the periodic-review evidence into a defensible continued-use, restricted-use, remediation, replacement, or retirement decision with explicit residual risks and patient, product, data, and availability consequences."
+ },
+ {
+  "q_id": "DA-12-001",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Build the complete population of production changes for the review period from deployment, repository, infrastructure, database, cloud, and supplier sources and reconcile it to approved change records."
+ },
+ {
+  "q_id": "DA-12-002",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "For an auditor-selected change, demonstrate how the classification was derived from affected intended uses, critical data, records, interfaces, security controls, infrastructure dependencies, and regulated decisions rather than from the requestor's label."
+ },
+ {
+  "q_id": "DA-12-003",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Reperform the risk assessment for the highest-risk recent change and show how foreseeable failure modes, affected decisions, uncertainty, detectability, and existing control performance determined assurance and rollback activities."
+ },
+ {
+  "q_id": "DA-12-004",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Trace one changed GxP function from the approved business need through revised requirement, risk, design or configuration, test evidence, defect resolution, release, and updated lifecycle documentation."
+ },
+ {
+  "q_id": "DA-12-005",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate that request, technical implementation, verification, production deployment, and Quality or business approval for a change were performed by appropriately independent and authorized roles."
+ },
+ {
+  "q_id": "DA-12-006",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Show how the pre-change and post-change approved baselines identify every version and critical configuration needed to reproduce, support, recover, and audit the released system."
+ },
+ {
+  "q_id": "DA-12-007",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Reconcile the approved change to the exact repository commit, peer review, automated build, dependency set, signed or hashed artifact, deployment execution, and live production version."
+ },
+ {
+  "q_id": "DA-12-008",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate how regression scope covered not only the changed function but every critical upstream, downstream, shared, and negative behavior whose control effectiveness could be altered by the change."
+ },
+ {
+  "q_id": "DA-12-009",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Challenge the changed control with invalid, missing, duplicate, out-of-order, oversized, unauthorized, and boundary data and demonstrate that the system rejects, contains, or clearly flags each condition without corrupting the retained record."
+ },
+ {
+  "q_id": "DA-12-010",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Prove that test evidence was generated in the approved environment against the approved build and data set by authorized testers, and that results, screenshots, logs, timestamps, deviations, and reruns form a complete contemporaneous record."
+ },
+ {
+  "q_id": "DA-12-011",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "For the most severe open or deferred defect at release, demonstrate how actual and potential effects on product, patient, data, security, and operations were bounded and how the release decision controlled residual risk."
+ },
+ {
+  "q_id": "DA-12-012",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Trace a schema or data-transformation change from approved mapping and rules through controlled script, peer review, test execution, reconciliation, rejected-record handling, deployment, and post-change data verification."
+ },
+ {
+  "q_id": "DA-12-013",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate end-to-end assurance for an interface change across source, transport, middleware, target, monitoring, reconciliation, retries, and downstream use, including compatibility during transition."
+ },
+ {
+  "q_id": "DA-12-014",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "For a role or security change, demonstrate the before-and-after effective permissions and prove that intended least privilege, segregation, authentication, logging, and emergency access outcomes were achieved in production."
+ },
+ {
+  "q_id": "DA-12-015",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate that the change preserved complete audit-trail capture, reason-for-change behavior, reviewer visibility, signature manifestation, signer authentication, and permanent signature-to-record linkage."
+ },
+ {
+  "q_id": "DA-12-016",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Trace a security patch from authoritative advisory and applicability assessment through risk priority, test scope, approval, deployment, version verification, vulnerability rescan, and validated-state conclusion."
+ },
+ {
+  "q_id": "DA-12-017",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "For the latest provider-initiated release, demonstrate how advance notice, release content, shared-responsibility changes, GxP impact, tenant configuration, assurance evidence, regression, deployment timing, and acceptance were controlled."
+ },
+ {
+  "q_id": "DA-12-018",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Reconstruct the most recent high-risk emergency change minute by minute from trigger through authorization, implementation, verification, release, retrospective review, re-baselining, and closure."
+ },
+ {
+  "q_id": "DA-12-019",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate how direct edits to production code, configuration, database objects, master data, reports, and infrastructure are prevented where feasible and detected promptly when technically possible."
+ },
+ {
+  "q_id": "DA-12-020",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate that rollback criteria, decision authority, technical backout steps, data reconciliation, communication, and maximum decision time were defined and realistically tested before implementation."
+ },
+ {
+  "q_id": "DA-12-021",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Show how the change updated backup scope, retention, restore sequence, recovery automation, encryption or key dependencies, and recovery documentation, and prove the revised configuration can be restored."
+ },
+ {
+  "q_id": "DA-12-022",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate that every affected SOP, work instruction, form, report definition, master-data rule, support runbook, training assignment, and role profile became effective in the correct sequence relative to deployment."
+ },
+ {
+  "q_id": "DA-12-023",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Using production evidence, demonstrate that the change achieved its intended outcome without introducing unexpected effects during the defined observation period."
+ },
+ {
+  "q_id": "DA-12-024",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Aggregate all changes since the last comprehensive validation or periodic evaluation and demonstrate that the system's current intended use, risk controls, architecture, data flows, and assurance evidence remain coherent as a whole."
+ },
+ {
+  "q_id": "DA-12-025",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "question": "Demonstrate that change closure represents a complete validated-state decision supported by final implementation, test, deviation, configuration, documentation, training, backup, monitoring, and post-implementation evidence rather than administrative task completion."
+ },
+ {
+  "q_id": "DA-13-001",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Construct the complete population of potential system and data events from monitoring, service desk, quality, audit-trail exceptions, security, supplier, user complaints, and manual correction sources and reconcile it to formally logged incidents and deviations."
+ },
+ {
+  "q_id": "DA-13-002",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Reperform the initial classification of the most consequential recent event using the system's intended use, critical data, process stage, affected records, control failures, and potential product or patient consequences."
+ },
+ {
+  "q_id": "DA-13-003",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Reconstruct the interval from first abnormal condition to detection, acknowledgement, technical response, business notification, and Quality escalation using native timestamps and explain every period in which the event remained active or unassessed."
+ },
+ {
+  "q_id": "DA-13-004",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate how the incident was contained without destroying or altering the records, logs, volatile evidence, configurations, and transaction context needed to establish GxP impact and root cause."
+ },
+ {
+  "q_id": "DA-13-005",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Starting from the full exposure window and affected functions, identify every GxP record and downstream decision potentially affected and demonstrate how completeness, accuracy, attribution, chronology, and use were verified."
+ },
+ {
+  "q_id": "DA-13-006",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "For an audit-trail gap or anomalous event, reconstruct the underlying user, record, configuration, system, and database activity and demonstrate whether any GxP action occurred outside the visible audit history."
+ },
+ {
+  "q_id": "DA-13-007",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "For a security incident or credible compromise, demonstrate how confidentiality, integrity, availability, authenticity, validated configuration, and regulated-record impact were assessed beyond the cybersecurity containment decision."
+ },
+ {
+  "q_id": "DA-13-008",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Trace the incident's affected transactions from source through transport, middleware, target, downstream processing, reconciliation, and any replay to prove that no record was silently lost, duplicated, reordered, truncated, or transformed."
+ },
+ {
+  "q_id": "DA-13-009",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "For the most significant backup or restore failure, demonstrate the exact data and configuration exposure, earliest unrecoverable point, detection method, compensating protection, recovery path, and verified integrity of the restored state."
+ },
+ {
+  "q_id": "DA-13-010",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Reconstruct how continuity arrangements were activated, operated, and exited during the outage and show that manual or alternate records, decisions, backlog, and later system reconciliation remained controlled."
+ },
+ {
+  "q_id": "DA-13-011",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "For the latest material supplier or cloud incident, demonstrate how contractual notification, joint triage, evidence access, GxP impact, root cause, subprocessor involvement, corrective action, and service restoration were independently overseen by the regulated company."
+ },
+ {
+  "q_id": "DA-13-012",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate how the investigation distinguished root cause, contributing causes, detection-control failure, and organizational or process conditions using evidence that can reproduce and explain the observed event."
+ },
+ {
+  "q_id": "DA-13-013",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Show how the investigation searched for recurrence and analogous failure across alternate error codes, ticket categories, sites, versions, interfaces, manual corrections, supplier services, and near misses."
+ },
+ {
+  "q_id": "DA-13-014",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "For an event attributed to human error, demonstrate how system design, workload, procedure clarity, training effectiveness, access, interface usability, supervision, incentives, and error-detection controls were evaluated as causal or contributing conditions."
+ },
+ {
+  "q_id": "DA-13-015",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Trace the incident backward through all changes and releases within the credible causal window and demonstrate how the implemented state differed from the tested and approved state."
+ },
+ {
+  "q_id": "DA-13-016",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Establish a defensible common timeline across application, database, operating system, identity, interface, cloud, monitoring, supplier, and quality records, accounting for time zones, daylight-saving changes, clock drift, latency, and log buffering."
+ },
+ {
+  "q_id": "DA-13-017",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate that each interim workaround or compensating control is specific to the identified failure mode, effective for the full affected population, sustainable across shifts and sites, monitored, and time-bound until permanent correction."
+ },
+ {
+  "q_id": "DA-13-018",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Trace one corrected or recovered record from original state through authorization, preserved source evidence, correction or replay method, independent verification, audit trail, downstream reconciliation, and final quality disposition."
+ },
+ {
+  "q_id": "DA-13-019",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate bidirectional linkage among the technical incident, quality deviation, affected records or batches, investigation, changes, CAPA, and disposition so that no part of the evidence or decision can be closed independently."
+ },
+ {
+  "q_id": "DA-13-020",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Map each confirmed root and contributing cause, detection failure, and scope weakness to a corrective or preventive action and demonstrate that the action changes the causal mechanism rather than only documenting or retraining around it."
+ },
+ {
+  "q_id": "DA-13-021",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate that CAPA effectiveness was measured over a population and period capable of revealing recurrence, and that both the corrected control and the detection control operated successfully under representative and adverse conditions."
+ },
+ {
+  "q_id": "DA-13-022",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "When a systemic weakness is discovered, demonstrate how the retrospective review start date, systems, sites, records, users, suppliers, and released products were derived from the earliest credible occurrence rather than the inspection or discovery date."
+ },
+ {
+  "q_id": "DA-13-023",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Trace the decision on external notification from established facts and applicable jurisdictional triggers through legal, regulatory, Quality, privacy, and customer assessment, including the clock start and documented rationale."
+ },
+ {
+  "q_id": "DA-13-024",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Demonstrate that closure reflects resolved containment, bounded impact, supported root cause, implemented or governed CAPA, reconciled records, restored validated state, and explicitly accepted residual risk."
+ },
+ {
+  "q_id": "DA-13-025",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "question": "Show how management review combines incidents, deviations, near misses, audit-trail exceptions, security events, recovery failures, user workarounds, supplier issues, changes, and CAPA effectiveness to identify systemic control weaknesses and preventive priorities."
+ },
+ {
+  "q_id": "DA-14-001",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Reconstruct the approved retirement decision and demonstrate how business, Quality, records, security, privacy, legal, supplier, continuity, and technical owners agreed the system boundary, timing, successor capability, retained obligations, and exit criteria."
+ },
+ {
+  "q_id": "DA-14-002",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Discover and reconcile every upstream and downstream interface, scheduled job, report, device, directory group, service account, database, file share, integration token, monitoring rule, backup, and business process that depends on the retiring system."
+ },
+ {
+  "q_id": "DA-14-003",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Build the complete record inventory for the retiring system and show how each record class, raw-data element, critical metadata, audit trail, signature, attachment, report, configuration record, and hybrid-paper relationship is assigned to retention, migration, archival, or justified destruction."
+ },
+ {
+  "q_id": "DA-14-004",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "For each record class, demonstrate how the retention start event, duration, jurisdiction, product or study status, legal hold, investigation, complaint, contract, and privacy requirement were translated into an approved disposition rule."
+ },
+ {
+  "q_id": "DA-14-005",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Trace archive requirements for accessibility, readability, integrity, authenticity, security, metadata, audit trails, signatures, search, copies, retention, and destruction into the approved archive design and operating controls."
+ },
+ {
+  "q_id": "DA-14-006",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how migration scope, sequencing, freeze periods, coexistence, transformation, reconciliation, exception handling, rollback, source preservation, and final cutover were derived from data and process risk."
+ },
+ {
+  "q_id": "DA-14-007",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Trace every transformation of critical data and metadata from source representation to target and demonstrate that value, precision, units, code meaning, relationships, null semantics, status, chronology, and attribution remain unchanged or are explicitly approved."
+ },
+ {
+  "q_id": "DA-14-008",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Reconcile the full source population to extracted, transformed, loaded, rejected, quarantined, duplicated, and excluded populations using immutable cut-off criteria and independent control totals."
+ },
+ {
+  "q_id": "DA-14-009",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "For an auditor-selected critical record, trace the complete source-to-target chain and prove preservation of content, context, metadata, audit trail, signatures, attachments, calculations, relationships, and inspection copies."
+ },
+ {
+  "q_id": "DA-14-010",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how every migration exception is uniquely identified, preserved, investigated, risk-assessed, corrected under control, independently verified, reprocessed once, and included in final reconciliation."
+ },
+ {
+  "q_id": "DA-14-011",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate that the migration or archive preserves every required audit event, prior value, new value, actor, timestamp, action, reason, record linkage, and review status in an intelligible and reviewable form."
+ },
+ {
+  "q_id": "DA-14-012",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Select a migrated or archived signed record and prove that signer identity, date and time, signature meaning, signed record version, and permanent linkage remain intact and cannot be reassigned or detached."
+ },
+ {
+  "q_id": "DA-14-013",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate preservation of time-zone and clock context, attachments, images, file properties, external references, annotations, units, display rules, and paper-electronic relationships required to interpret each retained record."
+ },
+ {
+  "q_id": "DA-14-014",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Reconstruct the cutover and prove which system was authoritative for each process, site, record class, and time interval, including how late transactions, backlogs, manual records, and interface queues were controlled."
+ },
+ {
+  "q_id": "DA-14-015",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Trace archive or migration risks and requirements to test scenarios, raw evidence, deviations, reconciliation, acceptance, and release, including boundary, negative, failure, recovery, and long-term retrieval cases."
+ },
+ {
+  "q_id": "DA-14-016",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Retrieve an auditor-selected archived record without production-system access and demonstrate timely search, access, readability, integrity, intelligibility, audit history, signature linkage, and accurate human-readable and electronic copies."
+ },
+ {
+  "q_id": "DA-14-017",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how periodic checks prove archive accessibility, readability, integrity, security, backup, recovery, capacity, and viewer compatibility and how results trigger controlled technology refresh before records become at risk."
+ },
+ {
+  "q_id": "DA-14-018",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how post-retirement access is limited to current authorized roles, remains attributable, is periodically reviewed, and prevents alteration, bulk extraction, or administrator circumvention of retained GxP records."
+ },
+ {
+  "q_id": "DA-14-019",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how encryption keys, signing certificates, trust chains, secrets, tokens, algorithms, and recovery material needed to access or verify retained records remain available, protected, attributable, and replaceable throughout retention."
+ },
+ {
+  "q_id": "DA-14-020",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate how personal data is minimized and deleted or anonymized when no longer lawfully required while regulated records, legal holds, audit trails, and evidentiary integrity remain protected."
+ },
+ {
+  "q_id": "DA-14-021",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Account for every backup, replica, snapshot, export, staging area, test copy, disaster-recovery environment, and removable medium and demonstrate its approved retention, access restriction, migration, expiry, or destruction."
+ },
+ {
+  "q_id": "DA-14-022",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate the controlled sequence used to stop interfaces, jobs, APIs, file transfers, notifications, monitoring, user accounts, service accounts, certificates, tokens, remote support, and network routes without losing late data or leaving unauthorized pathways."
+ },
+ {
+  "q_id": "DA-14-023",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Trace the supplier exit from contract obligations through complete data and metadata return, format usability, transition support, subprocessor coverage, access revocation, residual-copy destruction, evidence availability, and final service termination."
+ },
+ {
+  "q_id": "DA-14-024",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate that every retired asset and storage location was uniquely identified, removed from service and monitoring inventories at the correct time, sanitized or destroyed with verified results, and did not eliminate required archive or inspection access."
+ },
+ {
+  "q_id": "DA-14-025",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "question": "Demonstrate that final decommissioning approval was based on complete migration or archive acceptance, reconciled records, resolved exceptions, terminated dependencies and access, governed residual copies, preserved inspection capability, updated inventories, and explicit long-term ownership."
+ }
+]

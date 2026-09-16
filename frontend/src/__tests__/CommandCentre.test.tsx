@@ -113,7 +113,10 @@ afterEach(() => {
 })
 
 describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
-  it('computes a 75% dial and card counts of 1 from one failing check per system', async () => {
+  it('computes a 90% dial and card counts of 1 from one failing check per system', async () => {
+    // 10 deterministic checks per system (was 4): the assurance-cards route
+    // now surfaces the A3-A6 rules alongside A2's, matching the ten rules in
+    // policies/gxp_rules.rego. Three systems x 10 = 30 checks, 3 failing -> 90%.
     mockFetchAssuranceCards.mockImplementation((systemId: string) => {
       if (systemId === 'GXP-MFG-DEMO-01') {
         return Promise.resolve({
@@ -152,14 +155,14 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
     render(<CommandCentre />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '75')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '90')
     })
     const cards = screen.getAllByTestId('health-mini-card')
     expect(cards[0].textContent).toContain('1 open')
     expect(cards[1].textContent).toContain('1 open')
   })
 
-  it('narrows the dial to a single system 4-check denominator when selected', async () => {
+  it('narrows the dial to a single system 10-check denominator when selected', async () => {
     mockFetchAssuranceCards.mockImplementation((systemId: string) => {
       if (systemId === 'GXP-MFG-DEMO-01') {
         return Promise.resolve({ system_id: systemId, cards: [fixtureCard({})] })
@@ -169,7 +172,7 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
 
     render(<CommandCentre />)
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '88')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '97')
     })
 
     fireEvent.change(screen.getByLabelText('System'), {
@@ -177,7 +180,7 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '75')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '90')
     })
   })
 })

@@ -68,6 +68,7 @@ from starlette.responses import StreamingResponse
 
 from app.agents.a2_compliance import A2_CHECKS, build_finding, narrate_gap
 from app.agents.c1_verifier import verify_finding
+from app.agents.minimal_specialists import run_specialist
 from app.db import acquire_pool_or_none
 from app.routes.evidence_graph import _system_exists
 from app.schemas import AssuranceCard, AssuranceCardsResponse, DeterministicCheck
@@ -83,6 +84,73 @@ router = APIRouter()
 # it exists to protect the asyncpg pool (max_size=5, app/db.py), not to
 # mirror A2_CHECKS' length for its own sake.
 _MAX_CONCURRENT_CHECKS = 4
+
+# ---------------------------------------------------------------------------
+# Specialist (A3-A6) cards
+# ---------------------------------------------------------------------------
+#
+# This route used to run `A2_CHECKS` alone, so only 4 of the 10 Rego rules
+# could ever reach the Command Centre -- the other six (risk, change,
+# incident, and the two access rules) were evaluated by A3-A6 on every
+# Copilot query, verified by C1, and then never surfaced on the page that
+# exists to summarise compliance posture. Widened here so the assurance
+# grid reflects the same ten rules `policies/gxp_rules.rego` defines.
+#
+# Nothing about how a card is produced changes: the specialists run their
+# own deterministic SQL checks, C1 verifies every finding against real
+# Postgres and real OPA, and `_assemble_card` reads C1's grade. The only
+# new thing is the `check_name`, which A3-A6 findings do not carry --
+# `run_specialist` returns findings, not check results (see its own
+# docstring) -- so the map below supplies a stable, human-readable name
+# per rule, matching the naming A2's own check functions already use.
+_SPECIALIST_CHECK_NAMES: Dict[str, str] = {
+    "ICH-Q9-RSK-001": "verify_risk_review_current",
+    "ANNEX11-S10-CHG-001": "verify_change_actions_closed",
+    "ANNEX11-S13-INC-001": "verify_p1_incident_rca_complete",
+    "ANNEX11-S12-ACC-001": "verify_access_review_current",
+    "ANNEX11-S12-ACC-002": "verify_no_orphaned_privileged_accounts",
+}
+
+# A3 risk, A4 change, A5 incident, A6 access (A6 emits two rules).
+_SPECIALIST_AGENT_IDS = ("A3", "A4", "A5", "A6")
+
+
+async def _cards_for_specialist(
+    pool, system_id: str, agent_id: str, semaphore: asyncio.Semaphore
+) -> list[AssuranceCard]:
+    """Run one specialist and turn each gap it reports into a verified card.
+
+    `run_specialist` never raises -- it degrades to a failure-behavior
+    finding when Postgres is unreachable and returns `{"findings": []}`
+    when its checks find nothing -- so a passing specialist contributes no
+    cards, exactly as a passing `A2_CHECKS` entry contributes none.
+
+    A finding whose `rule_id` has no entry in `_SPECIALIST_CHECK_NAMES` is
+    dropped rather than shown under a guessed name: this route's whole
+    contract is that a card names the real deterministic check behind it,
+    and a made-up name would break that more quietly than a missing card.
+    """
+    async with semaphore:
+        try:
+            result = await run_specialist(agent_id, {"system_id": system_id})
+        except Exception:  # noqa: BLE001 - a specialist must never 500 this page
+            logger.warning("%s failed while building assurance cards.", agent_id, exc_info=True)
+            return []
+
+        cards: list[AssuranceCard] = []
+        for finding in result.get("findings", []):
+            rule_id = next(iter(finding.get("regulatory_citations") or []), None)
+            check_name = _SPECIALIST_CHECK_NAMES.get(rule_id)
+            if check_name is None:
+                logger.debug(
+                    "Dropping %s finding with unmapped rule_id %r from assurance cards.",
+                    agent_id, rule_id,
+                )
+                continue
+            verification_result = await verify_finding(pool, finding)
+            check_result = {"check": check_name, "rule_id": rule_id, "passed": False}
+            cards.append(_assemble_card(check_result, finding, verification_result))
+        return cards
 
 
 def _assemble_card(
@@ -171,10 +239,22 @@ async def get_assurance_cards(system_id: str):
         raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
 
     semaphore = asyncio.Semaphore(_MAX_CONCURRENT_CHECKS)
-    results = await asyncio.gather(
-        *(_card_for_check(pool, system_id, check_fn, semaphore) for check_fn in A2_CHECKS)
+    a2_results, specialist_results = await asyncio.gather(
+        asyncio.gather(
+            *(_card_for_check(pool, system_id, check_fn, semaphore) for check_fn in A2_CHECKS)
+        ),
+        asyncio.gather(
+            *(
+                _cards_for_specialist(pool, system_id, agent_id, semaphore)
+                for agent_id in _SPECIALIST_AGENT_IDS
+            )
+        ),
     )
-    cards = [card for card in results if card is not None]
+    # A2 first, then the specialists, so the four checks the Command Centre
+    # has always shown keep their existing order and position on the page.
+    cards = [card for card in a2_results if card is not None]
+    for specialist_cards in specialist_results:
+        cards.extend(specialist_cards)
 
     return AssuranceCardsResponse(system_id=system_id, cards=cards)
 
@@ -194,19 +274,35 @@ async def _stream_cards(pool, system_id: str) -> AsyncGenerator[bytes, None]:
     retroactively turn a mid-stream failure into an honest HTTP status.
     """
     semaphore = asyncio.Semaphore(_MAX_CONCURRENT_CHECKS)
+    # Both card sources, fanned out together. The specialist tasks must be
+    # here and not only on the blocking route: the two routes are asserted
+    # to agree on every deterministic field
+    # (`test_integration_blocking_and_streaming_routes_agree_on_every_deterministic_field`),
+    # and the Command Centre reads the streaming one -- widening only the
+    # blocking route would have left the page showing the old four checks
+    # while the API reported ten.
     tasks = [
         asyncio.ensure_future(_card_for_check(pool, system_id, check_fn, semaphore))
         for check_fn in A2_CHECKS
+    ] + [
+        asyncio.ensure_future(_cards_for_specialist(pool, system_id, agent_id, semaphore))
+        for agent_id in _SPECIALIST_AGENT_IDS
     ]
     count = 0
     try:
         for coro in asyncio.as_completed(tasks):
-            card = await coro
-            if card is None:
-                continue
-            count += 1
-            frame = {"event": "card", "card": card.model_dump(mode="json")}
-            yield f"data: {json.dumps(frame)}\n\n".encode("utf-8")
+            result = await coro
+            # `_card_for_check` yields one card or None; `_cards_for_specialist`
+            # yields a list (A6 alone can report two rules).
+            cards = (
+                [result] if isinstance(result, AssuranceCard)
+                else list(result) if result
+                else []
+            )
+            for card in cards:
+                count += 1
+                frame = {"event": "card", "card": card.model_dump(mode="json")}
+                yield f"data: {json.dumps(frame)}\n\n".encode("utf-8")
     except Exception as exc:
         logger.warning(
             "assurance-cards stream failed for system_id=%s: %s", system_id, exc, exc_info=True

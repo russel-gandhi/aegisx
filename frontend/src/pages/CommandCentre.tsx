@@ -194,9 +194,23 @@ export default function CommandCentre() {
   const allSystemCallsSettled = !assuranceLoading && !signalsLoading
   const everyCallFailed = allSystemCallsSettled && assuranceAllRejected && signalsAllRejected
 
-  const totalChecks = 4 * assuranceFulfilled.length
+  // Ten deterministic checks per system -- the same ten rules
+  // `policies/gxp_rules.rego` defines: four from A2 (URS approved, periodic
+  // evaluation current, test traceability, no stale documents) plus six the
+  // specialists own (risk review, change actions closed, P1 incident RCA,
+  // access review current, no orphaned privileged accounts, backup restore).
+  //
+  // Was hardcoded to 4 while the assurance-cards route ran A2 alone. That
+  // route now also surfaces the A3-A6 rules, so a denominator of 4 would
+  // report more failing cards than total checks and drive the dial
+  // negative. Keep this in step with `_SPECIALIST_CHECK_NAMES` in
+  // backend/app/routes/findings.py.
+  const CHECKS_PER_SYSTEM = 10
+  const totalChecks = CHECKS_PER_SYSTEM * assuranceFulfilled.length
   const failingCards = assuranceFulfilled.flatMap((e) => e.assuranceData?.cards ?? [])
-  const passed = totalChecks - failingCards.length
+  // Clamped at zero: a card whose rule is not in the per-system count would
+  // otherwise show as a negative pass count rather than an obvious bug.
+  const passed = Math.max(0, totalChecks - failingCards.length)
 
   const card1Count = failingCards.filter((c) =>
     CARD1_CHECK_NAMES.has(c.deterministic_check.check_name),

@@ -40,6 +40,7 @@ import asyncio
 import json
 
 import app.opa_client as opa_client_module
+import app.routes.findings as findings_route
 from app import db
 from app.agents.c1_verifier import RULE_EVIDENCE_TABLES
 from app.db import get_pool
@@ -217,7 +218,9 @@ def test_edge_opa_unreachable_all_cards_grade_insufficient_evidence(client, monk
     resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
     assert resp.status_code == 200
     body = resp.json()
-    assert len(body["cards"]) == 2
+    # Count-agnostic since the route widened past A2's four checks: what
+    # this test guards is the GRADE, not how many cards exist.
+    assert len(body["cards"]) > 0
     assert all(c["confidence"] == "INSUFFICIENT_EVIDENCE" for c in body["cards"])
     assert all(c["deterministic_check"]["opa_corroborated"] is False for c in body["cards"])
 
@@ -227,20 +230,52 @@ def test_edge_opa_unreachable_all_cards_grade_insufficient_evidence(client, monk
 # ---------------------------------------------------------------------------
 
 
-def test_integration_gxp_demo_returns_exactly_two_cards(client):
+def test_integration_gxp_demo_returns_a_card_per_failing_rule(client):
+    """2026-09-09: was `..._returns_exactly_two_cards`. This route ran
+    `A2_CHECKS` alone, so only 4 of the 10 rules in
+    `policies/gxp_rules.rego` could ever reach the Command Centre -- the
+    risk, change, incident and access rules were evaluated by A3-A6 on
+    every Copilot query, verified by C1, and then never surfaced on the
+    page that exists to summarise compliance posture. Asserted as a range
+    against the seeded gaps rather than a fixed 2, so adding a seeded gap
+    does not fail an unrelated test."""
     resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
     assert resp.status_code == 200
     body = resp.json()
     assert body["system_id"] == "GXP-MFG-DEMO-01"
-    assert len(body["cards"]) == 2
+    assert 2 < len(body["cards"]) <= 10, "A2's own checks plus the specialist rules"
 
 
-def test_integration_gxp_demo_check_names_are_exactly_the_two_failing_checks(client):
+def test_integration_gxp_demo_surfaces_both_a2_and_specialist_checks(client):
+    """The point of the widening, asserted in both directions: A2's two
+    failing checks are still present, AND specialist rules now appear."""
     resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
     body = resp.json()
     check_names = {c["deterministic_check"]["check_name"] for c in body["cards"]}
-    assert check_names == {"verify_periodic_eval_current", "verify_test_traceability"}
+
+    assert {"verify_periodic_eval_current", "verify_test_traceability"} <= check_names
+    # Still passing on this system, so still no card -- the widening must
+    # not have turned a passing check into a spurious finding.
     assert "verify_urs_approved" not in check_names
+    # At least one rule that only A3-A6 can produce.
+    assert check_names & set(findings_route._SPECIALIST_CHECK_NAMES.values())
+
+
+def test_specialist_check_names_cover_every_specialist_rule():
+    """Guard for the map that gives A3-A6 findings a check name: a finding
+    whose rule is unmapped is dropped from the grid rather than shown under
+    a guessed name, so a missing entry fails silently in production."""
+    assert set(findings_route._SPECIALIST_CHECK_NAMES) == {
+        "ICH-Q9-RSK-001",
+        "ANNEX11-S10-CHG-001",
+        "ANNEX11-S13-INC-001",
+        "ANNEX11-S12-ACC-001",
+        "ANNEX11-S12-ACC-002",
+    }
+    # Names must be unique -- two rules sharing one name would collapse into
+    # a single tile on the Command Centre.
+    names = list(findings_route._SPECIALIST_CHECK_NAMES.values())
+    assert len(names) == len(set(names))
 
 
 def test_integration_gxp_demo_cards_have_valid_claim_citation_and_confidence_domain(client):
@@ -311,7 +346,7 @@ def test_integration_alcoa_score_has_exactly_the_nine_field_names_all_boolean(cl
 # ---------------------------------------------------------------------------
 
 
-def test_integration_stream_gxp_demo_yields_two_card_frames_then_one_terminal_frame(client):
+def test_integration_stream_gxp_demo_yields_a_card_frame_per_gap_then_one_terminal_frame(client):
     status_code, frames = _read_stream_frames(client, "GXP-MFG-DEMO-01")
     assert status_code == 200
 
@@ -320,15 +355,22 @@ def test_integration_stream_gxp_demo_yields_two_card_frames_then_one_terminal_fr
     error_frames = [f for f in frames if f["event"] == "error"]
 
     assert error_frames == []
-    assert len(card_frames) == 2
+    assert len(card_frames) > 2, "A2's checks plus the specialist rules"
     # Exactly one terminal frame, and it comes last.
     assert len(terminal_frames) == 1
     assert frames[-1]["event"] == "done"
     assert terminal_frames[0]["system_id"] == "GXP-MFG-DEMO-01"
-    assert terminal_frames[0]["count"] == 2
+    # The terminal count must equal the frames actually emitted, whatever
+    # that number is -- a stale literal here would hide a dropped card.
+    assert terminal_frames[0]["count"] == len(card_frames)
 
     check_names = {f["card"]["deterministic_check"]["check_name"] for f in card_frames}
-    assert check_names == {"verify_periodic_eval_current", "verify_test_traceability"}
+    # A2's two failing checks are still streamed, and the specialist rules
+    # now stream alongside them -- asserted as a superset plus a non-empty
+    # specialist intersection rather than an exact set, so the stream stays
+    # in step with the blocking route without pinning a card count.
+    assert {"verify_periodic_eval_current", "verify_test_traceability"} <= check_names
+    assert check_names & set(findings_route._SPECIALIST_CHECK_NAMES.values())
 
 
 def test_integration_stream_bus_it_demo_all_cards_grade_insufficient_evidence(client):
@@ -371,5 +413,9 @@ def test_integration_blocking_and_streaming_routes_agree_on_every_deterministic_
     _, stream_frames = _read_stream_frames(client, "GXP-MFG-DEMO-01")
     streaming_cards = [f["card"] for f in stream_frames if f["event"] == "card"]
 
-    assert len(blocking_cards) == len(streaming_cards) == 2
+    # The two routes must agree on COUNT and content. Pinning a literal
+    # here let the routes silently diverge when only one of them was
+    # widened to include the specialist rules.
+    assert len(blocking_cards) == len(streaming_cards)
+    assert len(blocking_cards) > 0
     assert _tuple_set(blocking_cards) == _tuple_set(streaming_cards)
