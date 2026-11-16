@@ -57,6 +57,7 @@ import os
 from typing import Optional
 from uuid import uuid4
 
+import asyncpg
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 
 from app.agents.c2_gateway import detect_injection
@@ -146,6 +147,21 @@ async def upload_document(
         system_id,
         content_sha256,
     )
+    # 2026-11-16: a FAILED document is not a duplicate -- it is an upload that
+    # never got indexed (embedding provider down, Qdrant error, unparseable at
+    # the time). Returning it here as `duplicate=True` made that failure
+    # permanent for these exact bytes: the hash is on the row forever, so
+    # every retry of the same file was answered with the stale failure and
+    # the pipeline never ran again. A FAILED row is instead re-ingested in
+    # place, under its existing id (the unique index on
+    # (system_id, content_sha256) already guarantees there is only one).
+    # QUARANTINED stays a terminal duplicate below: that verdict is a
+    # deterministic function of the bytes and cannot change on retry.
+    retry_document_id: Optional[str] = None
+    if existing is not None and existing["status"] == "FAILED":
+        retry_document_id = existing["id"]
+        existing = None
+
     if existing is not None:
         return DocumentUploadResponse(
             document_id=existing["id"],
@@ -187,7 +203,7 @@ async def upload_document(
 
     # (f) server-generated document_id -- never derived from the client
     # filename (T-06.1-02).
-    document_id = f"DOC-{uuid4().hex[:12].upper()}"
+    document_id = retry_document_id or f"DOC-{uuid4().hex[:12].upper()}"
     title = os.path.basename(original_filename)[:255] or document_id
     # doc_type defaults to the sniffed format's uppercased key when the
     # form field is absent (06.1-04-PLAN.md Task 2 <action> item 4) --
@@ -195,18 +211,41 @@ async def upload_document(
     # route already determined for certain about the file.
     resolved_doc_type = doc_type or fmt.upper()
 
-    await pool.execute(
-        "INSERT INTO documents (id, system_id, doc_type, title, version, author, "
-        "created_date, status, content_sha256) VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8)",
-        document_id,
-        system_id,
-        resolved_doc_type,
-        title,
-        None,
-        identity.user_id,
-        "READY",
-        content_sha256,
-    )
+    if retry_document_id is not None:
+        # Re-ingest in place. `index_document` is all-or-nothing, so a FAILED
+        # row should own no chunks -- deleted anyway so a retry can never
+        # stack a second set on top of a partial first one.
+        await pool.execute("DELETE FROM document_chunks WHERE document_id = $1", document_id)
+        await pool.execute(
+            "UPDATE documents SET doc_type = $2, title = $3, author = $4, "
+            "created_date = now(), status = 'READY' WHERE id = $1",
+            document_id,
+            resolved_doc_type,
+            title,
+            identity.user_id,
+        )
+    else:
+        try:
+            await pool.execute(
+                "INSERT INTO documents (id, system_id, doc_type, title, version, author, "
+                "created_date, status, content_sha256) VALUES ($1, $2, $3, $4, $5, $6, now(), $7, $8)",
+                document_id,
+                system_id,
+                resolved_doc_type,
+                title,
+                None,
+                identity.user_id,
+                "READY",
+                content_sha256,
+            )
+        except asyncpg.UniqueViolationError:
+            # Two uploads of the same bytes raced past the duplicate check
+            # above; the unique index let exactly one INSERT through. This
+            # is the other one -- previously an unhandled 500.
+            raise HTTPException(
+                status_code=409,
+                detail="An upload of this exact file for this system is already in progress",
+            )
 
     # (g) parse -> chunk -> index. Parsing runs on the in-memory bytes
     # already read above; no temp file is ever written.

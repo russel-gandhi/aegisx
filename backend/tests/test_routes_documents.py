@@ -649,3 +649,96 @@ def test_rebuild_failure_after_successful_ingest_still_returns_ready(client, mon
         assert body["chunk_count"] > 0
     finally:
         asyncio.run(_cleanup_document(body["document_id"]))
+
+
+# ---------------------------------------------------------------------------
+# 2026-11-16 -- a FAILED upload must be retryable with the same bytes
+# ---------------------------------------------------------------------------
+
+RETRY_CONTENT = (
+    b"## Retry Section\n\nSynthetic Markdown body used only by the failed-upload "
+    b"retry tests; distinct bytes so its content hash collides with no other test.\n"
+)
+
+
+def test_failed_upload_can_be_retried_with_the_same_bytes(client, monkeypatch):
+    """The embedding provider is down on the first attempt (FAILED, zero
+    chunks). Uploading the identical file again once it is back must run
+    the pipeline, not return the stale failure as a "duplicate"."""
+    with respx.mock:
+        respx.route(url__startswith=QDRANT_URL).pass_through()
+        respx.post(EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
+        first = _upload(client, RETRY_CONTENT, "retry.md").json()
+
+    document_id = first["document_id"]
+    try:
+        assert first["status"] == "FAILED"
+
+        with respx.mock:
+            _mocked_embedding_route(count=1)
+            second = _upload(client, RETRY_CONTENT, "retry.md").json()
+
+        assert second["status"] == "READY"
+        assert second["duplicate"] is False
+        assert second["failed_stage"] is None
+        assert second["chunk_count"] > 0
+        assert second["chunk_count"] == second["indexed_vector_count"]
+        # Re-ingested in place: same row, not a second document for the same hash.
+        assert second["document_id"] == document_id
+
+        async def _state():
+            pool = await get_pool()
+            status = await pool.fetchval("SELECT status FROM documents WHERE id = $1", document_id)
+            rows = await pool.fetchval(
+                "SELECT count(*) FROM documents WHERE system_id = $1 AND content_sha256 = "
+                "(SELECT content_sha256 FROM documents WHERE id = $2)",
+                DEMO_SYSTEM, document_id,
+            )
+            chunks = await pool.fetchval(
+                "SELECT count(*) FROM document_chunks WHERE document_id = $1", document_id
+            )
+            return status, rows, chunks
+
+        status, rows, chunks = asyncio.run(_state())
+        assert status == "READY"
+        assert rows == 1
+        assert chunks == second["chunk_count"]
+    finally:
+        asyncio.run(_cleanup_document(document_id))
+
+
+def test_retry_that_fails_again_stays_failed_and_stays_retryable(client, monkeypatch):
+    with respx.mock:
+        respx.route(url__startswith=QDRANT_URL).pass_through()
+        respx.post(EMBED_URL).mock(side_effect=httpx.ConnectError("connection refused"))
+        first = _upload(client, RETRY_CONTENT, "retry.md").json()
+        second = _upload(client, RETRY_CONTENT, "retry.md").json()
+
+    try:
+        assert first["status"] == "FAILED"
+        assert second["status"] == "FAILED"
+        assert second["duplicate"] is False
+        assert second["document_id"] == first["document_id"]
+    finally:
+        asyncio.run(_cleanup_document(first["document_id"]))
+
+
+def test_ready_upload_resubmitted_is_still_a_duplicate_and_is_not_reingested(client, monkeypatch):
+    """The retry path must not weaken idempotency for a document that DID
+    index: a READY resubmit returns the existing record and embeds nothing."""
+    with respx.mock:
+        _mocked_embedding_route(count=1)
+        first = _upload(client, RETRY_CONTENT, "retry.md").json()
+
+    try:
+        assert first["status"] == "READY"
+        with respx.mock:
+            respx.route(url__startswith=QDRANT_URL).pass_through()
+            embed = respx.post(EMBED_URL).mock(side_effect=httpx.ConnectError("must not be called"))
+            second = _upload(client, RETRY_CONTENT, "retry.md").json()
+            assert embed.call_count == 0
+        assert second["duplicate"] is True
+        assert second["document_id"] == first["document_id"]
+        assert second["status"] == "READY"
+    finally:
+        asyncio.run(_cleanup_document(first["document_id"]))
