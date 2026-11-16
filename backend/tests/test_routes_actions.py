@@ -60,7 +60,7 @@ def _create_pending_proposal():
     that as "nothing to test against", not a test failure, exactly as
     `test_full_approval_loop`/`test_double_approve_returns_409` already
     do."""
-    cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+    cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards", headers=IT_MANAGER_HEADERS)
     cards = cards_response.json()["cards"]
     for card in cards:
         gen = client.post(
@@ -176,7 +176,7 @@ def test_full_approval_loop():
             # would produce by calling the already-shipped assurance-cards
             # route rather than hardcoding a record id this test does not
             # control.
-            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards", headers=IT_MANAGER_HEADERS)
             assert cards_response.status_code == 200
             cards = cards_response.json()["cards"]
             assert len(cards) > 0, "expected at least one failing check against the seeded demo system"
@@ -249,7 +249,7 @@ def test_double_approve_returns_409():
         proposal_ids: List[str] = []
         event_ids: List[str] = []
         try:
-            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards", headers=IT_MANAGER_HEADERS)
             cards = cards_response.json()["cards"]
             finding_id = None
             for card in cards:
@@ -428,7 +428,7 @@ def test_prohibited_proposal_is_never_queued(monkeypatch):
                 "SELECT count(*) FROM audit_events WHERE action_type = 'PROPOSAL_BLOCKED'"
             )
 
-            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards", headers=IT_MANAGER_HEADERS)
             cards = cards_response.json()["cards"]
             blocked_reason = None
             for card in cards:

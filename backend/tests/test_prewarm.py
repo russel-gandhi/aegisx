@@ -31,7 +31,7 @@ import respx
 
 from app import db, narration_cache
 from app.prewarm import DEMO_SYSTEM_IDS, prewarm_narration_cache
-from app.routes.findings import get_assurance_cards
+from app.routes.findings import build_assurance_cards as get_assurance_cards
 
 GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 

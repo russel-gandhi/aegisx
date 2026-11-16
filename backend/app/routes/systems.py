@@ -24,7 +24,7 @@ deliberately: inventing a weighting formula the Bible never specifies
 would be exactly the kind of silently-invented metric CLAUDE.md Rule 7
 warns against, not a faithful implementation of an ambiguous spec. What
 IS live-computed is `breakdown["open_findings"]`, a real count from
-`get_assurance_cards()` -- genuine signal, not a stored counter that
+`findings.count_open_findings()` -- genuine signal, not a stored counter that
 could drift, added without guessing at a category-weighted score this
 route has no specification for. If the Bible reconciliation process
 (SENT-7-05) later settles on a real scoring formula, this docstring is
@@ -37,7 +37,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.db import acquire_pool_or_none
 from app.identity import RequestIdentity, require_identity
-from app.routes.findings import get_assurance_cards
+from app.routes.findings import count_open_findings
 from app.schemas import SystemCreateRequest, SystemReadinessScore, SystemRecord
 
 router = APIRouter()
@@ -131,10 +131,12 @@ async def get_system_readiness(system_id: str) -> SystemReadinessScore:
     if row is None:
         raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
 
-    cards_response = await get_assurance_cards(system_id)
+    # Deterministic checks only -- see `count_open_findings` for why this no
+    # longer goes through the narrating assurance-card route.
+    open_findings = await count_open_findings(pool, system_id)
 
     return SystemReadinessScore(
         system_id=system_id,
         score=row["readiness_score"],
-        breakdown={"open_findings": len(cards_response.cards)},
+        breakdown={"open_findings": open_findings},
     )

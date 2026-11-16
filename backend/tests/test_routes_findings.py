@@ -49,12 +49,14 @@ from app.schemas import ALCOAScore
 
 STREAM_PATH = "/api/systems/{system_id}/assurance-cards/stream"
 
+ITSM_HEADERS = {"X-User-Id": "test-it-manager", "X-User-Role": "IT System Manager"}
+
 
 def _read_stream_frames(client, system_id):
     """Drives the streaming route via `client.stream(...)`, parsing each
     `data: ` line into its JSON frame. Returns `(status_code, frames)`."""
     frames = []
-    with client.stream("GET", STREAM_PATH.format(system_id=system_id)) as response:
+    with client.stream("GET", STREAM_PATH.format(system_id=system_id), headers=ITSM_HEADERS) as response:
         status_code = response.status_code
         for line in response.iter_lines():
             if not line or not line.startswith("data: "):
@@ -149,7 +151,7 @@ def test_unit_assemble_card_no_record_yields_insufficient_evidence():
 
 
 def test_negative_bus_it_demo_all_cards_grade_insufficient_evidence(client):
-    resp = client.get("/api/systems/BUS-IT-DEMO-02/assurance-cards")
+    resp = client.get("/api/systems/BUS-IT-DEMO-02/assurance-cards", headers=ITSM_HEADERS)
     assert resp.status_code == 200
     body = resp.json()
     assert len(body["cards"]) > 0
@@ -158,14 +160,14 @@ def test_negative_bus_it_demo_all_cards_grade_insufficient_evidence(client):
 
 def test_negative_no_card_anywhere_carries_the_unverified_placeholder(client):
     for system_id in ("GXP-MFG-DEMO-01", "BUS-IT-DEMO-02"):
-        resp = client.get(f"/api/systems/{system_id}/assurance-cards")
+        resp = client.get(f"/api/systems/{system_id}/assurance-cards", headers=ITSM_HEADERS)
         assert resp.status_code == 200
         for card in resp.json()["cards"]:
             assert card["confidence"] != "UNVERIFIED"
 
 
 def test_negative_unknown_system_returns_404(client):
-    resp = client.get("/api/systems/NO-SUCH-SYSTEM/assurance-cards")
+    resp = client.get("/api/systems/NO-SUCH-SYSTEM/assurance-cards", headers=ITSM_HEADERS)
     assert resp.status_code == 404
 
 
@@ -174,7 +176,7 @@ def test_negative_stream_unknown_system_returns_404_as_a_real_status_not_an_erro
     # unknown system_id never gets as far as StreamingResponse committing a
     # 200 status line -- this must be a real 404, not a 200 stream
     # containing an error frame.
-    resp = client.get("/api/systems/NO-SUCH-SYSTEM/assurance-cards/stream")
+    resp = client.get("/api/systems/NO-SUCH-SYSTEM/assurance-cards/stream", headers=ITSM_HEADERS)
     assert resp.status_code == 404
     assert resp.headers["content-type"].startswith("application/json")
 
@@ -188,7 +190,7 @@ def test_edge_postgres_unreachable_returns_503(client, monkeypatch, reset_db_poo
     monkeypatch.setattr(
         db, "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:1/sentinel"
     )
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     assert resp.status_code == 503
 
 
@@ -202,7 +204,7 @@ def test_edge_stream_postgres_unreachable_returns_503_as_a_real_status_not_an_er
     monkeypatch.setattr(
         db, "DATABASE_URL", "postgresql://sentinel:sentinel@127.0.0.1:1/sentinel"
     )
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards/stream")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards/stream", headers=ITSM_HEADERS)
     assert resp.status_code == 503
     assert resp.headers["content-type"].startswith("application/json")
 
@@ -215,7 +217,7 @@ def test_edge_opa_unreachable_all_cards_grade_insufficient_evidence(client, monk
     monkeypatch.setattr(
         opa_client_module, "OPA_URL", "http://127.0.0.1:9/v1/data/sentinel/gxp/violation"
     )
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     assert resp.status_code == 200
     body = resp.json()
     # Count-agnostic since the route widened past A2's four checks: what
@@ -239,7 +241,7 @@ def test_integration_gxp_demo_returns_a_card_per_failing_rule(client):
     page that exists to summarise compliance posture. Asserted as a range
     against the seeded gaps rather than a fixed 2, so adding a seeded gap
     does not fail an unrelated test."""
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     assert resp.status_code == 200
     body = resp.json()
     assert body["system_id"] == "GXP-MFG-DEMO-01"
@@ -249,7 +251,7 @@ def test_integration_gxp_demo_returns_a_card_per_failing_rule(client):
 def test_integration_gxp_demo_surfaces_both_a2_and_specialist_checks(client):
     """The point of the widening, asserted in both directions: A2's two
     failing checks are still present, AND specialist rules now appear."""
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     body = resp.json()
     check_names = {c["deterministic_check"]["check_name"] for c in body["cards"]}
 
@@ -279,7 +281,7 @@ def test_specialist_check_names_cover_every_specialist_rule():
 
 
 def test_integration_gxp_demo_cards_have_valid_claim_citation_and_confidence_domain(client):
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     body = resp.json()
     assert len(body["cards"]) > 0
     for card in body["cards"]:
@@ -295,7 +297,7 @@ def test_integration_periodic_evaluation_card_grades_high_with_real_evidence(cli
     # dimensions true against `periodic_evaluations`' actual columns) now
     # grades HIGH, not the old fixed-`ALCOAScore()`-default MEDIUM -- see
     # test_c1_verifier.py's identical fix for the full derivation.
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     body = resp.json()
     pe_card = next(
         c
@@ -312,7 +314,7 @@ def test_integration_periodic_evaluation_card_grades_high_with_real_evidence(cli
 def test_integration_periodic_evaluation_evidence_id_resolves_to_a_real_row(client):
     # Provenance check: a fabricated evidence id would fail here rather
     # than merely passing on shape alone.
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     body = resp.json()
     pe_card = next(
         c
@@ -331,7 +333,7 @@ def test_integration_periodic_evaluation_evidence_id_resolves_to_a_real_row(clie
 
 
 def test_integration_alcoa_score_has_exactly_the_nine_field_names_all_boolean(client):
-    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     body = resp.json()
     expected_keys = set(ALCOAScore().model_dump().keys())
     assert len(expected_keys) == 9
@@ -406,7 +408,7 @@ def test_integration_blocking_and_streaming_routes_agree_on_every_deterministic_
             for c in cards
         }
 
-    blocking_resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    blocking_resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     assert blocking_resp.status_code == 200
     blocking_cards = blocking_resp.json()["cards"]
 

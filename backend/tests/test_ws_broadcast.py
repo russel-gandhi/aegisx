@@ -114,7 +114,7 @@ def test_generate_capa_pushes_a_proposal_frame(client):
         with client.websocket_connect("/api/copilot/stream/broadcast-test-6") as ws:
             ws.receive_json()  # connected frame
 
-            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards")
+            cards_response = client.get(f"/api/systems/{DEMO_SYSTEM}/assurance-cards", headers=IT_MANAGER_HEADERS)
             assert cards_response.status_code == 200
             cards = cards_response.json()["cards"]
 
