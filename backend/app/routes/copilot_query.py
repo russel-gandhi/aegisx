@@ -78,13 +78,12 @@ async def query_copilot(request: CopilotQueryRequest) -> CopilotQueryResponse:
 # (T-06.1-11, six concurrent specialists, several LLM calls).
 GRAPH_INVOKE_TIMEOUT_SECONDS: float = 45.0
 
-# Budget for the findings-synthesis call below. Deliberately far larger
-# than SYNTHESIS_TIMEOUT_SECONDS: that path leads with Groq (~1.7s), this
-# one leads with local Ollama, which is unmetered but slow. A findings
-# prompt is small (one or two verified findings, not 13 document excerpts),
-# so it lands well inside this ceiling -- the ceiling exists so a cold model
-# load, which costs ~15s on its own, cannot turn a working answer into a
-# timeout. Sized to the "under a minute" bar this path is held to.
+# Per-hop budget for the findings-synthesis call below. `findings_synthesis`
+# leads with a hosted model (2026-11-16, see `llm_router.PROVIDER_CONFIG`)
+# that answers a findings prompt -- one or two verified findings, not 13
+# document excerpts -- in a second or two. The ceiling stays this large so a
+# cascade that ends at the local model, where a cold load alone costs ~15s,
+# can still finish instead of turning a working answer into a timeout.
 FINDINGS_SYNTHESIS_TIMEOUT_SECONDS: float = 55.0
 
 # Grounding rules for the findings path. Stricter than
@@ -263,7 +262,7 @@ def _deterministic_findings_answer(findings: List[Dict[str, Any]]) -> str:
 async def _safe_findings_synthesis_call(prompt: str) -> Optional[LLMResponse]:
     """`_safe_synthesis_call`'s sibling for the findings path -- same broad
     guard and the same `None`-on-any-failure contract, but its own task
-    (routed to local Ollama) and its own far larger timeout."""
+    and its own timeout."""
     try:
         return await call_llm(
             task="findings_synthesis",
@@ -596,6 +595,11 @@ async def investigate(
         response is None
         or response.degraded
         or _is_json_shaped(response.text)
+        # A blank answer attributed to a real model id is worse than the
+        # honest fallback (2026-11-16) -- the findings path above already
+        # checked this; this path did not. `call_llm` now rejects an empty
+        # completion itself, so this is the second line of defence.
+        or not response.text.strip()
         or response.text.strip() == "INSUFFICIENT"
     ):
         answer = _deterministic_fallback_answer(retrieval_evidence)

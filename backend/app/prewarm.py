@@ -43,8 +43,10 @@ here silently undetectable in production.
 """
 
 import logging
+import os
 
 from app.agents.a2_compliance import A2_CHECKS, narrate_gap
+from app.agents.minimal_specialists import run_specialist
 from app.db import acquire_pool_or_none
 
 logger = logging.getLogger(__name__)
@@ -54,11 +56,27 @@ logger = logging.getLogger(__name__)
 # exercises against.
 DEMO_SYSTEM_IDS = ("GXP-MFG-DEMO-01", "BUS-IT-DEMO-02")
 
+# The specialists whose narrations the assurance-card routes also issue
+# (`routes/findings.py`'s `_SPECIALIST_AGENT_IDS`). 2026-11-16: the pre-warm
+# only ever covered A2, so its own promise -- that a read after warming
+# issues no further narration request -- stopped being true the day the
+# assurance grid was widened to A3-A6; the first Command Centre load after
+# every boot still paid for five narrations per system.
+SPECIALIST_AGENT_IDS = ("A3", "A4", "A5", "A6")
+
+# `AEGISX_PREWARM_NARRATION=0` turns the pre-warm off. Worth doing under
+# `uvicorn --reload`: `narration_cache` is in-process, so every restart
+# re-narrates every failing check for both demo systems, and the hosted
+# provider's free tier caps requests per DAY as well as tokens per minute
+# (Groq reported `x-ratelimit-limit-requests: 1000` per model, 2026-11-16).
+PREWARM_ENABLED: bool = os.getenv("AEGISX_PREWARM_NARRATION", "1").strip().lower() not in ("0", "false", "no")
+
 
 async def prewarm_narration_cache() -> int:
-    """Narrate every currently-failing `A2_CHECKS` entry for both seeded
-    demo systems, strictly sequentially, populating `narration_cache`
-    before any human request arrives.
+    """Narrate every currently-failing `A2_CHECKS` entry, and every gap the
+    A3-A6 specialists report, for both seeded demo systems -- strictly
+    sequentially, populating `narration_cache` before any human request
+    arrives.
 
     Returns the number of checks narrated (not necessarily the number of
     SUCCESSFUL narrations -- `narrate_gap` itself decides whether a given
@@ -70,6 +88,9 @@ async def prewarm_narration_cache() -> int:
     returns the count accumulated so far rather than propagating.
     """
     warmed = 0
+    if not PREWARM_ENABLED:
+        logger.info("Narration pre-warm disabled via AEGISX_PREWARM_NARRATION.")
+        return warmed
     try:
         pool = await acquire_pool_or_none()
         if pool is None:
@@ -83,6 +104,14 @@ async def prewarm_narration_cache() -> int:
                     continue
                 await narrate_gap(check_result)
                 warmed += 1
+            # `run_specialist` runs the agent's own deterministic check and
+            # narrates each gap through the same memoized `_narrate_gap` /
+            # `_narrate_a3` the assurance-card routes use, so the cache keys
+            # match by construction. It never raises and returns no findings
+            # when there is no gap.
+            for agent_id in SPECIALIST_AGENT_IDS:
+                result = await run_specialist(agent_id, {"system_id": system_id})
+                warmed += len(result.get("findings", []))
     except Exception:
         logger.warning(
             "Narration pre-warm failed after warming %d check(s); continuing startup.",

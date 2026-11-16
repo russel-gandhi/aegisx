@@ -51,20 +51,48 @@ OPENAI_COMPATIBLE_SUCCESS_BODY = {
 
 
 def test_select_provider_routes_by_task():
-    assert select_provider("orchestrator") == "ollama_qwen"
-    assert select_provider("compliance") == "ollama_qwen"
+    assert select_provider("orchestrator") == "groq_gpt_oss"
+    assert select_provider("compliance") == "groq_gpt_oss"
+    assert select_provider("narration") == "groq_qwen"
     assert select_provider("fallback") == "openrouter_fallback"
 
 
 def test_select_provider_routes_remediation_to_groq_not_ollama(monkeypatch):
-    """260826-rsw: 'remediation' lives on `groq_gpt_oss', not the local
-    provider that covers the other judgment tasks. This must hold in both
-    directions -- the moved key resolves to Groq, and a task that stays
-    on `ollama_qwen` (orchestrator) is unaffected."""
+    """260826-rsw: 'remediation' lives on `groq_gpt_oss`, never on the local
+    provider."""
     assert select_provider("remediation") == "groq_gpt_oss"
-    assert select_provider("orchestrator") == "ollama_qwen"
     assert "remediation" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
     assert "remediation" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+
+
+def test_no_task_leads_with_the_local_provider():
+    """2026-11-16 (Deviation 20): hosted-first. While Ollama was the first
+    hop, `orchestrator` could not finish inside A0's 2000ms budget (1.7s
+    warm, 7.6s cold, ~2s just to be refused when Ollama is not running), so
+    A0 fell back to the full agent set on every query. Ollama stays in the
+    cascade; it must never again be a task's first hop."""
+    assert PROVIDER_CONFIG["ollama_qwen"]["use_for"] == []
+    assert "ollama_qwen" in llm_router.FALLBACK_CASCADE
+    for entry_key, entry in PROVIDER_CONFIG.items():
+        if entry["use_for"]:
+            assert entry["provider"] != "ollama", entry_key
+
+
+def test_fallback_cascade_is_hosted_first_and_ends_at_openrouter():
+    cascade = llm_router.FALLBACK_CASCADE
+    assert set(cascade) == set(PROVIDER_CONFIG)
+    assert cascade[-1] == "openrouter_fallback"
+    assert cascade.index("groq_gpt_oss") < cascade.index("ollama_qwen")
+    assert cascade.index("groq_qwen") < cascade.index("ollama_qwen")
+    assert cascade.index("groq_gpt_oss_20b") < cascade.index("ollama_qwen")
+
+
+def test_groq_entries_use_three_distinct_models():
+    """Groq rate-limits per model, so three entries only add capacity if
+    they really are three models."""
+    groq_models = [e["model"] for e in PROVIDER_CONFIG.values() if e["provider"] == "groq"]
+    assert len(groq_models) == 3
+    assert len(set(groq_models)) == 3
 
 
 def test_select_provider_routes_synthesis_to_groq_not_ollama():
@@ -83,8 +111,7 @@ def test_select_provider_routes_synthesis_to_groq_not_ollama():
 def test_rerank_also_routes_to_groq_not_ollama():
     """'rerank' moved with synthesis: 130.1s on the local model against
     the graph's own 45s ceiling means it could never complete there."""
-    assert select_provider("rerank") == "groq_gpt_oss"
-    assert "rerank" in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+    assert PROVIDER_CONFIG[select_provider("rerank")]["provider"] == "groq"
     assert "rerank" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
 
 
@@ -699,3 +726,306 @@ def test_non_groq_entries_have_no_tpm_limit():
     # value that could wrongly throttle a provider with real headroom.
     assert PROVIDER_CONFIG["ollama_qwen"].get("tpm_limit") is None
     assert PROVIDER_CONFIG["openrouter_fallback"].get("tpm_limit") is None
+
+
+# --- 2026-11-16 regressions: the "always deterministic-fallback" audit -----
+
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+OLLAMA_URL = "http://127.0.0.1:11434/v1/chat/completions"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def _groq_model_router(responses_by_model):
+    """respx side effect answering per requested Groq model -- all three
+    Groq entries share one URL and differ only in the body's `model`."""
+    import json as _json
+
+    seen = []
+
+    def _handler(request):
+        model = _json.loads(request.content)["model"]
+        seen.append(model)
+        return responses_by_model[model]
+
+    return _handler, seen
+
+
+def test_cascade_tries_the_next_groq_model_when_one_is_rate_limited(monkeypatch):
+    """A 429 is per model. The cascade must move on to the next Groq entry
+    (its own token bucket), not write off the whole provider -- skipping by
+    provider would have thrown away two thirds of the hosted capacity."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    handler, seen = _groq_model_router({
+        "openai/gpt-oss-120b": httpx.Response(429, json={"error": "rate limited"}),
+        "qwen/qwen3.8-27b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "from qwen"}}], "model": "qwen/qwen3.8-27b"}
+        ),
+    })
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(side_effect=handler)
+            return await call_llm(task="orchestrator", prompt="q")
+
+    result = asyncio.run(_run())
+    assert seen == ["openai/gpt-oss-120b", "qwen/qwen3.8-27b"]
+    assert result.degraded is False
+    assert result.model_id == "qwen/qwen3.8-27b"
+
+
+def test_rejected_groq_key_skips_every_groq_entry(monkeypatch):
+    """A 401 is account-wide: retrying the same key against two more models
+    is three round trips to learn one fact. Exactly one Groq request, then
+    straight on to the next provider."""
+    monkeypatch.setenv("GROQ_API_KEY", "revoked-key")
+
+    async def _run():
+        with respx.mock:
+            groq = respx.post(GROQ_URL).mock(return_value=httpx.Response(401, json={"error": "bad key"}))
+            ollama = respx.post(OLLAMA_URL).mock(return_value=httpx.Response(200, json=OLLAMA_SUCCESS_BODY))
+            result = await call_llm(task="orchestrator", prompt="q")
+            return result, groq.call_count, ollama.call_count
+
+    result, groq_calls, ollama_calls = asyncio.run(_run())
+    assert groq_calls == 1
+    assert ollama_calls == 1
+    assert result.degraded is False
+    assert result.provider == "ollama"
+
+
+def test_missing_groq_key_skips_every_groq_entry_without_a_request(monkeypatch):
+    async def _run():
+        with respx.mock:
+            groq = respx.post(GROQ_URL).mock(return_value=httpx.Response(200, json=OPENAI_COMPATIBLE_SUCCESS_BODY))
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("refused"))
+            result = await call_llm(task="narration", prompt="q")
+            return result, groq.call_count
+
+    result, groq_calls = asyncio.run(_run())
+    assert groq_calls == 0
+    assert result.degraded is True
+    assert result.failure_reason.count("missing_key:groq") == 1
+    assert "missing_key:openrouter_fallback" in result.failure_reason
+
+
+def test_empty_completion_cascades_instead_of_returning_a_blank_answer(monkeypatch):
+    """A reasoning model that spends its whole completion budget thinking
+    returns `content: null`, `finish_reason: "length"`. That used to come
+    back as `text=""`, `degraded=False` -- a blank answer wearing a real
+    model id."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    handler, seen = _groq_model_router({
+        "openai/gpt-oss-120b": httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": None}, "finish_reason": "length"}], "model": "openai/gpt-oss-120b"},
+        ),
+        "qwen/qwen3.8-27b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "   "}}], "model": "qwen/qwen3.8-27b"}
+        ),
+        "openai/gpt-oss-20b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "A real answer."}}], "model": "openai/gpt-oss-20b"}
+        ),
+    })
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(side_effect=handler)
+            return await call_llm(task="synthesis", prompt="q")
+
+    result = asyncio.run(_run())
+    assert len(seen) == 3
+    assert result.text == "A real answer."
+    assert result.degraded is False
+
+
+def test_non_json_2xx_body_degrades_instead_of_raising(monkeypatch):
+    """An HTML page served with a 200 (proxy, captive portal) made
+    `response.json()` raise `ValueError` straight out of `call_llm`."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    html = httpx.Response(200, text="<html>gateway</html>", headers={"content-type": "text/html"})
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(return_value=html)
+            respx.post(OLLAMA_URL).mock(return_value=html)
+            return await call_llm(task="narration", prompt="q")
+
+    result = asyncio.run(_run())
+    assert result.degraded is True
+    assert "malformed_response:groq" in result.failure_reason
+    assert "malformed_response:ollama" in result.failure_reason
+
+
+def _trip_then_expire(monkeypatch, key):
+    """Leave `key`'s breaker OPEN with its cooldown already elapsed, so the
+    very next `is_available(key)` grants the HALF_OPEN probe."""
+    from app import circuit_breaker
+
+    circuit_breaker.record_rate_limited(key, 5.0)
+    circuit_breaker._circuits[key].opened_until = 0.0
+
+
+def test_cancelled_half_open_probe_does_not_strand_the_breaker(monkeypatch):
+    """The bug behind "falls back until I restart the server": the one
+    HALF_OPEN probe is cancelled by its caller's own deadline (A0's 2000ms
+    `wait_for`, a narration ceiling, the 45s graph timeout), nothing
+    resolves it, and `is_available()` answers False forever."""
+    from app import circuit_breaker
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    _trip_then_expire(monkeypatch, "groq_gpt_oss")
+
+    async def _slow(request):
+        await asyncio.sleep(5)
+        return httpx.Response(200, json=OPENAI_COMPATIBLE_SUCCESS_BODY)
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_URL).mock(side_effect=_slow)
+            with pytest.raises(asyncio.TimeoutError):
+                await asyncio.wait_for(call_llm(task="orchestrator", prompt="q"), timeout=0.05)
+            assert circuit_breaker._circuits["groq_gpt_oss"].half_open_probe_in_flight is False
+            # The provider is healthy again; the next caller must reach it.
+            route.mock(return_value=httpx.Response(200, json=OPENAI_COMPATIBLE_SUCCESS_BODY))
+            return await call_llm(task="orchestrator", prompt="q")
+
+    result = asyncio.run(_run())
+    assert result.degraded is False
+    assert result.model_id == "openai/gpt-oss-120b"
+    assert circuit_breaker._circuits["groq_gpt_oss"].state.value == "closed"
+
+
+@pytest.mark.parametrize("status", [400, 404, 422])
+def test_non_cascadable_4xx_on_a_half_open_probe_releases_it(monkeypatch, status):
+    """Groq answers 400 (`json_validate_failed`) when JSON mode produces
+    invalid JSON. That is a verdict on the request, not on the provider --
+    and it used to leave the probe slot held forever."""
+    from app import circuit_breaker
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    _trip_then_expire(monkeypatch, "groq_gpt_oss")
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(return_value=httpx.Response(status, json={"error": "bad request"}))
+            return await call_llm(task="orchestrator", prompt="q", json_output=True)
+
+    result = asyncio.run(_run())
+    assert result.degraded is True
+    assert result.failure_reason == f"http_{status}:groq_gpt_oss"
+    circuit = circuit_breaker._circuits["groq_gpt_oss"]
+    assert circuit.half_open_probe_in_flight is False
+    assert circuit_breaker.is_available("groq_gpt_oss") is True
+
+
+def test_5xx_on_a_half_open_probe_reopens_the_breaker(monkeypatch):
+    from app import circuit_breaker
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    _trip_then_expire(monkeypatch, "groq_gpt_oss")
+    handler, _seen = _groq_model_router({
+        "openai/gpt-oss-120b": httpx.Response(503, json={"error": "unavailable"}),
+        "qwen/qwen3.8-27b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "ok"}}], "model": "qwen/qwen3.8-27b"}
+        ),
+    })
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(side_effect=handler)
+            return await call_llm(task="orchestrator", prompt="q")
+
+    result = asyncio.run(_run())
+    assert result.degraded is False
+    circuit = circuit_breaker._circuits["groq_gpt_oss"]
+    assert circuit.state.value == "open"
+    assert circuit.half_open_probe_in_flight is False
+    assert circuit_breaker.is_available("groq_gpt_oss") is False
+
+
+def test_unexpected_exception_on_a_half_open_probe_releases_it(monkeypatch):
+    from app import circuit_breaker
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    _trip_then_expire(monkeypatch, "groq_gpt_oss")
+
+    async def _boom(*args, **kwargs):
+        raise RuntimeError("not a failure type call_llm classifies")
+
+    monkeypatch.setattr(llm_router, "_send_one", _boom)
+    with pytest.raises(RuntimeError):
+        asyncio.run(call_llm(task="orchestrator", prompt="q"))
+    assert circuit_breaker._circuits["groq_gpt_oss"].half_open_probe_in_flight is False
+
+
+def test_no_cascade_delay_after_a_hop_that_never_sent_a_request(monkeypatch):
+    """A missing key and a pre-flight token rejection send nothing, so there
+    is nothing to space out -- sleeping only spends the caller's budget."""
+    monkeypatch.setattr(llm_router, "LLM_CASCADE_DELAY_SECONDS", 30.0)
+    sleeps = []
+
+    async def _fake_sleep(seconds):
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(llm_router.asyncio, "sleep", _fake_sleep)
+
+    async def _run():
+        with respx.mock:
+            respx.post(OLLAMA_URL).mock(return_value=httpx.Response(200, json=OLLAMA_SUCCESS_BODY))
+            return await call_llm(task="orchestrator", prompt="q")
+
+    result = asyncio.run(_run())  # no GROQ_API_KEY: three Groq entries skipped pre-flight
+    assert result.degraded is False
+    assert sleeps == []
+
+
+def test_cascade_delay_still_applies_after_a_real_failed_request(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setattr(llm_router, "LLM_CASCADE_DELAY_SECONDS", 0.25)
+    sleeps = []
+
+    async def _fake_sleep(seconds):
+        sleeps.append(seconds)
+
+    monkeypatch.setattr(llm_router.asyncio, "sleep", _fake_sleep)
+    handler, _seen = _groq_model_router({
+        "openai/gpt-oss-120b": httpx.Response(500, json={"error": "internal"}),
+        "qwen/qwen3.8-27b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "ok"}}], "model": "qwen/qwen3.8-27b"}
+        ),
+    })
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(side_effect=handler)
+            return await call_llm(task="orchestrator", prompt="q")
+
+    assert asyncio.run(_run()).degraded is False
+    assert sleeps == [0.25]
+
+
+def test_reasoning_effort_is_per_entry():
+    gpt_oss = _build_openai_compatible_request(PROVIDER_CONFIG["groq_gpt_oss"], "k", "p", "", False)
+    qwen = _build_openai_compatible_request(PROVIDER_CONFIG["groq_qwen"], "k", "p", "", False)
+    small = _build_openai_compatible_request(PROVIDER_CONFIG["groq_gpt_oss_20b"], "k", "p", "", False)
+    assert gpt_oss["json"]["reasoning_effort"] == "low"
+    assert small["json"]["reasoning_effort"] == "low"
+    assert qwen["json"]["reasoning_effort"] == "none"
+    assert qwen["json"]["model"] == "qwen/qwen3.8-27b"
+
+
+def test_ollama_connect_phase_has_its_own_short_timeout(monkeypatch):
+    captured = {}
+
+    def _capture(request):
+        captured["timeout"] = request.extensions["timeout"]
+        return httpx.Response(200, json=OLLAMA_SUCCESS_BODY)
+
+    async def _run():
+        with respx.mock:
+            respx.post(OLLAMA_URL).mock(side_effect=_capture)
+            return await call_llm(task="orchestrator", prompt="q", timeout=10.0)
+
+    assert asyncio.run(_run()).degraded is False  # no Groq key: falls through to Ollama
+    assert captured["timeout"]["connect"] == llm_router.OLLAMA_CONNECT_TIMEOUT_SECONDS
+    assert captured["timeout"]["read"] == 10.0

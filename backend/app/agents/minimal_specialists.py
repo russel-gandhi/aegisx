@@ -53,6 +53,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import networkx as nx
 
+from app import narration_cache
 from app.agents.a0_orchestrator import extract_user_query
 from app.db import acquire_pool_or_none
 from app.graph.evidence_graph import blast_radius, load_graph, make_node_id
@@ -194,6 +195,23 @@ def _db_unavailable_finding(agent_id: str, rule_ids: Any) -> Dict[str, Any]:
         "alcoa_score": ALCOAScore().model_dump(),
         "model_attribution": "deterministic-fallback",
     }
+
+
+# Per-hop budget for the A3-A6 narration calls, replacing `call_llm`'s 10s
+# default (2026-11-16). These run inside the graph, under the Copilot route's
+# 45s `GRAPH_INVOKE_TIMEOUT_SECONDS`; with a 5-entry cascade the default
+# allowed 5 x 10s + 4s = 54s of worst case, i.e. a 504 with no answer at all
+# instead of a deterministic sentence. 6.0s matches A2's own narration
+# budget (`a2_compliance.NARRATION_PER_HOP_TIMEOUT_SECONDS`): 34s worst case.
+SPECIALIST_NARRATION_PER_HOP_TIMEOUT_SECONDS = 6.0
+
+
+def _narration_cache_key(task: str, system_instruction: str, prompt: str) -> str:
+    """Content-addressed key over everything that reaches the model. A
+    changed record changes the prompt, a changed prompt template or task
+    changes the other two parts -- so, as for A2 (`app.narration_cache`'s
+    own docstring), a stale hit is structurally impossible."""
+    return narration_cache.cache_key("\x1f".join((task, system_instruction, prompt)))
 
 
 async def _safe_call_llm(**kwargs: Any) -> Optional[LLMResponse]:
@@ -373,18 +391,31 @@ async def _narrate_a3(rule_id: str, record: Dict[str, Any], sentence_fn: Callabl
     no-op retry against the identical failure."""
     prompt = _narration_prompt(rule_id, record)
     system_instruction = A3_SYSTEM_PROMPT + _NARRATION_ONLY_OVERRIDE
+    cache_key = _narration_cache_key("risk_assessment", system_instruction, prompt)
+    cached = narration_cache.get(cache_key)
+    if cached is not None:
+        return cached
     response = await _safe_call_llm(
-        task="risk_assessment", prompt=prompt, system_instruction=system_instruction
+        task="risk_assessment", prompt=prompt, system_instruction=system_instruction,
+        timeout=SPECIALIST_NARRATION_PER_HOP_TIMEOUT_SECONDS,
     )
     if response is None or response.degraded:
         logger.warning(
             "A3 primary provider unavailable; retrying once via a fresh cascade attempt."
         )
         response = await _safe_call_llm(
-            task="orchestrator", prompt=prompt, system_instruction=system_instruction
+            task="orchestrator", prompt=prompt, system_instruction=system_instruction,
+            timeout=SPECIALIST_NARRATION_PER_HOP_TIMEOUT_SECONDS,
         )
-    if response is not None and not response.degraded and not _is_json_shaped(response.text):
-        return response.text, response.model_id
+    if (
+        response is not None
+        and not response.degraded
+        and response.text.strip()
+        and not _is_json_shaped(response.text)
+    ):
+        result = (response.text.strip(), response.model_id)
+        narration_cache.put(cache_key, result)
+        return result
     # SENT-8-05: see _narrate_gap's identical comment -- this final
     # fallback (after both the primary attempt and the one retry above)
     # was previously silent.
@@ -670,11 +701,32 @@ async def _narrate_gap(
     both of A6's checks (mirrors `app.agents.a2_compliance.narrate_gap`).
     A3 uses `_narrate_a3` instead, for its extra downgrade-and-retry step."""
     prompt = _narration_prompt(rule_id, record)
+    system_instruction = system_prompt + _NARRATION_ONLY_OVERRIDE
+    # 2026-11-16: memoized exactly like `a2_compliance.narrate_gap`. A2 was
+    # the only agent that cached, so every assurance-card read (the Command
+    # Centre issues one per system, on every load) re-narrated all of A3-A6
+    # from scratch -- ~5 provider calls spent re-wording sentences about
+    # records that had not changed, which is most of what drained the hosted
+    # token budget before a Copilot question was ever asked. Only a
+    # successful, prose-shaped response is stored; a degraded or rejected one
+    # never is, so an outage cannot latch into the cache.
+    cache_key = _narration_cache_key(task, system_instruction, prompt)
+    cached = narration_cache.get(cache_key)
+    if cached is not None:
+        return cached
     response = await _safe_call_llm(
-        task=task, prompt=prompt, system_instruction=system_prompt + _NARRATION_ONLY_OVERRIDE
+        task=task, prompt=prompt, system_instruction=system_instruction,
+        timeout=SPECIALIST_NARRATION_PER_HOP_TIMEOUT_SECONDS,
     )
-    if response is not None and not response.degraded and not _is_json_shaped(response.text):
-        return response.text, response.model_id
+    if (
+        response is not None
+        and not response.degraded
+        and response.text.strip()
+        and not _is_json_shaped(response.text)
+    ):
+        result = (response.text.strip(), response.model_id)
+        narration_cache.put(cache_key, result)
+        return result
     # SENT-8-05: this fallback was previously silent -- no log line
     # distinguished "the LLM cascade genuinely failed" (response.degraded,
     # whose own reason already logged inside call_llm's cascade loop) from

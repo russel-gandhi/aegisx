@@ -614,16 +614,16 @@ def test_deterministic_findings_answer_never_claims_a_search_happened():
     assert "knowledge base" not in answer.lower()
 
 
-def test_findings_synthesis_routes_to_the_local_provider_with_its_own_budget(monkeypatch):
-    """Routed to Ollama, not Groq: this is the most frequently hit synthesis
-    path, and Groq's 8,000 tpm ceiling cannot absorb it alongside the main
-    synthesis call. It also takes one attempt through an open circuit --
-    the six specialist narrations trip the local breaker routinely."""
+def test_findings_synthesis_routes_hosted_first_with_its_own_budget(monkeypatch):
+    """2026-11-16: hosted-first like every other task. This is the most
+    frequently hit synthesis path, and leading with the local model made it
+    the slowest one (and unusable wherever Ollama is not running). It still
+    takes one attempt through an open circuit -- the answer a user reads is
+    worth a real attempt."""
     from app.llm_router import PROVIDER_CONFIG, select_provider
 
-    assert select_provider("findings_synthesis") == "ollama_qwen"
-    assert "findings_synthesis" in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
-    assert "findings_synthesis" not in PROVIDER_CONFIG["groq_gpt_oss"]["use_for"]
+    assert PROVIDER_CONFIG[select_provider("findings_synthesis")]["provider"] == "groq"
+    assert "findings_synthesis" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
 
     captured = {}
 
@@ -649,3 +649,38 @@ def test_safe_findings_synthesis_call_returns_none_when_the_provider_raises(monk
 
     monkeypatch.setattr(copilot_query, "call_llm", _boom)
     assert asyncio.run(copilot_query._safe_findings_synthesis_call("p")) is None
+
+
+def test_blank_synthesis_answer_is_never_returned_as_the_answer(client, monkeypatch):
+    """A blank completion attributed to a real model id used to be returned
+    verbatim on the evidence path (the findings path already guarded it)."""
+    from app.llm_router import LLMResponse
+
+    evidence = [{
+        "evidence_id": "EV-blank001", "evidence_type": "document", "document_id": "DOC-1",
+        "document_title": "SOP-BLANK", "section": "4.2", "page": 3, "content": "Backups are tested quarterly.",
+        "chunk_id": "c1", "dense_score": 0.9, "retrieval_method": "semantic", "why_selected": "test fixture",
+    }]
+
+    async def _fake_ainvoke(state):
+        return {
+            "blocked": False, "user_intent": "knowledge", "findings": [], "verification_results": {},
+            "retrieval_evidence": evidence, "retrieval_trace": [],
+        }
+
+    async def _blank(prompt):
+        return LLMResponse(text="   \n", model_id="openai/gpt-oss-120b", provider="groq")
+
+    monkeypatch.setattr(copilot_query.compiled_graph, "ainvoke", _fake_ainvoke)
+    monkeypatch.setattr(copilot_query, "_safe_synthesis_call", _blank)
+
+    resp = client.post(
+        "/api/copilot/investigate",
+        json={"query": "How often are backups tested?", "system_id": "GXP-MFG-DEMO-01"},
+        headers={"X-User-Id": "t", "X-User-Role": "QA/Compliance"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["model_attribution"] == "deterministic-fallback"
+    assert body["answer"].strip()
+    assert "SOP-BLANK" in body["answer"]

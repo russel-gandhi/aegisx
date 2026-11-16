@@ -41,32 +41,23 @@ logger = logging.getLogger(__name__)
 # attempt inside `synthesize_capa`'s call_llm invocation -- passed as
 # call_llm's own `timeout` argument, NOT the total ceiling below.
 #
-# 2026-09-01: widened from 4.0s. `app.llm_router.FALLBACK_CASCADE` now
-# leads with `ollama_qwen` (the 2026-09-01 Ollama migration), and a cold
-# Ollama call (model evicted from GPU VRAM by its own idle keep_alive)
-# measured ~6-8s just to reload before it can answer at all -- CAPA
-# synthesis's structured multi-field output is also the most
-# generation-heavy prompt of any task this router serves, so 12.0s gives
-# a cold hop room to both reload and generate (the process-level
-# `OLLAMA_KEEP_ALIVE` fix keeps the model resident in the common case, but
-# this budget must not itself require that fix to hold for correctness).
-A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 12.0
+# Budget for EACH provider attempt. CAPA synthesis's structured four-field
+# output is the most generation-heavy prompt this router serves.
+#
+# 2026-11-16: 12.0s -> 7.0s. The 12.0s figure was sized for a cold local
+# model leading the cascade; the cascade is now hosted-first and 5 entries
+# long, and a hosted CAPA draft measures 1-3s.
+A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS = 7.0
 
-# Total wall-clock ceiling (260826-rsw; widened 2026-08-29 for Deviation 18,
-# widened again 2026-09-01 alongside the per-hop budget above) for
-# `synthesize_capa`'s call_llm invocation, enforced by `asyncio.wait_for`
-# -- NOT the same as call_llm's own per-hop `timeout` argument above.
-# `call_llm` cascades through every entry in `FALLBACK_CASCADE` on failure
-# (3 providers as of the Ollama migration: `ollama_qwen`, `groq_gpt_oss`,
-# `openrouter_fallback`), each sharing the per-hop budget above, so the
-# outer ceiling must sit ABOVE the worst-case sum of every hop (3 hops x
-# 12.0s = 36.0s) PLUS the inter-hop cascade delay call_llm sleeps between
-# failed hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s, applied 2 times
-# across a 3-hop cascade = 2.0s), not below it -- an outer ceiling tighter
-# than the cascade's own worst case reintroduces the exact bug this
-# deviation fixes (the outer wait_for firing mid-cascade before a later,
-# working provider gets its turn). 40.0s gives ~2s of margin above that
-# 38.0s worst case.
+# Total wall-clock ceiling for `synthesize_capa`'s call_llm invocation,
+# enforced by `asyncio.wait_for` -- NOT the same as the per-hop `timeout`
+# above. `call_llm` cascades through every entry in `FALLBACK_CASCADE` on
+# failure, each sharing the per-hop budget, so this ceiling must sit ABOVE
+# the worst-case sum of every hop plus the inter-hop delay
+# (LLM_CASCADE_DELAY_SECONDS, default 1.0s): 5 x 7.0s + 4 x 1.0s = 39.0s.
+# A tighter ceiling reintroduces the bug Deviation 18 fixed (the outer
+# wait_for firing mid-cascade before a later, working provider gets its
+# turn).
 A7_REMEDIATION_CEILING_SECONDS = 40.0
 
 # Bible Section 6, "A7: Remediation Agent Prompt", transcribed verbatim.
@@ -241,9 +232,9 @@ async def synthesize_capa(
     exactly those four keys.
 
     The call is bounded by a TOTAL wall-clock ceiling
-    (`A7_REMEDIATION_CEILING_SECONDS`, 18.0s) via `asyncio.wait_for`, not
+    (`A7_REMEDIATION_CEILING_SECONDS`) via `asyncio.wait_for`, not
     merely `call_llm`'s own per-hop `timeout` argument
-    (`A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS`, 4.0s): `call_llm` now
+    (`A7_REMEDIATION_PER_HOP_TIMEOUT_SECONDS`): `call_llm` now
     cascades through up to four providers on failure (Deviation 18), each
     sharing that same per-hop budget, so the outer ceiling must cover the
     worst case of every hop, not just one (260826-rsw Design Note 4,
@@ -303,6 +294,10 @@ async def synthesize_capa(
         return _deterministic_capa(finding, verification_result), "deterministic-fallback"
 
     if response.degraded:
+        logger.warning(
+            "A7 remediation call degraded (%s). Returning deterministic-fallback CAPA.",
+            response.failure_reason,
+        )
         return _deterministic_capa(finding, verification_result), "deterministic-fallback"
 
     try:

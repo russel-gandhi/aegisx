@@ -129,6 +129,12 @@ class _SlidingWindowLimiter:
         self._live_remaining_tokens: Optional[int] = None
         self._live_reset_at: Optional[float] = None
         self._live_observed_at: Optional[float] = None
+        # The value the provider actually reported at `_live_observed_at`,
+        # kept apart from `_live_remaining_tokens` (which `acquire()` also
+        # decrements by each later call's own estimate) so the refill rate
+        # can be derived from what was observed, not from what was guessed
+        # afterwards. See `_live_budget()`.
+        self._live_observed_remaining: Optional[int] = None
 
     def _prune(self, now: float) -> None:
         window_start = now - _WINDOW_SECONDS
@@ -142,6 +148,56 @@ class _SlidingWindowLimiter:
             self._live_observed_at is not None
             and (now - self._live_observed_at) < _LIVE_TOKEN_DATA_MAX_AGE_SECONDS
         )
+
+    def _clear_live_data(self) -> None:
+        self._live_remaining_tokens = None
+        self._live_reset_at = None
+        self._live_observed_at = None
+        self._live_observed_remaining = None
+
+    def _live_budget(self, now: float, tpm_limit: Optional[int]) -> Tuple[Optional[int], Optional[float]]:
+        """`(tokens available right now, refill rate in tokens/second)` from
+        the last live reading, or `(None, None)` when there is no usable one.
+
+        A provider's `x-ratelimit-reset-tokens` is how long until its bucket
+        is completely full again, so the reading is not a constant to be
+        trusted for a fixed period -- it describes a bucket that is refilling
+        the whole time. Two consequences this method encodes (2026-11-16):
+
+        - Once `_live_reset_at` has passed, the bucket is full. The reading
+          is discarded, and so is the local estimate history (those tokens
+          were spent against a window the provider has since refilled).
+          Before this, a single low reading kept rejecting every call
+          pre-flight for the full `_LIVE_TOKEN_DATA_MAX_AGE_SECONDS`, long
+          after the provider had recovered -- and because a pre-flight
+          rejection sends no request, no fresh header could ever arrive to
+          correct it.
+        - Before that, the bucket has refilled linearly from the observed
+          value toward `tpm_limit`. Without a `tpm_limit` the size of the
+          bucket is unknown and no refill is assumed.
+        """
+        if not self._live_data_is_fresh(now) or self._live_remaining_tokens is None:
+            return None, None
+        if self._live_reset_at is not None and now >= self._live_reset_at:
+            self._clear_live_data()
+            self._token_events.clear()
+            return None, None
+
+        available = self._live_remaining_tokens
+        rate: Optional[float] = None
+        if (
+            tpm_limit is not None
+            and self._live_reset_at is not None
+            and self._live_observed_at is not None
+            and self._live_observed_remaining is not None
+        ):
+            window = self._live_reset_at - self._live_observed_at
+            deficit = tpm_limit - self._live_observed_remaining
+            if window > 0 and deficit > 0:
+                rate = deficit / window
+                refilled = rate * (now - self._live_observed_at)
+                available = min(tpm_limit, int(self._live_remaining_tokens + refilled))
+        return available, rate
 
     async def acquire(self, estimated_tokens: int = 0, tpm_limit: Optional[int] = None) -> None:
         # Token-budget check happens BEFORE acquiring `self._lock` and,
@@ -160,13 +216,22 @@ class _SlidingWindowLimiter:
         # already does for a real 429 -- fast-fail, not queue.
         if estimated_tokens > 0:
             now = time.monotonic()
-            if self._live_data_is_fresh(now) and self._live_remaining_tokens is not None:
-                if estimated_tokens > self._live_remaining_tokens:
-                    wait_seconds = max(0.0, (self._live_reset_at or now) - now)
+            available, refill_rate = self._live_budget(now, tpm_limit)
+            if available is not None:
+                if estimated_tokens > available:
+                    # How long until the bucket holds enough for THIS call --
+                    # not until it is completely full, which is what
+                    # `_live_reset_at` measures and which over-states the
+                    # wait (and therefore the circuit breaker's cooldown) for
+                    # any call smaller than the whole budget.
+                    if refill_rate:
+                        wait_seconds = (estimated_tokens - available) / refill_rate
+                    else:
+                        wait_seconds = max(0.0, (self._live_reset_at or now) - now)
                     logger.debug(
-                        "Rate limiter: live token budget %d remaining, need ~%d; "
-                        "rejecting pre-flight (reset in %.2fs) rather than waiting.",
-                        self._live_remaining_tokens, estimated_tokens, wait_seconds,
+                        "Rate limiter: live token budget ~%d available, need ~%d; "
+                        "rejecting pre-flight (enough in %.2fs) rather than waiting.",
+                        available, estimated_tokens, wait_seconds,
                     )
                     raise TokenBudgetExceededError(wait_seconds if wait_seconds > 0 else None)
             elif tpm_limit is not None:
@@ -215,6 +280,7 @@ class _SlidingWindowLimiter:
             return
         now = time.monotonic()
         self._live_remaining_tokens = remaining_tokens
+        self._live_observed_remaining = remaining_tokens
         self._live_observed_at = now
         self._live_reset_at = now + reset_seconds if reset_seconds is not None else None
 

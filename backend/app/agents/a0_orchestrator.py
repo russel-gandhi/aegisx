@@ -8,12 +8,12 @@ Orchestrator Routing Prompt" (transcribed verbatim below as
 `A0_SYSTEM_PROMPT`).
 
 A0 is a single classification call: build `OrchestratorInput`, ask the
-router (task="orchestrator" -> `llm_router.PROVIDER_CONFIG["ollama_qwen"]`
-as of the 2026-09-01 local-first migration, cascading to
-`groq_gpt_oss`/`openrouter_fallback` on failure -- the Bible-literal
-"Gemini 2.5 Flash, thinking ON" description this docstring carried until
-2026-09-03 no longer describes any entry in `PROVIDER_CONFIG`, see that
-module's own comments for why) for a strict JSON `OrchestratorOutput`, and
+router (task="orchestrator" -> `llm_router.PROVIDER_CONFIG["groq_gpt_oss"]`
+as of the 2026-11-16 hosted-first change, cascading through
+`llm_router.FALLBACK_CASCADE` on failure -- the Bible-literal "Gemini 2.5
+Flash, thinking ON" description no longer describes any entry in
+`PROVIDER_CONFIG`, see that module's own comments for why) for a strict
+JSON `OrchestratorOutput`, and
 narrow `active_agents` to whatever subset it names. No deterministic
 Postgres/OPA check backs this node (Bible
 Section 2: "Deterministic Checks: N/A") - the routing decision itself
@@ -70,6 +70,17 @@ FULL_AGENT_SET: List[str] = ["A1", "A2", "A3", "A4", "A5", "A6"]
 # takes.
 A0_TIMEOUT_SECONDS = 2.0
 
+# Per-hop budget handed to `call_llm`, deliberately below the 2000ms total.
+# This call used to inherit `call_llm`'s 10s default, so a slow first hop
+# could only ever end one way: the outer `wait_for` cancelling it at 2.0s
+# with no other provider tried. Measured 2026-11-16, classification through
+# Groq takes ~0.6s; 1.5s leaves that hop real headroom and still lets the
+# router's own timeout fire first -- a recorded timeout the circuit breaker
+# learns from, rather than a cancellation it never sees. When the first hop
+# is skipped outright (open breaker, exhausted token budget) the next one
+# gets this same budget with no inter-hop delay.
+A0_PER_HOP_TIMEOUT_SECONDS = 1.5
+
 # AegisX-AI-Project-Bible-v6.md Section 6, "A0: Orchestrator Routing
 # Prompt" - transcribed verbatim, including all six agent-capability lines
 # and the required strict-JSON output example.
@@ -125,6 +136,7 @@ async def classify_intent(user_query: str, system_id: str) -> OrchestratorOutput
         prompt=orchestrator_input.model_dump_json(),
         system_instruction=A0_SYSTEM_PROMPT,
         json_output=True,
+        timeout=A0_PER_HOP_TIMEOUT_SECONDS,
     )
     if response.degraded:
         raise ValueError(f"LLM router degraded: {response.failure_reason}")

@@ -308,8 +308,9 @@ def test_respx_synthesize_capa_through_real_call_llm_reaches_groq_with_json_mode
 def test_respx_null_content_groq_truncation_falls_back_and_logs_a_warning(monkeypatch, caplog):
     """A Groq reasoning-model truncation (finish_reason='length', null
     message content) must be handled -- not raised -- and must not be
-    silent: `_parse_openai_compatible_response` coerces None to '', which
-    then fails json.loads, landing in the logged parse-failure branch."""
+    silent. Since 2026-11-16 the router treats an empty completion as a
+    failed hop and cascades; with every hop returning one (or unreachable),
+    the response is degraded and A7 logs why it used the deterministic CAPA."""
     monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
 
     async def _run():
@@ -323,6 +324,9 @@ def test_respx_null_content_groq_truncation_falls_back_and_logs_a_warning(monkey
                     },
                 )
             )
+            respx.post("http://127.0.0.1:11434/v1/chat/completions").mock(
+                side_effect=httpx.ConnectError("refused")
+            )
             with caplog.at_level(logging.WARNING):
                 proposal, model_id = await synthesize_capa(FINDING, {"confidence": "MEDIUM"})
             return proposal, model_id, route
@@ -332,7 +336,10 @@ def test_respx_null_content_groq_truncation_falls_back_and_logs_a_warning(monkey
     assert route.called
     assert proposal is not None
     assert model_id == "deterministic-fallback"
-    assert any("openai/gpt-oss-120b" in record.getMessage() for record in caplog.records)
+    assert any(
+        record.name == "app.agents.a7_remediation" and "malformed_response:groq" in record.getMessage()
+        for record in caplog.records
+    )
 
 
 # --- 260826-rsw: wall-clock ceiling is bounded, not roughly doubled -------

@@ -539,3 +539,97 @@ def test_all_five_return_bible_fallback_with_postgres_unreachable(monkeypatch, r
         findings = result["findings"]
         assert len(findings) == 1, agent_id
         assert findings[0]["finding_id"] == "ERR-" + agent_id
+
+
+# --- 2026-11-16: A3-A6 narrations are memoized like A2's -------------------
+
+_QWEN_BODY = {"choices": [{"message": {"content": "Access review AR-1 is overdue."}}], "model": "qwen/qwen3.8-27b"}
+_CACHE_RECORD = {"id": "AR-CACHE-1", "scheduled_date_ns": 1}
+
+
+def _narrate_access(record=_CACHE_RECORD):
+    return minimal_specialists._narrate_gap(
+        "ANNEX11-S12-ACC-001", record, minimal_specialists.A6_SYSTEM_PROMPT, "access", lambda r: "deterministic"
+    )
+
+
+def test_specialist_narration_is_cached_on_success(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_URL).mock(return_value=httpx.Response(200, json=_QWEN_BODY))
+            first = await _narrate_access()
+            second = await _narrate_access()
+            return first, second, route.call_count
+
+    first, second, calls = asyncio.run(_run())
+    assert first == second == ("Access review AR-1 is overdue.", "qwen/qwen3.8-27b")
+    assert calls == 1
+
+
+def test_specialist_narration_cache_misses_when_the_record_changes(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_URL).mock(return_value=httpx.Response(200, json=_QWEN_BODY))
+            await _narrate_access()
+            await _narrate_access({"id": "AR-CACHE-1", "scheduled_date_ns": 2})
+            return route.call_count
+
+    assert asyncio.run(_run()) == 2
+
+
+def test_specialist_degraded_narration_is_never_cached(monkeypatch):
+    """An outage must not latch: the fallback sentence is returned but not
+    stored, so the next call reaches the provider again."""
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+
+    async def _run():
+        with respx.mock:
+            respx.post(OLLAMA_URL).mock(side_effect=httpx.ConnectError("refused"))
+            route = respx.post(GROQ_URL).mock(return_value=httpx.Response(500, json={"error": "x"}))
+            degraded = await _narrate_access()
+            route.mock(return_value=httpx.Response(200, json=_QWEN_BODY))
+            # a 5xx is not a breaker trip while CLOSED, so the provider is retried at once
+            recovered = await _narrate_access()
+            return degraded, recovered
+
+    degraded, recovered = asyncio.run(_run())
+    assert degraded == ("deterministic", "deterministic-fallback")
+    assert recovered == ("Access review AR-1 is overdue.", "qwen/qwen3.8-27b")
+
+
+def test_specialist_json_shaped_narration_is_never_cached(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    json_echo = {"choices": [{"message": {"content": '{"id": "AR-CACHE-1"}'}}], "model": "qwen/qwen3.8-27b"}
+
+    async def _run():
+        with respx.mock:
+            route = respx.post(GROQ_URL).mock(return_value=httpx.Response(200, json=json_echo))
+            rejected = await _narrate_access()
+            route.mock(return_value=httpx.Response(200, json=_QWEN_BODY))
+            accepted = await _narrate_access()
+            return rejected, accepted
+
+    rejected, accepted = asyncio.run(_run())
+    assert rejected == ("deterministic", "deterministic-fallback")
+    assert accepted[1] == "qwen/qwen3.8-27b"
+
+
+def test_specialist_narration_passes_the_bounded_per_hop_timeout(monkeypatch):
+    seen = {}
+
+    async def _fake_call_llm(**kwargs):
+        seen.update(kwargs)
+        return minimal_specialists.LLMResponse(text="A sentence.", model_id="m", provider="groq")
+
+    monkeypatch.setattr(minimal_specialists, "call_llm", _fake_call_llm)
+    asyncio.run(_narrate_access({"id": "AR-TIMEOUT", "scheduled_date_ns": 1}))
+    assert seen["timeout"] == minimal_specialists.SPECIALIST_NARRATION_PER_HOP_TIMEOUT_SECONDS
+    from app.llm_router import FALLBACK_CASCADE, LLM_CASCADE_DELAY_SECONDS
+    from app.routes.copilot_query import GRAPH_INVOKE_TIMEOUT_SECONDS
+
+    worst_case = len(FALLBACK_CASCADE) * seen["timeout"] + (len(FALLBACK_CASCADE) - 1) * max(LLM_CASCADE_DELAY_SECONDS, 1.0)
+    assert worst_case < GRAPH_INVOKE_TIMEOUT_SECONDS
