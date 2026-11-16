@@ -127,6 +127,16 @@ LLM_CASCADE_DELAY_SECONDS = float(os.getenv("LLM_CASCADE_DELAY_SECONDS", "1.0"))
 #     always spends reasoning tokens.
 #   - `groq_gpt_oss_20b`: leads no task. It is the next hosted hop when
 #     either of the above is out of budget.
+#
+# Not every limit is visible in the headers. `qwen/qwen3.8-27b` also carries
+# an OUTPUT-token limit the `x-ratelimit-*` headers never mention -- its 429
+# body reads "output tokens per minute (OTPM): Limit 1000" (captured live
+# 2026-11-16, at a moment the headers still reported 3,909 of 8,000 tokens
+# remaining). At ~65 output tokens per narration that is roughly 15
+# narrations a minute before `groq_qwen` 429s and the cascade moves on, so
+# `tpm_limit` below is the ceiling the limiter can pre-check, not a promise.
+# This is survivable only because a 429's cooldown now comes from
+# `Retry-After` (3s here) -- see `_cooldown_seconds_from_429_headers`.
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
     "groq_gpt_oss": {
         "provider": "groq",
@@ -292,25 +302,45 @@ def _parse_reset_duration_seconds(value: Optional[str]) -> Optional[float]:
 
 
 def _cooldown_seconds_from_429_headers(headers: "httpx.Headers") -> Optional[float]:
-    """Best-effort cooldown for the circuit breaker's OPEN state on a 429:
-    prefers the token-reset window (usually the actually-binding
-    constraint, per SENT-8-01's own finding) over the request-reset
-    window, then falls back to a plain `Retry-After` seconds header (a
-    different provider's convention) if present. `None` when nothing
-    parses, letting the caller fall back to `DEFAULT_COOLDOWN_SECONDS`."""
-    reset_tokens = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
-    if reset_tokens is not None:
-        return reset_tokens
-    reset_requests = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-requests"))
-    if reset_requests is not None:
-        return reset_requests
+    """Best-effort cooldown for the circuit breaker's OPEN state on a 429.
+    `None` when nothing parses, letting the caller fall back to
+    `DEFAULT_COOLDOWN_SECONDS`.
+
+    `Retry-After` first (2026-11-16). It is the provider's direct answer to
+    "when may THIS request be retried", for whichever limit it actually hit.
+    The `x-ratelimit-reset-*` headers answer a different question -- how long
+    until that bucket is completely full again -- and were being used as the
+    cooldown. Captured live from Groq on the same 429:
+
+        retry-after: 3
+        x-ratelimit-reset-tokens: 59.28s
+        x-ratelimit-reset-requests: 48m57.6s
+
+    with the body naming a limit none of those headers describe at all
+    ("output tokens per minute (OTPM): Limit 1000 ... try again in 2.34s").
+    So a model that would have answered again in 3 seconds was skipped for a
+    minute, and would have been skipped for 49 minutes had the token-reset
+    header been absent. The reset headers remain the fallback for a provider
+    that sends no `Retry-After`; of the two, the shorter is used, since
+    either bucket refilling partially is enough for a retry to be worth it.
+    """
     retry_after = headers.get("retry-after")
     if retry_after is not None:
         try:
-            return float(retry_after)
+            seconds = float(retry_after)
         except ValueError:
-            return None
-    return None
+            seconds = None
+        if seconds is not None and seconds > 0:
+            return seconds
+    resets = [
+        value
+        for value in (
+            _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens")),
+            _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-requests")),
+        )
+        if value is not None
+    ]
+    return min(resets) if resets else None
 
 
 def _record_token_headers(entry_key: str, headers: "httpx.Headers") -> None:

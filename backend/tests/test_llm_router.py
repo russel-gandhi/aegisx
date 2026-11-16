@@ -1029,3 +1029,69 @@ def test_ollama_connect_phase_has_its_own_short_timeout(monkeypatch):
     assert asyncio.run(_run()).degraded is False  # no Groq key: falls through to Ollama
     assert captured["timeout"]["connect"] == llm_router.OLLAMA_CONNECT_TIMEOUT_SECONDS
     assert captured["timeout"]["read"] == 10.0
+
+
+# --- 2026-11-16: a 429's cooldown is the provider's Retry-After -------------
+
+from app.llm_router import _cooldown_seconds_from_429_headers  # noqa: E402
+
+# Verbatim from a live Groq 429 on qwen/qwen3.8-27b.
+_LIVE_GROQ_429_HEADERS = {
+    "retry-after": "3",
+    "x-ratelimit-limit-requests": "1000",
+    "x-ratelimit-limit-tokens": "8000",
+    "x-ratelimit-remaining-requests": "966",
+    "x-ratelimit-remaining-tokens": "3909",
+    "x-ratelimit-reset-requests": "48m57.6s",
+    "x-ratelimit-reset-tokens": "59.28s",
+}
+
+
+def test_cooldown_prefers_retry_after_over_the_bucket_reset_headers():
+    assert _cooldown_seconds_from_429_headers(httpx.Headers(_LIVE_GROQ_429_HEADERS)) == 3.0
+
+
+def test_cooldown_falls_back_to_the_shorter_reset_header_without_retry_after():
+    headers = {k: v for k, v in _LIVE_GROQ_429_HEADERS.items() if k != "retry-after"}
+    assert _cooldown_seconds_from_429_headers(httpx.Headers(headers)) == pytest.approx(59.28)
+    only_requests = {"x-ratelimit-reset-requests": "48m57.6s"}
+    assert _cooldown_seconds_from_429_headers(httpx.Headers(only_requests)) == pytest.approx(2937.6)
+
+
+@pytest.mark.parametrize("bad", ["", "soon", "0", "-5"])
+def test_cooldown_ignores_an_unusable_retry_after(bad):
+    headers = {"retry-after": bad, "x-ratelimit-reset-tokens": "7.5s"}
+    assert _cooldown_seconds_from_429_headers(httpx.Headers(headers)) == pytest.approx(7.5)
+
+
+def test_cooldown_is_none_when_no_header_parses():
+    assert _cooldown_seconds_from_429_headers(httpx.Headers({})) is None
+    assert _cooldown_seconds_from_429_headers(httpx.Headers({"retry-after": "soon"})) is None
+
+
+def test_429_with_retry_after_reopens_the_provider_after_that_long_not_a_minute(monkeypatch):
+    """End to end: the breaker's OPEN window after a real-shaped Groq 429 is
+    the 3 seconds Groq asked for."""
+    from app import circuit_breaker
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    now = [1000.0]
+    monkeypatch.setattr(circuit_breaker.time, "monotonic", lambda: now[0])
+    handler, _seen = _groq_model_router({
+        "qwen/qwen3.8-27b": httpx.Response(429, json={"error": {"code": "rate_limit_exceeded"}},
+                                           headers=_LIVE_GROQ_429_HEADERS),
+        "openai/gpt-oss-120b": httpx.Response(
+            200, json={"choices": [{"message": {"content": "ok"}}], "model": "openai/gpt-oss-120b"}
+        ),
+    })
+
+    async def _run():
+        with respx.mock:
+            respx.post(GROQ_URL).mock(side_effect=handler)
+            return await call_llm(task="narration", prompt="q")
+
+    result = asyncio.run(_run())
+    assert result.degraded is False and result.model_id == "openai/gpt-oss-120b"
+    assert circuit_breaker.is_available("groq_qwen") is False
+    now[0] += 3.1
+    assert circuit_breaker.is_available("groq_qwen") is True
