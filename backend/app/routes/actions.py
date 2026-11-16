@@ -50,7 +50,7 @@ from app.agents.c3_gateway import (
     persist_proposal,
     route_action,
 )
-from app.audit_trail import log_event
+from app.audit_trail import log_event, log_event_in_transaction
 from app.db import acquire_pool_or_none
 from app.identity import RequestIdentity, require_identity
 from app.routes.evidence_graph import _system_exists
@@ -294,6 +294,75 @@ async def list_actions(identity: RequestIdentity = Depends(require_identity)):
     return ActionProposalsResponse(proposals=[_row_to_record(dict(row)) for row in rows])
 
 
+async def _decide_proposal(
+    pool,
+    proposal_id: str,
+    new_status: str,
+    execution_result: str,
+    identity: RequestIdentity,
+    audit_action_type: str,
+    audit_summary: str,
+) -> Dict[str, Any]:
+    """Move one proposal out of PENDING_APPROVAL and write its audit event,
+    atomically. Returns the updated row; raises 404 / 409.
+
+    Two things the previous read-check-then-update sequence got wrong
+    (2026-11-16):
+
+    - It was a check-then-act race. Both approve and reject read the row,
+      compared `status` in Python, then issued an UPDATE with no status
+      condition. Two concurrent decisions on the same proposal both passed
+      the check, both updated, and both wrote an audit event -- an approval
+      and a rejection of one proposal, each logged as having happened. The
+      transition is now a single `UPDATE ... WHERE status =
+      'PENDING_APPROVAL'`: the database, not this process, decides which
+      caller wins, and the loser's UPDATE matches no row.
+    - The update and its audit event were separate transactions on separate
+      connections, so a failure in between left a decided proposal with no
+      audit trail entry. They now share one transaction: either both are
+      committed or neither is.
+    """
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            row = await conn.fetchrow(
+                "UPDATE action_proposals SET status = $1, approved_by = $2, "
+                "approved_at = now(), execution_result = $3 "
+                "WHERE id = $4 AND status = 'PENDING_APPROVAL' RETURNING *",
+                new_status,
+                identity.user_id,
+                execution_result,
+                proposal_id,
+            )
+            if row is None:
+                current = await conn.fetchrow(
+                    "SELECT status FROM action_proposals WHERE id = $1", proposal_id
+                )
+                if current is None:
+                    raise HTTPException(status_code=404, detail=f"Unknown proposal_id: {proposal_id}")
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Proposal {proposal_id} is {current['status']}, not PENDING_APPROVAL",
+                )
+            row = dict(row)
+            await log_event_in_transaction(
+                conn,
+                {
+                    "session_id": None,
+                    "user_id": identity.user_id,
+                    "user_role": identity.role,
+                    "agent_id": "C3",
+                    "action_type": audit_action_type,
+                    "target_system_id": row["target_system"],
+                    "target_record_id": proposal_id,
+                    "approval_id": proposal_id,
+                    "output_summary": audit_summary,
+                    "evidence_ids": [],
+                    "opa_rule_ids": [],
+                },
+            )
+            return row
+
+
 @router.post("/api/actions/{proposal_id}/approve", response_model=ActionProposalRecord)
 async def approve_action(
     proposal_id: str,
@@ -337,34 +406,19 @@ async def approve_action(
             "write against a validated GxP record."
         )
 
-    await pool.execute(
-        "UPDATE action_proposals SET status = $1, approved_by = $2, "
-        "approved_at = now(), execution_result = $3 WHERE id = $4",
-        new_status,
-        identity.user_id,
-        execution_result,
-        proposal_id,
-    )
-
-    await log_event(
+    # The pre-read above only chooses the category-specific outcome and gives
+    # an early, readable 404/409. It is NOT the guard: `_decide_proposal`'s
+    # conditional UPDATE is.
+    updated_row = await _decide_proposal(
         pool,
-        {
-            "session_id": None,
-            "user_id": identity.user_id,
-            "user_role": identity.role,
-            "agent_id": "C3",
-            "action_type": "ACTION_APPROVED",
-            "target_system_id": row["target_system"],
-            "target_record_id": proposal_id,
-            "approval_id": proposal_id,
-            "output_summary": f"{identity.user_id} approved proposal {proposal_id} ({new_status}).",
-            "evidence_ids": [],
-            "opa_rule_ids": [],
-        },
+        proposal_id,
+        new_status,
+        execution_result,
+        identity,
+        "ACTION_APPROVED",
+        f"{identity.user_id} approved proposal {proposal_id} ({new_status}).",
     )
-
-    updated_row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
-    return _row_to_record(dict(updated_row))
+    return _row_to_record(updated_row)
 
 
 @router.post("/api/actions/{proposal_id}/reject", response_model=ActionProposalRecord)
@@ -412,31 +466,13 @@ async def reject_action(
     # `persist_proposal`'s own docstring establishes for `action_type`.
     execution_result = f"Rejected by {identity.role}; this action was not executed."
 
-    await pool.execute(
-        "UPDATE action_proposals SET status = $1, approved_by = $2, "
-        "approved_at = now(), execution_result = $3 WHERE id = $4",
-        "REJECTED",
-        identity.user_id,
-        execution_result,
-        proposal_id,
-    )
-
-    await log_event(
+    updated_row = await _decide_proposal(
         pool,
-        {
-            "session_id": None,
-            "user_id": identity.user_id,
-            "user_role": identity.role,
-            "agent_id": "C3",
-            "action_type": "ACTION_REJECTED",
-            "target_system_id": row["target_system"],
-            "target_record_id": proposal_id,
-            "approval_id": proposal_id,
-            "output_summary": f"{identity.user_id} rejected proposal {proposal_id}.",
-            "evidence_ids": [],
-            "opa_rule_ids": [],
-        },
+        proposal_id,
+        "REJECTED",
+        execution_result,
+        identity,
+        "ACTION_REJECTED",
+        f"{identity.user_id} rejected proposal {proposal_id}.",
     )
-
-    updated_row = await pool.fetchrow("SELECT * FROM action_proposals WHERE id = $1", proposal_id)
-    return _row_to_record(dict(updated_row))
+    return _row_to_record(updated_row)
