@@ -205,6 +205,9 @@ describe('Knowledge upload -- stage honesty while in flight', () => {
       indexed_vector_count: 2,
       status: 'READY',
       failed_stage: null,
+      duplicate: false,
+      quarantined: false,
+      quarantine_reason: null,
     })
     mockListDocuments.mockResolvedValueOnce({
       system_id: null,
@@ -228,6 +231,9 @@ describe('Knowledge upload -- READY response', () => {
       indexed_vector_count: 7,
       status: 'READY',
       failed_stage: null,
+      duplicate: false,
+      quarantined: false,
+      quarantine_reason: null,
     })
     mockListDocuments
       .mockResolvedValueOnce({ system_id: null, documents: [] })
@@ -265,6 +271,9 @@ describe('Knowledge upload -- FAILED response', () => {
       indexed_vector_count: 0,
       status: 'FAILED',
       failed_stage: 'indexing',
+      duplicate: false,
+      quarantined: false,
+      quarantine_reason: null,
     })
     mockListDocuments
       .mockResolvedValueOnce({ system_id: null, documents: [] })
