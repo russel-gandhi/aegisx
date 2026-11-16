@@ -236,6 +236,36 @@ This section records every point where `backend/app/opa_client.py` departs from 
 
 **Scope:** `backend/app/llm_router.py`'s `PROVIDER_CONFIG` and `FALLBACK_CASCADE`, `backend/app/retrieval/embeddings.py`'s embedding provider routing, plus the corresponding `respx`-mocked test files updated to target `localhost:11434` shapes. Not yet reconciled into the Bible's own Section 8.1/8.2 text — this README entry is the interim record per CLAUDE.md's drift rule. Routed to **SENT-7-05**.
 
+### Deviation 16 — `PROVIDER_CONFIG` is hosted-first and split across three Groq models; `ollama_qwen` leads no task; the cascade skips by entry, not by provider
+
+**Bible says:** Section 8.1 (as reconciled 2026-09-04) lists three entries — `ollama_qwen` leading seven tasks, `groq_gpt_oss`, and `openrouter_fallback`. Section 8.2 describes the cascade as `ollama_qwen` → `groq_gpt_oss` → `openrouter_fallback`, "skipping any provider already attempted".
+
+**Implemented:** five entries. `groq_gpt_oss` (`openai/gpt-oss-120b`) leads `orchestrator`, `synthesis`, `findings_synthesis`, `remediation`, `risk_assessment`, `compliance`. A new `groq_qwen` (`qwen/qwen3.8-27b`, `reasoning_effort: "none"`) leads `narration`, `incident`, `access`, `change`, `knowledge`, `high_volume`, `rerank`. A new `groq_gpt_oss_20b` (`openai/gpt-oss-20b`) leads nothing and is a cascade hop only. `ollama_qwen` leads nothing and stays as a local hop. `FALLBACK_CASCADE` is `groq_gpt_oss` → `groq_qwen` → `groq_gpt_oss_20b` → `ollama_qwen` → `openrouter_fallback`. `call_llm` skips entries by key; it skips a whole provider only on a missing key or a 401/402/403. No inter-hop delay follows a hop that sent no request. `reasoning_effort` is read per entry. The per-hop budgets that were sized for a cold local first hop came down with it: A2 narration 10.0s → 6.0s, A7 12.0s → 7.0s, A3–A6 narration 10s default → 6.0s, and A0 now passes 1.5s per hop instead of inheriting 10s.
+
+**Why:** Found by the 2026-11-16 audit and reproduced before changing anything. With Ollama as first hop, `orchestrator` could not finish inside A0's 2000ms ceiling (1.7s warm, 7.6s cold, ~2.3s just to be refused where Ollama is not running), so A0 fell back to the full agent set on every query; it classified in ~0.6s through Groq once Ollama's breaker opened. Groq's limit is 8,000 tokens per minute per model, not per account: all three chat models reported an independent 8,000 budget on the same key. One Copilot question costs ~2,300 tokens, so the single-model setup was exhausted by the fourth question in a minute, with nothing behind it.
+
+**Evidence:** `[VERIFIED: live 2026-11-16 — x-ratelimit-limit-tokens / x-ratelimit-remaining-tokens headers per model; four back-to-back fan-outs draining one bucket 6244 → 3987 → 1690 → 436]`; `reasoning_effort: "none"` accepted by `qwen/qwen3.8-27b` and measured at 73 total tokens against 169 for the same prompt on a gpt-oss model.
+
+**What this does not change.** C1, C2 and C3 still make zero LLM calls. Embeddings still route to the local `nomic-embed-text` entry (`backend/app/retrieval/embeddings.py`) — retrieval still needs Ollama.
+
+**Numbering note:** code comments call this `Deviation 20`; this heading is `16` under this file's own convention (highest existing heading plus one). One change, two numbers.
+
+**Scope:** `backend/app/llm_router.py`, the three router-support modules' probe/refill fixes (`circuit_breaker.py`, `rate_limiter.py`), and the per-hop constants in `a0_orchestrator.py`, `a2_compliance.py`, `a7_remediation.py`, `minimal_specialists.py`. Bible Section 8.1/8.2 are NOT yet edited to match — routed to **SENT-7-05**.
+
+### Deviation 17 — `JAILBREAK_PATTERNS` extends the Bible's literal pattern; URL tokens are entropy-checked per segment
+
+**Bible says:** Section 2, C2 "Prompt Injection Logic" gives one regex with three alternatives (`ignore previous instructions|override system prompt|disregard rules`) plus "Shannon entropy calculations" with no stated tokenisation.
+
+**Implemented:** the Bible's pattern is kept verbatim as `JAILBREAK_PATTERNS[0]`. Four further compiled regexes follow it, each requiring an override verb and a model-directed object ("previous instructions", "system prompt", "your rules") within a couple of words. A whitespace-split token that is a URL is entropy-checked per segment (split on `/ ? & = # : . @`, not on `-` or `_`).
+
+**Why:** `detect_injection("Ignore all previous instructions ...")` returned `None` — the most common jailbreak wording differs from the literal by one word. An ordinary URL in a question or in an uploaded document cleared the 4.5 bits/char threshold and was blocked/quarantined. Both verified directly against `detect_injection` before the change.
+
+**What this does not change.** Still regex and arithmetic in Python; no model is consulted (Bible §1.3). The entropy threshold and minimum token length are unchanged. A base64/base64url blob inside a URL is still one long segment and still caught.
+
+**Numbering note:** code comments call this `Deviation 21`.
+
+**Scope:** `backend/app/agents/c2_gateway.py` only. Routed to **SENT-7-05**.
+
 ## AgentFinding conventions (Phase 3)
 
 Phase 3's `AgentFinding` (the `TypedDict` in `backend/app/graph/state.py`) shape is unchanged from Phase 2, but plan 03-02 pins a value convention every later plan (03-03 through 03-06) follows. This table lives here, in the repository, rather than only in a planning artifact:
