@@ -27,6 +27,8 @@ import logging
 import os
 from typing import Optional
 
+from urllib.parse import urlsplit, urlunsplit
+
 import asyncpg
 from dotenv import load_dotenv
 
@@ -103,6 +105,34 @@ async def get_pool() -> asyncpg.Pool:
     return _pool
 
 
+def redact_dsn(dsn: str) -> str:
+    """`dsn` with any password replaced by `***`, for log lines.
+
+    `acquire_pool_or_none` logged `DATABASE_URL` verbatim on every failed
+    connection (2026-11-16) -- the full `postgresql://user:password@host/db`
+    string, at WARNING level, once per request while Postgres was down. Host,
+    port, user and database stay visible: they are what an operator reading
+    the line needs, and none of them is a credential.
+
+    Never raises: a value that does not parse as a URL is reported as
+    `<unparseable dsn>` rather than echoed, since an unparseable string
+    cannot be shown to contain no secret.
+    """
+    try:
+        parts = urlsplit(dsn)
+        if parts.password is None:
+            return dsn
+        host = parts.hostname or ""
+        if ":" in host:  # IPv6 literal
+            host = f"[{host}]"
+        netloc = f"{parts.username or ''}:***@{host}"
+        if parts.port is not None:
+            netloc += f":{parts.port}"
+        return urlunsplit((parts.scheme, netloc, parts.path, "", ""))
+    except ValueError:
+        return "<unparseable dsn>"
+
+
 async def acquire_pool_or_none() -> Optional[asyncpg.Pool]:
     """The entry point every agent uses: never raises.
 
@@ -119,7 +149,7 @@ async def acquire_pool_or_none() -> Optional[asyncpg.Pool]:
         logger.warning(
             "Postgres pool unavailable (target=%s): %s. Callers should use "
             "their own degraded-mode fallback.",
-            DATABASE_URL,
+            redact_dsn(DATABASE_URL),
             e,
         )
         return None
