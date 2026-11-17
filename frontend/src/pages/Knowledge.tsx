@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import Skeleton from '../components/Skeleton'
+import ChromeSlot from '../components/ChromeSlot'
 import {
   ApiError,
+  approveDocument,
   listDocuments,
   uploadDocument,
   type DocumentSummary,
 } from '../lib/api'
+import { useIdentity } from '../lib/identity'
 
 /**
  * Knowledge page (Phase 06.1, plan 06.1-05, RAG-01/RAG-07, D-10): a real
@@ -40,7 +43,19 @@ import {
  * would without the param.
  */
 
-export const KNOWLEDGE_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
+// 'GXP-MES-NOVOLIFE-01' added by quick task 260908-qtm alongside the same
+// id in FindingInvestigation.tsx and BlastRadius.tsx, so the seeded system is
+// selectable here too.
+//
+// Known consequence, not a bug: its 35 `documents` rows were seeded by
+// infra/postgres/seed/004_novolife_system.sql rather than uploaded through
+// `POST /api/documents`, so they have no `document_chunks`. `GET
+// /api/documents` derives `ingestion_status` from `COUNT(chunk_id)`, so all
+// 35 render FAILED here -- the same thing GXP-MFG-DEMO-01's two seeded
+// documents already do. Ingesting the source .docx files through this page's
+// own upload flow is what moves them to READY; a seed file cannot, because
+// chunking and embedding are pipeline work, not INSERTs.
+export const KNOWLEDGE_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'GXP-MES-NOVOLIFE-01', 'BUS-IT-DEMO-02']
 
 export const INGESTION_STAGE_LABELS = [
   'Uploading',
@@ -160,6 +175,7 @@ function StageChecklist({ state, documentId }: { state: RowStageState; documentI
 }
 
 export default function Knowledge() {
+  const identity = useIdentity()
   const [searchParams] = useSearchParams()
   // D-13: `?system=` is read only as an initial value, validated against
   // KNOWLEDGE_SYSTEM_IDS -- falls back to the page's ordinary default (no
@@ -184,6 +200,37 @@ export default function Knowledge() {
   // succeeds or fails (a failure's honest fallback is still "show whatever
   // is known" -- see the .catch comment below -- not "keep spinning").
   const [listLoading, setListLoading] = useState(true)
+  // "Fill the gap" feature: an uploaded document previously had no path to
+  // ever reach documents.status='APPROVED' (verify_urs_approved requires
+  // it). approvingDocumentId tracks in-flight approve requests per row so
+  // the button disables only for the row being approved, not the whole
+  // list; approvalErrorByDocumentId surfaces a per-row failure (e.g. a
+  // 409 on an already-quarantined document) without a page-wide banner.
+  const [approvingDocumentId, setApprovingDocumentId] = useState<string | null>(null)
+  const [approvalErrorByDocumentId, setApprovalErrorByDocumentId] = useState<
+    Record<string, string>
+  >({})
+
+  async function handleApprove(documentId: string) {
+    setApprovingDocumentId(documentId)
+    setApprovalErrorByDocumentId((prev) => {
+      const next = { ...prev }
+      delete next[documentId]
+      return next
+    })
+    try {
+      await approveDocument(documentId)
+      const list = await listDocuments()
+      setDocuments(list.documents)
+    } catch (error) {
+      setApprovalErrorByDocumentId((prev) => ({
+        ...prev,
+        [documentId]: error instanceof ApiError ? error.detail : 'Failed to approve document',
+      }))
+    } finally {
+      setApprovingDocumentId(null)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -287,10 +334,16 @@ export default function Knowledge() {
         animation.
       </p>
 
-      <div className="card mt-6 p-5">
+      <div data-tour="knowledge-panel" className="card mt-6 p-5">
         <h2 className="text-[15px] font-semibold text-ink">Add Knowledge</h2>
 
-        <div className="mt-3 flex items-center gap-2">
+        {/* Painted into the role bar's right-hand chrome slot (quick UI
+            change 2026-09-08). State, option list -- including the empty
+            "Select a system…" value the upload flow requires -- and the
+            `?system=` URL syncing are unchanged; only the DOM position
+            moves. `data-testid` travels with it so the existing Knowledge
+            tests keep resolving the same element. */}
+        <ChromeSlot>
           <label htmlFor="knowledge-system" className="text-sm text-ink-muted">
             System
           </label>
@@ -308,7 +361,7 @@ export default function Knowledge() {
               </option>
             ))}
           </select>
-        </div>
+        </ChromeSlot>
 
         <div
           data-testid="knowledge-drop-zone"
@@ -417,11 +470,30 @@ export default function Knowledge() {
                   </p>
                   <p className="mt-1 text-xs text-ink-faint">
                     {doc.doc_type} · {doc.version ?? '—'} · {doc.ingestion_status} ·{' '}
-                    {formatCreatedDate(doc.created_date)} · {doc.chunk_count} indexed units
+                    {formatCreatedDate(doc.created_date)} · {doc.chunk_count} indexed units ·{' '}
+                    {doc.approval_status}
                   </p>
                   {cachedFailedStage && (
                     <p className="mt-1 text-xs text-red">
                       {ingestionFailureCopy(cachedFailedStage)}
+                    </p>
+                  )}
+                  {identity.role === 'QA/Compliance' &&
+                    doc.ingestion_status === 'READY' &&
+                    doc.approval_status !== 'APPROVED' && (
+                      <button
+                        type="button"
+                        data-testid={`approve-document-${doc.document_id}`}
+                        disabled={approvingDocumentId === doc.document_id}
+                        onClick={() => void handleApprove(doc.document_id)}
+                        className="btn btn-secondary mt-2"
+                      >
+                        {approvingDocumentId === doc.document_id ? 'Approving…' : 'Approve'}
+                      </button>
+                    )}
+                  {approvalErrorByDocumentId[doc.document_id] && (
+                    <p className="mt-1 text-xs text-red">
+                      {approvalErrorByDocumentId[doc.document_id]}
                     </p>
                   )}
                   <StageChecklist state={stageState} documentId={doc.document_id} />

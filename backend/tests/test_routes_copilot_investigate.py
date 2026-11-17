@@ -31,6 +31,7 @@ import httpx
 import respx
 
 from app.db import get_pool
+from app.llm_router import LLMResponse
 from app.graph.evidence_graph import build_graph, persist_graph
 from app.retrieval import hybrid_search
 from app.retrieval.embeddings import EMBEDDING_DIMENSIONS, EmbeddingResponse
@@ -44,8 +45,11 @@ from app.retrieval.qdrant_store import (
 from app.routes import copilot_query
 from app.routes.copilot_query import (
     EVIDENCE_SUPPORT_BANDS,
+    GRAPH_INVOKE_TIMEOUT_SECONDS,
     INSUFFICIENT_EVIDENCE_ANSWER,
+    SYNTHESIS_TIMEOUT_SECONDS,
     _deterministic_fallback_answer,
+    _safe_synthesis_call,
     _synthesis_prompt,
     compute_navigation_target,
     evidence_support_band,
@@ -115,6 +119,54 @@ def test_evidence_support_bands_table_is_descending_and_floors_at_zero():
     thresholds = [t for t, _ in EVIDENCE_SUPPORT_BANDS]
     assert thresholds == sorted(thresholds, reverse=True)
     assert thresholds[-1] == 0.0
+
+
+def test_safe_synthesis_call_passes_explicit_timeout_not_the_10s_default(monkeypatch):
+    """2026-09-08 regression guard. `_safe_synthesis_call` used to omit
+    `timeout=`, inheriting `call_llm`'s 10s default -- unreachable for a
+    prompt the local hop needs 35.8s-52.7s to finish, so every synthesis
+    timed out and the route emitted its deterministic fallback. Asserts
+    the explicit budget is actually handed to `call_llm`."""
+    captured = {}
+
+    async def _fake_call_llm(**kwargs):
+        captured.update(kwargs)
+        return LLMResponse(text="ok", model_id="m", provider="p", degraded=False)
+
+    monkeypatch.setattr(copilot_query, "call_llm", _fake_call_llm)
+    response = asyncio.run(_safe_synthesis_call("prompt"))
+
+    assert response is not None
+    assert captured["timeout"] == SYNTHESIS_TIMEOUT_SECONDS
+    assert captured["timeout"] > 10.0, "must not silently fall back to call_llm's default"
+    assert captured["task"] == "synthesis"
+
+
+def test_synthesis_timeout_is_generous_enough_for_the_measured_local_hop():
+    """The budget must clear the 35.8s worst case measured on the local
+    provider, while staying under the graph budget's order of magnitude.
+    Synthesis runs AFTER `ainvoke()` returns, so the two are sequential
+    and this is a sanity bound, not a shared-budget constraint."""
+    assert SYNTHESIS_TIMEOUT_SECONDS >= 36.0
+    # Upper bound is the product's own "answer inside a minute" bar, NOT
+    # GRAPH_INVOKE_TIMEOUT_SECONDS: synthesis runs after `ainvoke()` has
+    # already returned, so the two budgets are sequential and the graph's
+    # ceiling never constrained this one.
+    assert SYNTHESIS_TIMEOUT_SECONDS <= 60.0
+    assert GRAPH_INVOKE_TIMEOUT_SECONDS > 0  # still imported and meaningful
+
+
+def test_safe_synthesis_call_still_returns_none_when_call_llm_raises(monkeypatch):
+    """The failure path the deterministic fallback depends on: any
+    exception is swallowed and reported as `None`, which the route treats
+    exactly like a degraded response. Raising the timeout must not have
+    made this path unreachable."""
+
+    async def _boom(**_kwargs):
+        raise RuntimeError("provider exploded")
+
+    monkeypatch.setattr(copilot_query, "call_llm", _boom)
+    assert asyncio.run(_safe_synthesis_call("p")) is None
 
 
 def test_synthesis_prompt_contains_untrusted_data_framing_and_excerpt_ids():
@@ -351,14 +403,34 @@ def test_integration_insufficient_evidence_path_makes_zero_synthesis_calls(clien
     body = resp.json()
     assert body["blocked"] is False
     assert body["insufficient_evidence"] is True
-    assert body["answer"] == INSUFFICIENT_EVIDENCE_ANSWER
     assert body["evidence"] == []
     assert body["evidence_support"] == "INSUFFICIENT_EVIDENCE"
     assert body["navigation_target"] is None
     stage_ids = [s["stage_id"] for s in body["stages"]]
     assert stage_ids == ["understanding", "searching", "combining", "reranking", "evaluating", "preparing"]
-    preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
-    assert preparing["status"] == "skipped"
+
+    # 2026-09-08: this used to assert `answer == INSUFFICIENT_EVIDENCE_ANSWER`
+    # unconditionally. That was wrong against the real seeded database: the
+    # specialists evaluate DB/OPA state, not the query text, so they return
+    # verified findings here regardless of how obscure the question is.
+    # Telling the user "AegisX searched the indexed knowledge base and found
+    # nothing relevant" while holding verified findings describes a search
+    # that never ran -- A0 does not even activate A1 for most compliance
+    # questions. The copy is only honest with nothing at all to report.
+    if body["findings"]:
+        assert body["answer"] != INSUFFICIENT_EVIDENCE_ANSWER
+        assert "searched the indexed knowledge base" not in body["answer"]
+        # Every provider is unreachable in this test, so the findings path
+        # must still answer -- from its deterministic composer, never the
+        # false search copy.
+        assert body["model_attribution"] == "deterministic-fallback"
+        assert body["answer"].strip() != ""
+        preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
+        assert preparing["status"] == "complete"
+    else:
+        assert body["answer"] == INSUFFICIENT_EVIDENCE_ANSWER
+        preparing = next(s for s in body["stages"] if s["stage_id"] == "preparing")
+        assert preparing["status"] == "skipped"
 
 
 def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monkeypatch):
@@ -476,3 +548,139 @@ def test_integration_grounded_answer_cites_real_retrieved_evidence(client, monke
                 await client_.delete(collection_name=QDRANT_COLLECTION, points_selector=[chunk_id])
 
         asyncio.run(_cleanup())
+
+
+# ---------------------------------------------------------------------------
+# Findings-synthesis path (2026-09-08)
+# ---------------------------------------------------------------------------
+#
+# The path taken when RAG retrieved nothing but C1 still verified findings --
+# which is most targeted compliance questions, because A0 routes those to
+# A2/A4/A6 and never activates A1. Measured across the ten Inspection
+# Simulator questions: nine of ten landed here, every one with verified
+# findings, and every one previously received copy claiming a knowledge-base
+# search had happened and failed.
+
+_VERIFIED_FINDING = {
+    "finding_id": "A4-ANNEX11-S10-CHG-001-CR-2026-089",
+    "claim": "Change CR-2026-089 is CLOSED but linked action CA-2026-089-1 remains OPEN.",
+    "regulatory_citations": ["ANNEX11-S10-CHG-001"],
+    "confidence_score": "UNVERIFIED",
+    "evidence_ids": ["CR-2026-089"],
+    "alcoa_score": {},
+    "model_attribution": "openai/gpt-oss-120b",
+}
+_VERIFIED_VERDICTS = {
+    "A4-ANNEX11-S10-CHG-001-CR-2026-089": {
+        "confidence": "HIGH",
+        "db_record_found": True,
+        "opa_corroborated": True,
+    }
+}
+
+
+def test_findings_prompt_uses_c1_verdict_not_the_finding_placeholder():
+    """The finding carries `confidence_score: "UNVERIFIED"` (as every agent
+    always emits). The prompt must show C1's real HIGH grade instead, or the
+    model is told its own verified evidence is unverified."""
+    prompt = copilot_query._findings_synthesis_prompt("q?", [_VERIFIED_FINDING], _VERIFIED_VERDICTS)
+
+    assert "HIGH" in prompt
+    assert "UNVERIFIED" not in prompt
+    assert "ANNEX11-S10-CHG-001" in prompt
+    assert "database record confirmed" in prompt
+    assert "policy engine corroborated" in prompt
+
+
+def test_findings_prompt_marks_a_finding_with_no_verdict_as_unverified():
+    """Fail-closed: absent a C1 entry, the model must not be told the claim
+    was corroborated."""
+    prompt = copilot_query._findings_synthesis_prompt("q?", [_VERIFIED_FINDING], {})
+
+    assert "UNVERIFIED" in prompt
+    assert "database record confirmed" not in prompt
+    assert "policy engine corroborated" not in prompt
+
+
+def test_deterministic_findings_answer_never_claims_a_search_happened():
+    """The fallback for this path restates the verified claims. It must never
+    reuse INSUFFICIENT_EVIDENCE_ANSWER, which asserts a knowledge-base search
+    that provably did not run."""
+    answer = copilot_query._deterministic_findings_answer([_VERIFIED_FINDING])
+
+    assert "CR-2026-089" in answer
+    assert answer != INSUFFICIENT_EVIDENCE_ANSWER
+    assert "searched" not in answer.lower()
+    assert "knowledge base" not in answer.lower()
+
+
+def test_findings_synthesis_routes_hosted_first_with_its_own_budget(monkeypatch):
+    """2026-11-16: hosted-first like every other task. This is the most
+    frequently hit synthesis path, and leading with the local model made it
+    the slowest one (and unusable wherever Ollama is not running). It still
+    takes one attempt through an open circuit -- the answer a user reads is
+    worth a real attempt."""
+    from app.llm_router import PROVIDER_CONFIG, select_provider
+
+    assert PROVIDER_CONFIG[select_provider("findings_synthesis")]["provider"] == "groq"
+    assert "findings_synthesis" not in PROVIDER_CONFIG["ollama_qwen"]["use_for"]
+
+    captured = {}
+
+    async def _fake_call_llm(**kwargs):
+        captured.update(kwargs)
+        return LLMResponse(text="ok", model_id="qwen2.5:7b-instruct", provider="ollama", degraded=False)
+
+    monkeypatch.setattr(copilot_query, "call_llm", _fake_call_llm)
+    asyncio.run(copilot_query._safe_findings_synthesis_call("prompt"))
+
+    assert captured["task"] == "findings_synthesis"
+    assert captured["timeout"] == copilot_query.FINDINGS_SYNTHESIS_TIMEOUT_SECONDS
+    assert captured["timeout"] <= 60.0, "must answer inside the product's one-minute bar"
+    assert captured["allow_open_circuit"] is True
+
+
+def test_safe_findings_synthesis_call_returns_none_when_the_provider_raises(monkeypatch):
+    """Failure path: any exception degrades to the deterministic composer
+    rather than propagating a 500."""
+
+    async def _boom(**_kwargs):
+        raise RuntimeError("ollama exploded")
+
+    monkeypatch.setattr(copilot_query, "call_llm", _boom)
+    assert asyncio.run(copilot_query._safe_findings_synthesis_call("p")) is None
+
+
+def test_blank_synthesis_answer_is_never_returned_as_the_answer(client, monkeypatch):
+    """A blank completion attributed to a real model id used to be returned
+    verbatim on the evidence path (the findings path already guarded it)."""
+    from app.llm_router import LLMResponse
+
+    evidence = [{
+        "evidence_id": "EV-blank001", "evidence_type": "document", "document_id": "DOC-1",
+        "document_title": "SOP-BLANK", "section": "4.2", "page": 3, "content": "Backups are tested quarterly.",
+        "chunk_id": "c1", "dense_score": 0.9, "retrieval_method": "semantic", "why_selected": "test fixture",
+    }]
+
+    async def _fake_ainvoke(state):
+        return {
+            "blocked": False, "user_intent": "knowledge", "findings": [], "verification_results": {},
+            "retrieval_evidence": evidence, "retrieval_trace": [],
+        }
+
+    async def _blank(prompt):
+        return LLMResponse(text="   \n", model_id="openai/gpt-oss-120b", provider="groq")
+
+    monkeypatch.setattr(copilot_query.compiled_graph, "ainvoke", _fake_ainvoke)
+    monkeypatch.setattr(copilot_query, "_safe_synthesis_call", _blank)
+
+    resp = client.post(
+        "/api/copilot/investigate",
+        json={"query": "How often are backups tested?", "system_id": "GXP-MFG-DEMO-01"},
+        headers={"X-User-Id": "t", "X-User-Role": "QA/Compliance"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["model_attribution"] == "deterministic-fallback"
+    assert body["answer"].strip()
+    assert "SOP-BLANK" in body["answer"]

@@ -24,7 +24,7 @@ deliberately: inventing a weighting formula the Bible never specifies
 would be exactly the kind of silently-invented metric CLAUDE.md Rule 7
 warns against, not a faithful implementation of an ambiguous spec. What
 IS live-computed is `breakdown["open_findings"]`, a real count from
-`get_assurance_cards()` -- genuine signal, not a stored counter that
+`findings.count_open_findings()` -- genuine signal, not a stored counter that
 could drift, added without guessing at a category-weighted score this
 route has no specification for. If the Bible reconciliation process
 (SENT-7-05) later settles on a real scoring formula, this docstring is
@@ -33,15 +33,65 @@ where that decision belongs.
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.db import acquire_pool_or_none
-from app.routes.findings import get_assurance_cards
-from app.schemas import SystemReadinessScore
+from app.identity import RequestIdentity, require_identity
+from app.routes.findings import count_open_findings
+from app.schemas import SystemCreateRequest, SystemReadinessScore, SystemRecord
 
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
+
+
+@router.post("/api/systems", response_model=SystemRecord, status_code=201)
+async def create_system(
+    body: SystemCreateRequest,
+    identity: RequestIdentity = Depends(require_identity),
+) -> SystemRecord:
+    """Adds a new row to `gxp_systems`. Gated to "IT System Manager" --
+    the one role the Bible's own Permission Matrix already grants every
+    domain agent (A1-A7) to (`c2_gateway.PERMISSION_MATRIX`) -- rather
+    than left open to every recognised role, since standing up a new
+    system-of-record is an administrative action, not a read or an
+    investigation. RBAC is checked before the pool guard and before any
+    row is written, matching `actions.generate_capa`'s ordering.
+
+    A freshly created system starts with zero linked evidence (no
+    documents, requirements, test cases, ...) -- that is a real, expected
+    empty state, not an error, and mirrors the evidence graph's own
+    explicit-rebuild-only contract (`routes/evidence_graph.py`): nothing
+    here fabricates placeholder domain rows on the new system's behalf.
+    """
+    if identity.role != "IT System Manager":
+        raise HTTPException(
+            status_code=403,
+            detail=f"Role {identity.role} may not create a new system",
+        )
+
+    pool = await acquire_pool_or_none()
+    if pool is None:
+        raise HTTPException(status_code=503, detail="Postgres pool unavailable")
+
+    existing = await pool.fetchrow("SELECT id FROM gxp_systems WHERE id = $1", body.id)
+    if existing is not None:
+        raise HTTPException(status_code=409, detail=f"System id already exists: {body.id}")
+
+    row = await pool.fetchrow(
+        "INSERT INTO gxp_systems "
+        "(id, name, description, system_owner, lifecycle_state, gxp_impact) "
+        "VALUES ($1, $2, $3, $4, $5, $6) "
+        "RETURNING id, name, description, system_owner, lifecycle_state, "
+        "gxp_impact, readiness_score, last_backup_test_ns",
+        body.id,
+        body.name,
+        body.description,
+        body.system_owner,
+        body.lifecycle_state,
+        body.gxp_impact,
+    )
+    return SystemRecord(**dict(row))
 
 
 @router.get("/api/systems")
@@ -81,10 +131,12 @@ async def get_system_readiness(system_id: str) -> SystemReadinessScore:
     if row is None:
         raise HTTPException(status_code=404, detail=f"Unknown system_id: {system_id}")
 
-    cards_response = await get_assurance_cards(system_id)
+    # Deterministic checks only -- see `count_open_findings` for why this no
+    # longer goes through the narrating assurance-card route.
+    open_findings = await count_open_findings(pool, system_id)
 
     return SystemReadinessScore(
         system_id=system_id,
         score=row["readiness_score"],
-        breakdown={"open_findings": len(cards_response.cards)},
+        breakdown={"open_findings": open_findings},
     )

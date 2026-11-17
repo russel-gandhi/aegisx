@@ -19,6 +19,9 @@ build/
 # Local reference docs (not for commit)
 ARCHITECTURE_DECISIONS.md
 CODEBASE_OVERVIEW.md
+PPT-CONTENT.md
+COMPLIANCE-MAPPING.md
+SESSION-DIAGNOSIS-2026-09-04.md
 
 # Synthetic test data corpus (local only, not for commit)
 Dummy_data/

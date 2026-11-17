@@ -57,10 +57,15 @@ check_eq() {
   fi
 }
 
-# 1. Both demo systems present.
-check_eq "gxp_systems row count == 2" "SELECT count(*) FROM gxp_systems" "2"
+# 1. Every seeded system present: the two Bible demo systems (001_seed.sql)
+#    plus the NOVOLIFE MES system (004_novolife_system.sql, quick task
+#    260908-qtm). That seed added a third gxp_systems row without updating
+#    the count asserted here, so this gate failed on the first fresh
+#    `apply-seed.sh` afterwards -- which is what CI runs.
+check_eq "gxp_systems row count == 3" "SELECT count(*) FROM gxp_systems" "3"
 check_eq "GXP-MFG-DEMO-01 resolves" "SELECT count(*) FROM gxp_systems WHERE id='GXP-MFG-DEMO-01'" "1"
 check_eq "BUS-IT-DEMO-02 resolves" "SELECT count(*) FROM gxp_systems WHERE id='BUS-IT-DEMO-02'" "1"
+check_eq "GXP-MES-NOVOLIFE-01 resolves" "SELECT count(*) FROM gxp_systems WHERE id='GXP-MES-NOVOLIFE-01'" "1"
 
 # 2. Each of the 10 gap records, distinguishing field.
 check_eq "Gap 1: DOC-2026-OM-99 status == DRAFT" "SELECT status FROM documents WHERE id='DOC-2026-OM-99'" "DRAFT"

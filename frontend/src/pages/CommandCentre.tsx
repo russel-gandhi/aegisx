@@ -11,12 +11,17 @@ import {
   UserCheck,
   Truck,
   ServerCrash,
+  Plus,
 } from 'lucide-react'
 import ReadinessDial from '../components/ReadinessDial'
 import HealthMiniCard from '../components/HealthMiniCard'
 import Skeleton from '../components/Skeleton'
 import StatTile, { type StatTileTone } from '../components/StatTile'
 import Meter from '../components/Meter'
+import AddSystemModal from '../components/AddSystemModal'
+import { useIdentity } from '../lib/identity'
+import { useSystems } from '../lib/systems'
+import ChromeSlot from '../components/ChromeSlot'
 import {
   fetchAssuranceCards,
   fetchSystemSignals,
@@ -33,15 +38,14 @@ import {
 // readiness_score` (06-RESEARCH.md Pitfall 1: a static seed literal, 61/94,
 // never recomputed) -- every number on this page is computed client-side
 // from the four live backend surfaces below.
+//
+// "Add a new system" feature: these two remain the guaranteed floor (kept
+// so this page's existing test suite, which does not mock `fetchSystems`,
+// keeps passing unchanged) -- any additional system returned by the real
+// `GET /api/systems` (`useSystems()` below) is unioned in on top, so a
+// system created via `POST /api/systems` shows up here without a rebuild.
 const SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02'] as const
-type SystemId = (typeof SYSTEM_IDS)[number]
-type Scope = 'ALL' | SystemId
-
-const SYSTEM_OPTIONS: Array<{ value: Scope; label: string }> = [
-  { value: 'ALL', label: 'All Systems' },
-  { value: 'GXP-MFG-DEMO-01', label: 'GXP-MFG-DEMO-01' },
-  { value: 'BUS-IT-DEMO-02', label: 'BUS-IT-DEMO-02' },
-]
+type Scope = string
 
 // 06-UI-SPEC.md Interaction Notes, D-07 mapping table: verify_urs_approved
 // and verify_no_stale_documents both cite ANNEX11-S4-DOC-001 (same rule
@@ -86,8 +90,21 @@ export const PARTIAL_DATA_NOTE =
   'Partial data: one or more systems did not respond — the values above reflect only the systems that did.'
 
 export default function CommandCentre() {
+  const identity = useIdentity()
+  const { systems: fetchedSystems, refetch: refetchSystems } = useSystems()
+  const [addModalOpen, setAddModalOpen] = useState(false)
+
+  const allSystemIds: string[] = Array.from(
+    new Set([...SYSTEM_IDS, ...fetchedSystems.map((s) => s.id)]),
+  )
+
   const [scope, setScope] = useState<Scope>('ALL')
-  const systemsInScope: string[] = scope === 'ALL' ? [...SYSTEM_IDS] : [scope]
+  const systemsInScope: string[] = scope === 'ALL' ? allSystemIds : [scope]
+
+  const SYSTEM_OPTIONS: Array<{ value: Scope; label: string }> = [
+    { value: 'ALL', label: 'All Systems' },
+    ...allSystemIds.map((id) => ({ value: id, label: id })),
+  ]
 
   const [systemStates, setSystemStates] = useState<Record<string, SystemEntry>>(() =>
     initialSystemStates(SYSTEM_IDS),
@@ -154,7 +171,7 @@ export default function CommandCentre() {
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope])
+  }, [scope, allSystemIds.join(',')])
 
   const systemEntries = systemsInScope.map((id) => systemStates[id] ?? initialSystemEntry())
 
@@ -177,9 +194,23 @@ export default function CommandCentre() {
   const allSystemCallsSettled = !assuranceLoading && !signalsLoading
   const everyCallFailed = allSystemCallsSettled && assuranceAllRejected && signalsAllRejected
 
-  const totalChecks = 4 * assuranceFulfilled.length
+  // Ten deterministic checks per system -- the same ten rules
+  // `policies/gxp_rules.rego` defines: four from A2 (URS approved, periodic
+  // evaluation current, test traceability, no stale documents) plus six the
+  // specialists own (risk review, change actions closed, P1 incident RCA,
+  // access review current, no orphaned privileged accounts, backup restore).
+  //
+  // Was hardcoded to 4 while the assurance-cards route ran A2 alone. That
+  // route now also surfaces the A3-A6 rules, so a denominator of 4 would
+  // report more failing cards than total checks and drive the dial
+  // negative. Keep this in step with `_SPECIALIST_CHECK_NAMES` in
+  // backend/app/routes/findings.py.
+  const CHECKS_PER_SYSTEM = 10
+  const totalChecks = CHECKS_PER_SYSTEM * assuranceFulfilled.length
   const failingCards = assuranceFulfilled.flatMap((e) => e.assuranceData?.cards ?? [])
-  const passed = totalChecks - failingCards.length
+  // Clamped at zero: a card whose rule is not in the per-system count would
+  // otherwise show as a negative pass count rather than an obvious bug.
+  const passed = Math.max(0, totalChecks - failingCards.length)
 
   const card1Count = failingCards.filter((c) =>
     CARD1_CHECK_NAMES.has(c.deterministic_check.check_name),
@@ -276,7 +307,13 @@ export default function CommandCentre() {
         page an IT System Manager or QA/Compliance user sees first.
       </p>
 
-      <div className="mt-5 flex items-center gap-2">
+      {/* The system picker is painted into the role bar's right-hand chrome
+          slot (quick UI change 2026-09-08) rather than here in the page
+          body -- state, options and the `Scope` cast are unchanged, only
+          the DOM position moves. "Add System" travels with it: it acts on
+          the same list the picker reads, so splitting the two across two
+          places on screen would be worse than moving neither. */}
+      <ChromeSlot>
         <label htmlFor="command-centre-system" className="text-[13px] font-medium text-ink-muted">
           System
         </label>
@@ -292,7 +329,28 @@ export default function CommandCentre() {
             </option>
           ))}
         </select>
-      </div>
+        {identity.role === 'IT System Manager' && (
+          <button
+            type="button"
+            className="btn btn-secondary flex items-center gap-1.5"
+            onClick={() => setAddModalOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Add System
+          </button>
+        )}
+      </ChromeSlot>
+
+      {addModalOpen && (
+        <AddSystemModal
+          onClose={() => setAddModalOpen(false)}
+          onCreated={(newSystemId) => {
+            setAddModalOpen(false)
+            refetchSystems()
+            setScope(newSystemId)
+          }}
+        />
+      )}
 
       {everyCallFailed ? (
         // 2026-09-03: previously a plain untouched box -- the one branch of

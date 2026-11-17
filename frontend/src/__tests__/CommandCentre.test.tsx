@@ -22,6 +22,7 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...actual,
     fetchAssuranceCards: vi.fn(),
+    fetchSystems: vi.fn(),
     fetchSystemSignals: vi.fn(),
     fetchActionProposals: vi.fn(),
     fetchChainVerification: vi.fn(),
@@ -30,12 +31,14 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 import {
   fetchAssuranceCards,
+  fetchSystems,
   fetchSystemSignals,
   fetchActionProposals,
   fetchChainVerification,
 } from '../lib/api'
 
 const mockFetchAssuranceCards = vi.mocked(fetchAssuranceCards)
+const mockFetchSystems = vi.mocked(fetchSystems)
 const mockFetchSystemSignals = vi.mocked(fetchSystemSignals)
 const mockFetchActionProposals = vi.mocked(fetchActionProposals)
 const mockFetchChainVerification = vi.mocked(fetchChainVerification)
@@ -96,6 +99,15 @@ beforeEach(() => {
   mockFetchSystemSignals.mockReset()
   mockFetchActionProposals.mockReset()
   mockFetchChainVerification.mockReset()
+  mockFetchSystems.mockReset()
+
+  // `useSystems()` unions GET /api/systems onto the two hardcoded demo ids.
+  // Left unmocked, this call went to the real network: with no backend it
+  // rejected (two systems in scope), with a dev backend running it returned
+  // however many systems that database held -- so the dial's denominator,
+  // and every percentage asserted below, depended on the machine. Default:
+  // the API adds nothing beyond the two demo systems.
+  mockFetchSystems.mockResolvedValue([])
 
   // Sensible healthy-and-empty defaults, overridable per test.
   mockFetchAssuranceCards.mockImplementation((systemId: string) =>
@@ -113,7 +125,10 @@ afterEach(() => {
 })
 
 describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
-  it('computes a 75% dial and card counts of 1 from one failing check per system', async () => {
+  it('computes a 90% dial and card counts of 1 from one failing check per system', async () => {
+    // 10 deterministic checks per system (was 4): the assurance-cards route
+    // now surfaces the A3-A6 rules alongside A2's, matching the ten rules in
+    // policies/gxp_rules.rego. Three systems x 10 = 30 checks, 3 failing -> 90%.
     mockFetchAssuranceCards.mockImplementation((systemId: string) => {
       if (systemId === 'GXP-MFG-DEMO-01') {
         return Promise.resolve({
@@ -152,14 +167,26 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
     render(<CommandCentre />)
 
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '75')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '90')
     })
     const cards = screen.getAllByTestId('health-mini-card')
     expect(cards[0].textContent).toContain('1 open')
     expect(cards[1].textContent).toContain('1 open')
   })
 
-  it('narrows the dial to a single system 4-check denominator when selected', async () => {
+  it('widens the denominator by ten checks for each extra system GET /api/systems returns', async () => {
+    mockFetchSystems.mockResolvedValue([
+      {
+        id: 'NOVOLIFE-MES-01',
+        name: 'NOVOLIFE MES',
+        description: null,
+        system_owner: 'fixture-owner',
+        lifecycle_state: 'OPERATIONAL',
+        gxp_impact: true,
+        readiness_score: 80,
+        last_backup_test_ns: null,
+      },
+    ])
     mockFetchAssuranceCards.mockImplementation((systemId: string) => {
       if (systemId === 'GXP-MFG-DEMO-01') {
         return Promise.resolve({ system_id: systemId, cards: [fixtureCard({})] })
@@ -168,8 +195,25 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
     })
 
     render(<CommandCentre />)
+    // Three systems in scope, one failing check: 29 / 30, rounded.
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '88')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '97')
+    })
+    expect(mockFetchAssuranceCards).toHaveBeenCalledWith('NOVOLIFE-MES-01')
+  })
+
+  it('narrows the dial to a single system 10-check denominator when selected', async () => {
+    mockFetchAssuranceCards.mockImplementation((systemId: string) => {
+      if (systemId === 'GXP-MFG-DEMO-01') {
+        return Promise.resolve({ system_id: systemId, cards: [fixtureCard({})] })
+      }
+      return Promise.resolve(emptyCards(systemId))
+    })
+
+    render(<CommandCentre />)
+    // Two systems in scope, ten checks each, one failing: 19 / 20.
+    await waitFor(() => {
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '95')
     })
 
     fireEvent.change(screen.getByLabelText('System'), {
@@ -177,7 +221,7 @@ describe('CommandCentre readiness dial and mini-cards 1/2 (D-06, D-07)', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '75')
+      expect(screen.getByTestId('readiness-dial')).toHaveAttribute('data-percent', '90')
     })
   })
 })

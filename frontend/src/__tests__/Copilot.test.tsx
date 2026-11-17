@@ -9,6 +9,7 @@ import Copilot, {
   STREAM_FAILURE_COPY,
   INVESTIGATE_FAILURE_COPY,
   COPILOT_SYSTEM_IDS,
+  __resetCopilotCacheForTests,
 } from '../pages/Copilot'
 import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
 import { stubAssuranceCardsFetch } from './helpers/sseFetch'
@@ -136,6 +137,10 @@ async function submitQuery(text: string) {
 }
 
 beforeEach(() => {
+  // The page now caches its conversation state at module scope (Copilot.tsx)
+  // so it survives a route navigation -- reset it here so that persistence
+  // doesn't leak state from one test's <Copilot /> render into the next.
+  __resetCopilotCacheForTests()
   mockInvestigateCopilot.mockReset()
   // Default: a grounded, non-blocked, sufficient-evidence answer -- the
   // common case for any test that doesn't care about the exact response.
@@ -222,32 +227,6 @@ describe('Copilot hero query', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Ask Copilot' })).toBeInTheDocument()
-    })
-  })
-
-  it('transitions AgentTopologyCanvas nodes to running on open, then complete on the terminal frame', async () => {
-    stubAssuranceCardsFetch({ cards: [fixtureCard({})] })
-
-    const { container } = renderCopilot()
-    await submitQuery(HERO_QUERY)
-
-    function findNode(id: string): Element {
-      const node = Array.from(container.querySelectorAll('.react-flow__node')).find((el) =>
-        el.textContent?.includes(id),
-      )
-      if (node === undefined) throw new Error(`node ${id} not found`)
-      return node
-    }
-
-    await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-amber')
-      expect(findNode('A2').className).toContain('border-amber')
-    })
-
-    await waitFor(() => {
-      expect(findNode('A0').className).toContain('border-mint')
-      expect(findNode('A2').className).toContain('border-mint')
-      expect(findNode('C1').className).toContain('border-mint')
     })
   })
 

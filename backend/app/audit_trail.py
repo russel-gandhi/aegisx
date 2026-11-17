@@ -128,77 +128,92 @@ def _canonical_json(event_data: Mapping[str, Any]) -> str:
     return json.dumps(canonical_data, sort_keys=True, separators=(",", ":"), default=str)
 
 
+async def log_event_in_transaction(conn, event_data: Dict[str, Any]) -> str:
+    """Append one row to `audit_events` on `conn`, inside the transaction the
+    caller has ALREADY opened on it. Returns the new `event_id`.
+
+    Exists so a state change and the audit row that records it can commit or
+    roll back together (2026-11-16): `routes/actions.py` used to update an
+    `action_proposals` row on one connection and then call `log_event` on
+    another, so a failure between the two left an approval with no audit
+    event. This is the same append `log_event` performs -- one body, two
+    entry points, so the chain is written exactly one way.
+
+    The caller must be inside `conn.transaction()`: the `LOCK TABLE
+    audit_events IN EXCLUSIVE MODE` below is released at that transaction's
+    end, and it is what stops two concurrent appends from both reading the
+    same `prev_hash` and forking the chain (05-RESEARCH.md Pitfall 5).
+    Removing it is never a safe optimisation -- a "no observed race in
+    single-threaded tests" result does not mean the race cannot happen, and
+    21 CFR 11.10(e)'s tamper-evidence guarantee depends on this lock holding
+    under real concurrent writers.
+    """
+    await conn.execute("LOCK TABLE audit_events IN EXCLUSIVE MODE")
+    prev_row = await conn.fetchrow(
+        "SELECT event_hash FROM audit_events ORDER BY timestamp_utc DESC LIMIT 1"
+    )
+    prev_hash = prev_row["event_hash"] if prev_row is not None else GENESIS_HASH
+
+    canonical_json = _canonical_json(event_data)
+    event_hash = hashlib.sha256(
+        f"{prev_hash}{canonical_json}".encode("utf-8")
+    ).hexdigest()
+    event_id = f"EVT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
+    # audit_events.timestamp_utc is `TIMESTAMP` (naive, no time
+    # zone) per infra/postgres/initdb/001_schema.sql:184 -- an
+    # aware datetime.now(timezone.utc) raises
+    # asyncpg.exceptions.DataError ("can't subtract offset-naive
+    # and offset-aware datetimes") against that column type.
+    # Mirrors app/schemas.py's AgentMessage.timestamp fix: strip
+    # tzinfo after computing in UTC, producing a byte-identical
+    # naive-UTC value rather than switching the column type.
+    timestamp_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    evidence_ids = _normalise_list_field(event_data.get("evidence_ids"))
+    opa_rule_ids = _normalise_list_field(event_data.get("opa_rule_ids"))
+
+    await conn.execute(
+        """
+        INSERT INTO audit_events
+        (event_id, timestamp_utc, session_id, user_id, user_role, agent_id,
+         action_type, target_system_id, target_record_id, input_hash,
+         output_summary, evidence_ids, opa_rule_ids, model_id,
+         prompt_version, approval_id, previous_event_hash, event_hash,
+         opa_bundle_hash)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
+                $14, $15, $16, $17, $18, $19)
+        """,
+        event_id,
+        timestamp_utc,
+        event_data.get("session_id"),
+        event_data.get("user_id"),
+        event_data.get("user_role"),
+        event_data.get("agent_id"),
+        event_data.get("action_type"),
+        event_data.get("target_system_id"),
+        event_data.get("target_record_id"),
+        event_data.get("input_hash"),
+        event_data.get("output_summary"),
+        json.dumps(evidence_ids),
+        json.dumps(opa_rule_ids),
+        event_data.get("model_id"),
+        event_data.get("prompt_version"),
+        event_data.get("approval_id"),
+        prev_hash,
+        event_hash,
+        event_data.get("opa_bundle_hash"),
+    )
+    return event_id
+
+
 async def log_event(pool, event_data: Dict[str, Any]) -> str:
     """Append one row to `audit_events`, chained to the previous row's
-    `event_hash` (or `GENESIS_HASH` on an empty table).
-
-    The `LOCK TABLE audit_events IN EXCLUSIVE MODE` statement inside this
-    transaction is what stops two concurrent `log_event` calls from both
-    reading the same `prev_hash` and forking the chain (05-RESEARCH.md
-    Pitfall 5). Removing it is never a safe optimisation -- a "no
-    observed race in single-threaded tests" result does not mean the race
-    cannot happen; it means the test suite has not exercised concurrency,
-    and 21 CFR 11.10(e)'s tamper-evidence guarantee depends on this lock
-    holding under real concurrent writers.
-    """
+    `event_hash` (or `GENESIS_HASH` on an empty table), in its own
+    transaction. See `log_event_in_transaction` for the append itself and
+    for why its table lock must never be removed."""
     async with pool.acquire() as conn:
         async with conn.transaction():
-            await conn.execute("LOCK TABLE audit_events IN EXCLUSIVE MODE")
-            prev_row = await conn.fetchrow(
-                "SELECT event_hash FROM audit_events ORDER BY timestamp_utc DESC LIMIT 1"
-            )
-            prev_hash = prev_row["event_hash"] if prev_row is not None else GENESIS_HASH
-
-            canonical_json = _canonical_json(event_data)
-            event_hash = hashlib.sha256(
-                f"{prev_hash}{canonical_json}".encode("utf-8")
-            ).hexdigest()
-            event_id = f"EVT-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}"
-            # audit_events.timestamp_utc is `TIMESTAMP` (naive, no time
-            # zone) per infra/postgres/initdb/001_schema.sql:184 -- an
-            # aware datetime.now(timezone.utc) raises
-            # asyncpg.exceptions.DataError ("can't subtract offset-naive
-            # and offset-aware datetimes") against that column type.
-            # Mirrors app/schemas.py's AgentMessage.timestamp fix: strip
-            # tzinfo after computing in UTC, producing a byte-identical
-            # naive-UTC value rather than switching the column type.
-            timestamp_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-
-            evidence_ids = _normalise_list_field(event_data.get("evidence_ids"))
-            opa_rule_ids = _normalise_list_field(event_data.get("opa_rule_ids"))
-
-            await conn.execute(
-                """
-                INSERT INTO audit_events
-                (event_id, timestamp_utc, session_id, user_id, user_role, agent_id,
-                 action_type, target_system_id, target_record_id, input_hash,
-                 output_summary, evidence_ids, opa_rule_ids, model_id,
-                 prompt_version, approval_id, previous_event_hash, event_hash,
-                 opa_bundle_hash)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13,
-                        $14, $15, $16, $17, $18, $19)
-                """,
-                event_id,
-                timestamp_utc,
-                event_data.get("session_id"),
-                event_data.get("user_id"),
-                event_data.get("user_role"),
-                event_data.get("agent_id"),
-                event_data.get("action_type"),
-                event_data.get("target_system_id"),
-                event_data.get("target_record_id"),
-                event_data.get("input_hash"),
-                event_data.get("output_summary"),
-                json.dumps(evidence_ids),
-                json.dumps(opa_rule_ids),
-                event_data.get("model_id"),
-                event_data.get("prompt_version"),
-                event_data.get("approval_id"),
-                prev_hash,
-                event_hash,
-                event_data.get("opa_bundle_hash"),
-            )
-            return event_id
+            return await log_event_in_transaction(conn, event_data)
 
 
 async def verify_chain(pool) -> Dict[str, Any]:

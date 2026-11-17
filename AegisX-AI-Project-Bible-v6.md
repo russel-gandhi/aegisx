@@ -32,7 +32,7 @@ WebSocket | | REST API (JSON)
 
 \| | LLM Router |--->| +----+  +----+  +----+  +----+  +----+  +----+ | |
 
-\| | (Gemini/DeepSeek/ | | | A1 | | A2 | | A3 | | A4 | | A5 | | A6 | | |
+\| | (Ollama/Groq/ | | | A1 | | A2 | | A3 | | A4 | | A5 | | A6 | | |
 
 \| | Groq/OpenRouter) | | +----+  +----+  +----+  +----+  +----+  +----+ | |
 
@@ -204,7 +204,7 @@ The system enforces a strict hierarchy of evaluation methods. Non-deterministic 
 | Access review overdue      | Deterministic Python   | `(today - review_date).days > threshold`. Mathematical certainty required.          |
 | Missing O&M document       | Deterministic Python   | PostgreSQL `WHERE system_id = X AND doc_type = 'O&M'` existence query.              |
 | Risk severity scoring      | OPA / Rego             | Formal policy. Evaluates against `demo_risk_rubric.yaml` for ICH Q9(R1) compliance. |
-| CAPA narrative generation  | LLM (Gemini 2.5 Flash) | Requires natural language generation to summarize technical findings.               |
+| CAPA narrative generation  | LLM (`groq_gpt_oss`, `openai/gpt-oss-120b`; reconciled 2026-09-04, Deviation 15/18) | Requires natural language generation to summarize technical findings.               |
 | Prompt injection detection | Deterministic Regex    |                                                                                     |
 
 Must not depend on an LLM to identify LLM manipulation (OWASP LLM01/ASI02).  
@@ -212,9 +212,9 @@ Must not depend on an LLM to identify LLM manipulation (OWASP LLM01/ASI02).
 | URS to Test traceability      | Deterministic Graph Traversal | NetworkX reachability checking absolute connection states.                                                                                  |
 | ----------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | Supplier assessment stale     | OPA / Rego                    | Rego rule checks `reassessment_due_date` against `time.now_ns()`.                                                                           |
-| Change impact assessment      | LLM (DeepSeek R1) + Graph     | Assesses textual technical design against existing architecture to propose impact vectors, which are then verified by NetworkX graph nodes. |
+| Change impact assessment      | LLM (`ollama_qwen`, local `qwen2.5:7b-instruct`; reconciled 2026-09-04, Deviation 15/18) + Graph     | Assesses textual technical design against existing architecture to propose impact vectors, which are then verified by NetworkX graph nodes. |
 | Data Integrity ALCOA+ scoring | Deterministic Python          | Checks absolute presence of `author`, `created_date`, and `hash` fields.                                                                    |
-| Incident classification       | LLM (Groq Llama 3.3 70B)      | Natural language categorization of IT ticket descriptions requiring semantic understanding.                                                 |
+| Incident classification       | LLM (`groq_gpt_oss`, `openai/gpt-oss-120b`; reconciled 2026-09-04, Deviation 12/15)      | Natural language categorization of IT ticket descriptions requiring semantic understanding.                                                 |
 
 **System Readiness Score Calculation & Weights**
 
@@ -236,7 +236,7 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
 - **Output Schema**: `class OrchestratorOutput(BaseModel): active_agents: List[str]; intent_category: str`
 - **Tools**: None.
 - **Deterministic Checks**: N/A.
-- **Model Selection**: Gemini 2.5 Flash (Thinking OFF) - Optimal for rapid JSON structured output.
+- **Model Selection**: `ollama_qwen` (local `qwen2.5:7b-instruct`; reassigned from Gemini 2.5 Flash Thinking-OFF, Deviation 15/18, reconciled 2026-09-04) - Optimal for rapid JSON structured output.
 - **Failure Behavior**: Defaults to `["A1", "A2", "A3", "A4", "A5", "A6"]` (full diagnostic run) if the LLM times out after 2000ms.
 - **UI Representation**: The React Flow dashboard highlights the A0 node, followed by routing arrows animating toward the selected specialist nodes.
 
@@ -247,8 +247,8 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
 - **Output Schema**: `AgentFinding`
 - **Tools**: `search_qdrant_documents(system_id: str, document_type: str) -> str`
 - **Deterministic Checks**: Validates system UUID exists in PostgreSQL `gxp_systems` table.
-- **Model Selection**: Gemini 2.5 Flash (Thinking OFF).
-- **Failure Behavior**: Abstains and returns `{"finding_id": "ERR-A1", "claim": "Unable to verify documentation inventory due to retrieval timeout.", "confidence_score": "LOW", "regulatory_citations": [], "evidence_ids": [], "alcoa_score": {}, "model_attribution": "gemini-2.5-flash"}`.
+- **Model Selection**: `ollama_qwen` (local `qwen2.5:7b-instruct`; reassigned from Gemini 2.5 Flash Thinking-OFF, Deviation 15/18, reconciled 2026-09-04).
+- **Failure Behavior**: Abstains and returns `{"finding_id": "ERR-A1", "claim": "Unable to verify documentation inventory due to retrieval timeout.", "confidence_score": "LOW", "regulatory_citations": [], "evidence_ids": [], "alcoa_score": {}, "model_attribution": "deterministic-fallback"}`.
 - **UI Representation**: Node pulses in React Flow. "System Identity" health card updates.
 
 ### A2 — Compliance & Audit Readiness Agent
@@ -261,7 +261,7 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
   1. `verify_urs_approved(system_id)`
   2. `verify_periodic_eval_current(system_id)`
   3. `verify_test_traceability(system_id)`
-- **Model Selection**: Gemini 2.5 Flash (Thinking OFF).
+- **Model Selection**: `ollama_qwen` (local `qwen2.5:7b-instruct`; reassigned from Gemini 2.5 Flash Thinking-OFF, Deviation 15/18, reconciled 2026-09-04).
 - **Failure Behavior**: Emits a `LOW` confidence finding citing "Traceability verification failed."
 - **UI Representation**: Populates the "Compliance" health card.
 
@@ -272,8 +272,8 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
 - **Output Schema**: `AgentFinding`
 - **Tools**: `get_risk_rubric() -> str`
 - **Deterministic Checks**: `calculate_risk_score(severity, probability) -> int`
-- **Model Selection**: DeepSeek R1. Reasoning-heavy task requiring the model to consume the YAML rubric and map natural language IT incident trends to the formal probability matrix.
-- **Failure Behavior**: Downgrades to `gemini_flash_thinking` if DeepSeek API times out (>10s).
+- **Model Selection**: `ollama_qwen` (local, `qwen2.5:7b-instruct`) — reassigned from DeepSeek R1 (Deviation 15, backend/README.md; SENT-7-05, reconciled 2026-09-04) after DeepSeek returned a live `402 Payment Required`. Reasoning-heavy task requiring the model to consume the YAML rubric and map natural language IT incident trends to the formal probability matrix.
+- **Failure Behavior**: Cascades to `groq_gpt_oss`, then `openrouter_fallback`, if `ollama_qwen` is unreachable or times out (Deviation 13/18).
 - **UI Representation**: Populates the "Risk" health card.
 
 ### A4 — Change & Release Agent
@@ -283,7 +283,7 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
 - **Output Schema**: `AgentFinding`
 - **Tools**: `traverse_change_impact(change_id: str) -> List[str]`
 - **Deterministic Checks**: `db.execute("SELECT * FROM change_actions WHERE change_id = $1 AND status != 'CLOSED'", change_id)`
-- **Model Selection**: Gemini 2.5 Flash (Thinking OFF).
+- **Model Selection**: `ollama_qwen` (local `qwen2.5:7b-instruct`; reassigned from Gemini 2.5 Flash Thinking-OFF, Deviation 15/18, reconciled 2026-09-04).
 - **Failure Behavior**: Skips graph traversal, analyzes only direct change record metadata.
 - **UI Representation**: Populates the "Change" health card.
 
@@ -318,8 +318,8 @@ The overall system readiness score (S) is calculated as $S=\sum(w\_i\cdot D\_i)$
 - **Output Schema**: `ActionProposal`
 - **Tools**: `draft_servicenow_ticket(payload: dict) -> str`
 - **Deterministic Checks**: None. Purely generative based on upstream verified data.
-- **Model Selection**: Gemini 2.5 Flash (Thinking ON). Requires deep synthesis to structure comprehensive CAPA proposals.
-- **Failure Behavior**: Returns an empty array of proposed actions.
+- **Model Selection**: `groq_gpt_oss` (`openai/gpt-oss-120b`; reassigned from Gemini 2.5 Flash Thinking-ON, Deviation 10 then 15/18, reconciled 2026-09-04) - measured ~1.4s vs. the prior ~18s Gemini baseline, within `synthesize_capa`'s wall-clock ceiling.
+- **Failure Behavior**: Falls back to a deterministic CAPA template (`_deterministic_capa`) on cascade exhaustion, ceiling breach, or parse failure — never an empty array.
 - **UI Representation**: Triggers the "Open Approvals" counter to increment.
 
 ### C1 — Evidence & Grounding Verifier
@@ -1029,7 +1029,7 @@ If the context states an O&M document is "DRAFT", flag this as a compliance viol
 
 You are not the decision-maker; you are the explainer of deterministic states. Do not speculate.
 
-If you lack data to make a claim, output: {"finding\_id": "NONE", "claim": "Insufficient data", "confidence\_score": "LOW", "regulatory\_citations": [], "evidence\_ids": [], "alcoa\_score": {}, "model\_attribution": "gemini-2.5-flash"}
+If you lack data to make a claim, output: {"finding\_id": "NONE", "claim": "Insufficient data", "confidence\_score": "LOW", "regulatory\_citations": [], "evidence\_ids": [], "alcoa\_score": {}, "model\_attribution": "qwen2.5:7b-instruct"}
 
 Output your response in the precise AgentFinding JSON schema.
 
@@ -1192,43 +1192,30 @@ Python
 
 ```
 PROVIDER_CONFIG = {
-    "gemini_flash_thinking": {
-        "provider": "google",
-        "model": "gemini-2.5-flash",
-        "thinking_budget": 512,
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-        "api_key_env": "GOOGLE_API_KEY",
-        "rpm_limit": 60,
-        "use_for": ["orchestrator", "synthesis", "remediation"]
+    "ollama_qwen": {
+        "provider": "ollama",
+        "model": "qwen2.5:7b-instruct",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "api_key_env": (),
+        "rpm_limit": 6000,
+        "use_for": [
+            "orchestrator", "synthesis",
+            "compliance", "knowledge", "change", "rerank",
+            "risk_assessment"
+        ]
     },
-    "gemini_flash_fast": {
-        "provider": "google",
-        "model": "gemini-2.5-flash",
-        "thinking_budget": 0,
-        "base_url": "https://generativelanguage.googleapis.com/v1beta",
-        "api_key_env": "GOOGLE_API_KEY",
-        "rpm_limit": 60,
-        "use_for": ["compliance", "knowledge", "change"]
-    },
-    "deepseek_r1": {
-        "provider": "deepseek",
-        "model": "deepseek-reasoner",
-        "base_url": "https://api.deepseek.com/v1",
-        "api_key_env": "DEEPSEEK_API_KEY",
-        "rpm_limit": 30,
-        "use_for": ["risk_assessment"]
-    },
-    "groq_llama": {
+    "groq_gpt_oss": {
         "provider": "groq",
-        "model": "llama-3.3-70b-versatile",
+        "model": "openai/gpt-oss-120b",
         "base_url": "https://api.groq.com/openai/v1",
         "api_key_env": "GROQ_API_KEY",
         "rpm_limit": 300,
-        "use_for": ["incident", "access", "high_volume"]
+        "tpm_limit": 8000,
+        "use_for": ["incident", "access", "high_volume", "narration", "remediation"]
     },
     "openrouter_fallback": {
         "provider": "openrouter",
-        "model": "auto",
+        "model": "openrouter/auto",
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_env": "OPENROUTER_API_KEY",
         "rpm_limit": 1000,
@@ -1238,9 +1225,11 @@ PROVIDER_CONFIG = {
 
 ```
 
+**Reconciled 2026-09-04 (Deviation 15/18, backend/README.md; SENT-7-05).** `gemini_flash_thinking`, `gemini_flash_fast`, and `deepseek_r1` are removed. Both Gemini and DeepSeek hit live, confirmed failures on 2026-08-31 (Gemini `429` quota exhaustion on both embeddings and text-gen; DeepSeek `402 Payment Required`, no billing configured) — not transient degradation, structurally broken. `ollama_qwen`, a local unauthenticated Ollama instance (`qwen2.5:7b-instruct`), now leads the cascade and absorbs all seven tasks the three removed entries used to split. `groq_gpt_oss` (renamed from `groq_llama`, model corrected to `openai/gpt-oss-120b` — the Llama 3.3 70B id is retired) and `openrouter_fallback` are unchanged aside from a `tpm_limit` addition and picking up `narration`/`remediation`. Document embeddings moved the same way, from Gemini's `gemini-embedding-001` to a local `nomic-embed-text` Ollama entry (`backend/app/retrieval/embeddings.py`). See `LOCAL-MODELS-BUILD-MAP.md` (repo root) for the full investigation and hardware constraints.
+
 ### 8.2 Router Logic
 
-The unified `call_llm` interface processes queries by matching the requested task type to the optimal model, executing the API call, and trapping `RateLimitError` or timeout exceptions. Upon failure, the logic automatically cascades to `openrouter_fallback`. The specific `model_id` utilized is explicitly attached to the Pydantic response, ensuring full auditability of the AI components involved in generating output.
+The unified `call_llm` interface processes queries by matching the requested task type to the optimal model, executing the API call, and trapping `RateLimitError` or timeout exceptions. **Reconciled 2026-09-04 (Deviation 13/18, backend/README.md; SENT-7-05):** upon failure, the router does not stop at a single hop to `openrouter_fallback` — it walks the full `FALLBACK_CASCADE` (`ollama_qwen` → `groq_gpt_oss` → `openrouter_fallback`), skipping any provider already attempted, until one succeeds or the cascade is exhausted. The specific `model_id` utilized is explicitly attached to the Pydantic response, ensuring full auditability of the AI components involved in generating output.
 
 ## SECTION 9: QDRANT RAG IMPLEMENTATION
 
@@ -1464,7 +1453,7 @@ EU GMP Draft Annex 22 (AI/ML in GxP environments, currently in consultation) exp
 | Supplier Controls | EU GMP Annex 11 | Section 3         | Vendors providing IT services must be qualified and monitored | A3 Agent querying `suppliers` and OPA rule ANNEX11-S3-SUP-001 | Mandatory  |
 | Audit Trails      | 21 CFR Part 11  | 11.10(e)          | Secure, computer-generated, time-stamped audit trails         | Hash-chained `audit_events` PostgreSQL table                  | Mandatory  |
 | AI Determinism    | EU GMP Annex 22 | Principles (2)    | Output must be deterministic for critical applications        | C1/C2 Gateways; Rego Policy engine prevents LLM decisions     | Draft 2025 |
-| Risk Management   | ICH Q9(R1)      | 4.1               | Systematic process for quality risk management                | A3 DeepSeek agent mapping to YAML Q9 severity matrix          | Guidance   |
+| Risk Management   | ICH Q9(R1)      | 4.1               | Systematic process for quality risk management                | A3 agent (`ollama_qwen`, local `qwen2.5:7b-instruct`; reconciled 2026-09-04) mapping to YAML Q9 severity matrix          | Guidance   |
 | Change Impact     | EU GMP Annex 11 | Section 10        | Assessment of change impact on system validation              | NetworkX traversal identifying broken URS traceability        | Mandatory  |
 | Prompt Security   | OWASP Top 10    | ASI02 / LLM01     | Prevent prompt injection manipulation and tool misuse         |                                                               |            |
 
@@ -1545,7 +1534,7 @@ C2 Policy Gateway Regex/Entropy filters
 1. **"Is this Part 11 compliant or FDA validated?"**
    - "As a prototype, no. However, it is architected for Part 11 compliance by design. The hash-chained audit trail meets 11.10(e), identity is separated via the Action Gateway (11.10(d)), and the system itself would undergo standard GAMP 5 Category 5 validation before production use."
 2. **"Why only three scenarios if you had time for more?"**
-   - "We focused on depth over breadth. We proved deterministic policy via Rego, LLM reasoning via DeepSeek, and data integrity via hash-chaining. These three mechanisms can scale to any number of scenarios."
+   - "We focused on depth over breadth. We proved deterministic policy via Rego, LLM reasoning via a local Ollama model, and data integrity via hash-chaining. These three mechanisms can scale to any number of scenarios."
 3. **"How do we know your evaluation number isn't just grading your own homework?"**
    - "Because the LLM does not generate the evaluation. The OPA Rego engine calculates the score based on deterministic database state. The LLM only translates that mathematical reality into human-readable text. It's impossible for the LLM to hallucinate a passing score."
 4. **"Is this actually connected to Novo Nordisk's systems?"**
@@ -1561,7 +1550,7 @@ C2 Policy Gateway Regex/Entropy filters
 9. **"How does this handle the EU AI Act?"**
    - "By classifying our generative features as 'decision-supporting' rather than autonomous execution. The C3 Action Gateway ensures a Human-in-the-Loop (HITL), strictly fulfilling AI Act transparency and oversight mandates, as well as the Draft Annex 22 requirements for human oversight."
 10. **"What's the 44-second detection claim based on?"**
-    - "This is the measured end-to-end latency of our LangGraph pipeline (Orchestrator -> DeepSeek reasoning -> OPA evaluation -> Verifier) during local testing. A process that typically takes a System Manager 2-3 days of hunting through Veeva and ServiceNow is completed in under a minute."
+    - "This is the measured end-to-end latency of our LangGraph pipeline (Orchestrator -> local Ollama reasoning -> OPA evaluation -> Verifier) during local testing. A process that typically takes a System Manager 2-3 days of hunting through Veeva and ServiceNow is completed in under a minute."
 
 ## SECTION 17: KNOWN LIMITATIONS & HONEST DISCLOSURES
 

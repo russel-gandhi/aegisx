@@ -270,29 +270,28 @@ A2_CHECKS: Tuple[Callable[[Any, str], Awaitable[Dict[str, Any]]], ...] = (
 )
 
 # Deviation 18 (2026-08-29): `app.llm_router.call_llm` cascades through
-# every entry in `FALLBACK_CASCADE` on failure (3 providers as of the
-# 2026-09-01 Ollama migration: `ollama_qwen`, `groq_gpt_oss`,
-# `openrouter_fallback`). `NARRATION_PER_HOP_TIMEOUT_SECONDS` is the
-# budget for EACH individual provider attempt; `NARRATION_CEILING_SECONDS`
-# is the TOTAL wall-clock budget across every hop.
+# every entry in `FALLBACK_CASCADE` on failure.
+# `NARRATION_PER_HOP_TIMEOUT_SECONDS` is the budget for EACH individual
+# provider attempt; `NARRATION_CEILING_SECONDS` is the TOTAL wall-clock
+# budget across every hop.
 #
-# 2026-09-01: widened from 3.0s/17.0s. `ollama_qwen` now leads the
-# cascade, and a cold Ollama call (model evicted from GPU VRAM by its own
-# idle keep_alive) measured ~6-8s just to reload before it can answer at
-# all -- comfortably exceeding the old 3.0s hop budget that was tuned for
-# hosted APIs alone, which silently forced every cold-Ollama narration
-# straight to deterministic-fallback (observed live this session: the
-# process-level `OLLAMA_KEEP_ALIVE` fix keeps the model resident in the
-# common case, but this budget must not itself require that fix to hold
-# for correctness). 10.0s gives a cold Ollama hop room to finish; the
-# ceiling must sit ABOVE the worst-case sum of every hop (3 hops x 10.0s =
-# 30.0s) PLUS the inter-hop cascade delay call_llm sleeps between failed
-# hops (LLM_CASCADE_DELAY_SECONDS, default 1.0s, applied 2 times across a
-# 3-hop cascade = 2.0s) — an outer ceiling tighter than the cascade's own
-# worst case reintroduces the exact bug Deviation 18 fixed (the wait_for
-# firing mid-cascade before a later, working provider gets its turn).
-# 35.0s gives ~3s of margin above that 32.0s worst case.
-NARRATION_PER_HOP_TIMEOUT_SECONDS = 10.0
+# The ceiling must sit ABOVE the worst-case sum of every hop PLUS the
+# inter-hop delay `call_llm` sleeps between failed hops
+# (LLM_CASCADE_DELAY_SECONDS, default 1.0s) -- an outer ceiling tighter than
+# the cascade's own worst case reintroduces the bug Deviation 18 fixed (the
+# wait_for firing mid-cascade before a later, working provider gets its
+# turn).
+#
+# 2026-11-16: the cascade is now 5 entries (three Groq models, Ollama,
+# OpenRouter) and hosted-first, so the per-hop budget came down from 10.0s
+# to 6.0s: 5 x 6.0s + 4 x 1.0s = 34.0s, inside the unchanged 35.0s ceiling.
+# The 10.0s figure existed to give a cold local model room when it was the
+# first hop; a hosted narration answers in well under a second, and 6.0s is
+# still enough for a warm local hop late in the cascade.
+# `tests/test_narration_cascade_cache.py` asserts the ceiling against
+# `len(FALLBACK_CASCADE)`, so adding a hop without revisiting these fails
+# loudly.
+NARRATION_PER_HOP_TIMEOUT_SECONDS = 6.0
 NARRATION_CEILING_SECONDS = 35.0
 
 # check name -> short human-readable description of what failed, used only

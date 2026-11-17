@@ -12,6 +12,9 @@ import io
 
 from pypdf import PdfReader
 
+ITSM_HEADERS = {"X-User-Id": "test-it-manager", "X-User-Role": "IT System Manager"}
+AUDITOR_HEADERS = {"X-User-Id": "test-auditor", "X-User-Role": "Auditor"}
+
 
 def _extract_pdf_text(pdf_bytes: bytes) -> str:
     reader = PdfReader(io.BytesIO(pdf_bytes))
@@ -20,7 +23,7 @@ def _extract_pdf_text(pdf_bytes: bytes) -> str:
 
 def test_evidence_pack_returns_a_real_pdf_for_a_known_system(client):
     resp = client.post(
-        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}
+        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}, headers=ITSM_HEADERS
     )
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/pdf"
@@ -29,7 +32,7 @@ def test_evidence_pack_returns_a_real_pdf_for_a_known_system(client):
 
 def test_evidence_pack_content_disposition_names_the_system(client):
     resp = client.post(
-        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}
+        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}, headers=ITSM_HEADERS
     )
     assert "evidence-pack-GXP-MFG-DEMO-01.pdf" in resp.headers["content-disposition"]
 
@@ -38,13 +41,13 @@ def test_evidence_pack_pdf_text_contains_real_assurance_card_data(client):
     # Cross-check against the live assurance-cards endpoint this route
     # reuses internally -- proves the PDF isn't a static template but
     # actually renders the same real, currently-open findings.
-    cards_resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards")
+    cards_resp = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS)
     cards = cards_resp.json()["cards"]
     assert cards, "expected GXP-MFG-DEMO-01 to have at least one open finding to assert against"
     first_finding_id = cards[0]["finding_id"]
 
     pdf_resp = client.post(
-        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}
+        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}, headers=ITSM_HEADERS
     )
     text = _extract_pdf_text(pdf_resp.content)
     assert first_finding_id in text
@@ -54,19 +57,19 @@ def test_evidence_pack_pdf_text_contains_real_assurance_card_data(client):
 
 def test_evidence_pack_unknown_system_returns_404(client):
     resp = client.post(
-        "/api/reports/evidence-pack", json={"system_id": "NO-SUCH-SYSTEM"}
+        "/api/reports/evidence-pack", json={"system_id": "NO-SUCH-SYSTEM"}, headers=ITSM_HEADERS
     )
     assert resp.status_code == 404
 
 
 def test_evidence_pack_missing_system_id_returns_422(client):
-    resp = client.post("/api/reports/evidence-pack", json={})
+    resp = client.post("/api/reports/evidence-pack", json={}, headers=ITSM_HEADERS)
     assert resp.status_code == 422
 
 
 def test_evidence_pack_second_seeded_system_also_returns_a_real_pdf(client):
     resp = client.post(
-        "/api/reports/evidence-pack", json={"system_id": "BUS-IT-DEMO-02"}
+        "/api/reports/evidence-pack", json={"system_id": "BUS-IT-DEMO-02"}, headers=ITSM_HEADERS
     )
     assert resp.status_code == 200
     assert resp.content[:5] == b"%PDF-"
@@ -85,3 +88,36 @@ def test_build_pdf_with_no_cards_renders_the_honest_empty_state():
     assert pdf_bytes[:5] == b"%PDF-"
     text = _extract_pdf_text(pdf_bytes)
     assert "no open findings" in text.lower()
+
+
+# --- 2026-11-16: the pack is identity-gated and role-scoped ----------------
+
+
+def test_evidence_pack_without_identity_headers_returns_422(client):
+    resp = client.post("/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"})
+    assert resp.status_code == 422
+
+
+def test_evidence_pack_unrecognised_role_returns_403(client):
+    resp = client.post(
+        "/api/reports/evidence-pack",
+        json={"system_id": "GXP-MFG-DEMO-01"},
+        headers={"X-User-Id": "x", "X-User-Role": "Superuser"},
+    )
+    assert resp.status_code == 403
+
+
+def test_evidence_pack_for_an_auditor_omits_specialist_findings(client):
+    full = client.get("/api/systems/GXP-MFG-DEMO-01/assurance-cards", headers=ITSM_HEADERS).json()["cards"]
+    specialist_ids = [c["finding_id"] for c in full if not c["finding_id"].startswith("A2-")]
+    a2_ids = [c["finding_id"] for c in full if c["finding_id"].startswith("A2-")]
+    assert specialist_ids and a2_ids, "seed must have both A2 and A3-A6 findings for this to prove anything"
+
+    resp = client.post(
+        "/api/reports/evidence-pack", json={"system_id": "GXP-MFG-DEMO-01"}, headers=AUDITOR_HEADERS
+    )
+    assert resp.status_code == 200
+    text = _extract_pdf_text(resp.content)
+    assert a2_ids[0] in text
+    for finding_id in specialist_ids:
+        assert finding_id not in text

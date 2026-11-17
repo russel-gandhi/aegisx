@@ -1,13 +1,23 @@
 """Tests for `app.routes.trust_centre` (Bible Section 11.8, Trust Centre)."""
 
 
-def test_trust_centre_returns_three_provider_cascade_in_order(client):
+def test_trust_centre_returns_the_live_cascade_in_order(client):
+    """The page must show the cascade the router actually walks, in order --
+    hosted-first since 2026-11-16 (three Groq models, then the local model,
+    then OpenRouter)."""
+    from app.llm_router import FALLBACK_CASCADE
+
     resp = client.get("/api/trust-centre")
     assert resp.status_code == 200
     body = resp.json()
 
     keys = [entry["provider_key"] for entry in body["llm_cascade"]]
-    assert keys == ["ollama_qwen", "groq_gpt_oss", "openrouter_fallback"]
+    assert keys == list(FALLBACK_CASCADE)
+    assert keys == [
+        "groq_gpt_oss", "groq_qwen", "groq_gpt_oss_20b", "ollama_qwen", "openrouter_fallback",
+    ]
+    models = [entry["model"] for entry in body["llm_cascade"]]
+    assert len(set(models)) == len(models)
 
 
 def test_trust_centre_never_exposes_api_key_values(client):

@@ -45,6 +45,7 @@ function fixtureDocument(overrides: Partial<DocumentSummary> = {}): DocumentSumm
     chunk_count: 5,
     ingestion_status: 'READY',
     failed_stage: null,
+    approval_status: 'READY',
     ...overrides,
   }
 }

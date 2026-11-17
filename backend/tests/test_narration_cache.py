@@ -26,7 +26,7 @@ import app.opa_client as opa_client_module
 from app import narration_cache
 from app.agents.a2_compliance import narrate_gap
 from app.db import get_pool
-from app.routes.findings import get_assurance_cards
+from app.routes.findings import build_assurance_cards as get_assurance_cards
 
 GXP_SYSTEM = "GXP-MFG-DEMO-01"
 

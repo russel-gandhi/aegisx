@@ -8,6 +8,7 @@ milliseconds rather than actually waiting out a real cooldown.
 
 import pytest
 
+from app import circuit_breaker
 from app.circuit_breaker import (
     CONSECUTIVE_TIMEOUTS_TO_TRIP,
     DEFAULT_COOLDOWN_SECONDS,
@@ -125,3 +126,59 @@ def test_providers_are_independent():
     record_rate_limited("provider-k", cooldown_seconds=30.0)
     assert is_available("provider-k") is False
     assert is_available("provider-l") is True
+
+
+# --- 2026-11-16: a HALF_OPEN probe must always be resolvable ----------------
+
+
+def _half_open_with_probe_granted(monkeypatch, key):
+    """Trip `key`, let its cooldown elapse, and take the single probe."""
+    now = [1000.0]
+    monkeypatch.setattr(circuit_breaker.time, "monotonic", lambda: now[0])
+    circuit_breaker.record_rate_limited(key, 5.0)
+    now[0] += 6.0
+    assert circuit_breaker.is_available(key) is True
+    assert circuit_breaker.is_available(key) is False
+    return now
+
+
+def test_release_probe_lets_the_next_caller_probe(monkeypatch):
+    _half_open_with_probe_granted(monkeypatch, "p-release")
+    circuit_breaker.release_probe("p-release")
+    assert circuit_breaker.is_available("p-release") is True
+    # ...and still exactly one at a time.
+    assert circuit_breaker.is_available("p-release") is False
+
+
+def test_release_probe_is_a_noop_when_closed_or_open(monkeypatch):
+    circuit_breaker.release_probe("p-never-seen")
+    assert circuit_breaker.is_available("p-never-seen") is True
+
+    circuit_breaker.record_rate_limited("p-open", 60.0)
+    circuit_breaker.release_probe("p-open")
+    assert circuit_breaker.is_available("p-open") is False
+
+
+def test_record_probe_failure_reopens_a_half_open_breaker(monkeypatch):
+    now = _half_open_with_probe_granted(monkeypatch, "p-fail")
+    circuit_breaker.record_probe_failure("p-fail")
+    assert circuit_breaker.is_available("p-fail") is False
+    now[0] += circuit_breaker.DEFAULT_COOLDOWN_SECONDS + 0.1
+    assert circuit_breaker.is_available("p-fail") is True
+
+
+def test_record_probe_failure_never_trips_a_closed_breaker():
+    for _ in range(10):
+        circuit_breaker.record_probe_failure("p-closed")
+    assert circuit_breaker.is_available("p-closed") is True
+
+
+def test_abandoned_probe_is_reclaimed_after_the_stale_window(monkeypatch):
+    """The backstop: even a caller that never resolves its probe cannot
+    keep a provider skipped forever."""
+    now = _half_open_with_probe_granted(monkeypatch, "p-stale")
+    now[0] += circuit_breaker.HALF_OPEN_PROBE_STALE_SECONDS - 1.0
+    assert circuit_breaker.is_available("p-stale") is False
+    now[0] += 2.0
+    assert circuit_breaker.is_available("p-stale") is True
+    assert circuit_breaker.is_available("p-stale") is False

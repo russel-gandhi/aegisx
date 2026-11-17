@@ -3,10 +3,21 @@
  * names a REAL page/target this tour drives a user through -- no fabricated
  * step, no scripted/static content beyond the short explanation copy.
  *
- * 8 Bible-named beats collapse onto 7 real surfaces plus 1 closing overlay
- * message (06-UI-SPEC.md "Guided Tour 8-step-to-4-real-surface mapping"):
- * steps 2-4 of the Bible (Finding / Evidence / Deterministic Verification)
- * collapse into the single already-built AssuranceCard view (step 3 here).
+ * Steps 1-7 (indices 0-6) are the original Bible hero loop: 8 Bible-named
+ * beats collapse onto 7 real surfaces (06-UI-SPEC.md "Guided Tour
+ * 8-step-to-4-real-surface mapping") -- steps 2-4 of the Bible (Finding /
+ * Evidence / Deterministic Verification) collapse into the single
+ * already-built AssuranceCard view (step 3 here).
+ *
+ * Steps 8-14 (indices 7-13) extend the tour to every remaining route in
+ * `routes.tsx` that the hero loop doesn't already visit -- Blast Radius
+ * (the dedicated explorer, not just the link), Audit Readiness, Knowledge,
+ * Supplier Intelligence, Assurance Lab, Trust Centre, and the Inspection
+ * Simulator -- so the whole product can be walked end to end from this one
+ * tour, with no manual navigation required, for a self-contained demo.
+ * Appended AFTER the hero loop (not interleaved) so the loop's own indices
+ * (REMEDIATION_STEP_INDEX, the D-09 guard, and prefillForStep in
+ * GuidedTourOverlay.tsx) never have to shift.
  */
 
 // The one seeded system this tour's hero query and remediation flow always
@@ -91,10 +102,66 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     id: 8,
+    title: 'Full Impact Graph',
+    route: '/blast-radius',
+    target: '[data-tour="blast-radius-canvas"]',
+    content:
+      "This is the real NetworkX evidence graph itself, not just the shortcut link you followed earlier -- every node and edge is built live from Postgres state (requirements, test cases, results, design elements, and changes). Click any node to see its own direct and indirect blast radius.",
+  },
+  {
+    id: 9,
+    title: 'Compliance Heat Map',
+    route: '/audit-readiness',
+    target: '[data-tour="audit-readiness-heatmap"]',
+    content:
+      "Every open finding for this system, cross-referenced by evidence type and confidence -- the same real assurance-card data Command Centre and Copilot use, grouped for a QA/Compliance reviewer's view. Brighter cells mean more findings share that combination.",
+  },
+  {
+    id: 10,
+    title: 'Build the Knowledge Base',
+    route: '/knowledge',
+    target: '[data-tour="knowledge-panel"]',
+    content:
+      "Upload a real GxP document here and watch it move through parsing, chunking, and indexing -- every stage shown is reported by the real ingestion pipeline, never a scripted progress bar. This is the corpus Copilot's hybrid retrieval searches when it answers a question.",
+  },
+  {
+    id: 11,
+    title: 'Supplier Registry',
+    route: '/suppliers',
+    target: '[data-tour="suppliers-table"]',
+    content:
+      'Every vendor registered against this system, their qualification status, and reassessment due dates -- read directly from live database state, including the seeded overdue reassessment this demo deliberately surfaces.',
+  },
+  {
+    id: 12,
+    title: 'Test the Safety Gate Yourself',
+    route: '/assurance-lab',
+    target: '[data-tour="assurance-lab-actions"]',
+    content:
+      'Upload a clean document or a deliberately compromised one through the exact same pipeline a real attacker-crafted file would go through -- the C2 Policy & Safety Gateway\'s deterministic detect_injection() check decides whether to index or quarantine it, live, with no model in the decision path.',
+  },
+  {
+    id: 13,
+    title: 'Verify the Audit Trail',
+    route: '/trust-centre',
+    target: '[data-tour="audit-chain-widget"]',
+    content:
+      'Click "Re-verify Chain" to watch the hash-chained audit log get re-walked and recomputed from scratch, right now -- including every event this tour itself just wrote. This is the same tamper-evidence check /api/audit/demonstrate-tamper exists to deliberately break.',
+  },
+  {
+    id: 14,
+    title: 'Timed Inspector Simulation',
+    route: '/inspection-simulator',
+    target: '[data-tour="inspection-simulator-panel"]',
+    content:
+      'Ten FDA-483-style questions, each answered live through the real Copilot pipeline against a 30-second bar. Start one yourself when you\'re ready -- every answer is a genuine investigate call, never a canned response.',
+  },
+  {
+    id: 15,
     title: 'Tour Complete',
     route: '',
     target: '',
     content:
-      'Monitor -> Investigate -> Trust -> Remediate -> Audit. You just walked the full loop for real -- every step called the actual backend, never a script.',
+      'Monitor -> Investigate -> Trust -> Remediate -> Audit, across every page in the product. You just walked the full loop for real -- every step called the actual backend, never a script.',
   },
 ]

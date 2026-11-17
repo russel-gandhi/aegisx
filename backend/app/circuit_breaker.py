@@ -50,6 +50,18 @@ logger = logging.getLogger(__name__)
 DEFAULT_COOLDOWN_SECONDS = 20.0
 CONSECUTIVE_TIMEOUTS_TO_TRIP = 2
 
+# A HALF_OPEN probe that has been "in flight" longer than this is treated as
+# abandoned and a new caller is allowed to probe (2026-11-16). Every probe is
+# supposed to resolve through `record_success` / `record_rate_limited` /
+# `record_timeout` / `record_probe_failure` / `release_probe`, and
+# `llm_router.call_llm` now guarantees one of them runs even when the call is
+# cancelled. This is the backstop for a caller that still manages not to: with
+# no bound, one lost probe left `is_available()` returning False for the rest
+# of the process's life, which is how a provider that had recovered stayed
+# skipped until the server was restarted. Longer than any per-hop LLM timeout
+# in this codebase (55s is the largest), so it never pre-empts a live probe.
+HALF_OPEN_PROBE_STALE_SECONDS = 90.0
+
 
 class _CircuitState(Enum):
     CLOSED = "closed"
@@ -63,6 +75,7 @@ class _Circuit:
         self.opened_until: Optional[float] = None
         self.consecutive_timeouts = 0
         self.half_open_probe_in_flight = False
+        self.half_open_probe_started_at: Optional[float] = None
 
 
 _circuits: Dict[str, _Circuit] = {}
@@ -84,7 +97,8 @@ def is_available(key: str) -> bool:
     Transitions OPEN -> HALF_OPEN automatically once the cooldown has
     elapsed, and grants exactly one HALF_OPEN caller permission to probe
     (subsequent concurrent callers see `False` until that probe resolves
-    via `record_success`/`record_rate_limited`/`record_timeout`)."""
+    via `record_success`/`record_rate_limited`/`record_timeout`/
+    `record_probe_failure`/`release_probe`, or is found abandoned)."""
     circuit = _get(key)
     now = time.monotonic()
 
@@ -95,13 +109,21 @@ def is_available(key: str) -> bool:
         if circuit.opened_until is not None and now >= circuit.opened_until:
             circuit.state = _CircuitState.HALF_OPEN
             circuit.half_open_probe_in_flight = False
+            circuit.half_open_probe_started_at = None
         else:
             return False
 
-    # HALF_OPEN: allow exactly one probe through.
+    # HALF_OPEN: allow exactly one probe through -- unless the probe that
+    # holds the slot was abandoned (see HALF_OPEN_PROBE_STALE_SECONDS).
     if circuit.half_open_probe_in_flight:
-        return False
+        started_at = circuit.half_open_probe_started_at
+        if started_at is not None and (now - started_at) < HALF_OPEN_PROBE_STALE_SECONDS:
+            return False
+        logger.warning(
+            "Circuit breaker: %s HALF_OPEN probe never resolved; allowing a new probe.", key
+        )
     circuit.half_open_probe_in_flight = True
+    circuit.half_open_probe_started_at = now
     return True
 
 
@@ -111,6 +133,7 @@ def record_success(key: str) -> None:
     circuit.opened_until = None
     circuit.consecutive_timeouts = 0
     circuit.half_open_probe_in_flight = False
+    circuit.half_open_probe_started_at = None
 
 
 def record_rate_limited(key: str, cooldown_seconds: Optional[float]) -> None:
@@ -122,6 +145,7 @@ def record_rate_limited(key: str, cooldown_seconds: Optional[float]) -> None:
     circuit.state = _CircuitState.OPEN
     circuit.opened_until = time.monotonic() + cooldown
     circuit.half_open_probe_in_flight = False
+    circuit.half_open_probe_started_at = None
     logger.warning(
         "Circuit breaker: %s tripped OPEN by rate limit, cooldown %.1fs.", key, cooldown
     )
@@ -137,6 +161,7 @@ def record_timeout(key: str) -> None:
         circuit.state = _CircuitState.OPEN
         circuit.opened_until = time.monotonic() + DEFAULT_COOLDOWN_SECONDS
         circuit.half_open_probe_in_flight = False
+        circuit.half_open_probe_started_at = None
         logger.warning(
             "Circuit breaker: %s tripped OPEN after %d consecutive timeouts, cooldown %.1fs.",
             key, circuit.consecutive_timeouts, DEFAULT_COOLDOWN_SECONDS,
@@ -147,6 +172,41 @@ def record_timeout(key: str) -> None:
         # the next `is_available()` call needs to be able to try again
         # (or trip fully once the consecutive-timeout threshold is hit).
         circuit.half_open_probe_in_flight = False
+        circuit.half_open_probe_started_at = None
+
+
+def record_probe_failure(key: str) -> None:
+    """A failure that says the provider is not usable right now but is
+    neither a 429 nor a timeout: a 5xx, an account-level 401/402/403, a 2xx
+    with an unusable body. In CLOSED state this is a no-op -- these were
+    never trip triggers and still are not. In HALF_OPEN it is the probe's
+    verdict: the provider is still unhealthy, so re-open with a fresh
+    cooldown. Without this the probe slot was simply never released
+    (2026-11-16), because only the 429 and timeout paths resolved a probe."""
+    circuit = _get(key)
+    if circuit.state != _CircuitState.HALF_OPEN:
+        return
+    circuit.state = _CircuitState.OPEN
+    circuit.opened_until = time.monotonic() + DEFAULT_COOLDOWN_SECONDS
+    circuit.half_open_probe_in_flight = False
+    circuit.half_open_probe_started_at = None
+    logger.warning(
+        "Circuit breaker: %s HALF_OPEN probe failed, re-opened for %.1fs.",
+        key, DEFAULT_COOLDOWN_SECONDS,
+    )
+
+
+def release_probe(key: str) -> None:
+    """Give back a HALF_OPEN probe slot without a verdict. Used when the
+    probing call ended in a way that says nothing about provider health: it
+    was cancelled by its caller's own deadline, it raised something
+    unexpected, or the provider rejected the request shape (a 4xx such as
+    400) while clearly being up. State stays HALF_OPEN so the next caller
+    probes instead. A no-op in any other state."""
+    circuit = _get(key)
+    if circuit.state == _CircuitState.HALF_OPEN:
+        circuit.half_open_probe_in_flight = False
+        circuit.half_open_probe_started_at = None
 
 
 def reset_circuit_breakers() -> None:

@@ -94,3 +94,53 @@ def test_get_pool_rereads_database_url_after_close(monkeypatch, reset_db_pool):
     pool, raised = asyncio.run(_run())
     assert pool is not None
     assert raised, "get_pool() should attempt (and fail) against the new DATABASE_URL, not silently reuse the old pool"
+
+
+# --- 2026-11-16: the DSN password must never reach a log line ---------------
+
+
+def test_redact_dsn_hides_the_password_and_keeps_the_rest():
+    from app.db import redact_dsn
+
+    redacted = redact_dsn("postgresql://sentinel:s3cr3t-P%40ss@127.0.0.1:15432/sentinel")
+    assert "s3cr3t" not in redacted
+    assert redacted == "postgresql://sentinel:***@127.0.0.1:15432/sentinel"
+
+
+def test_redact_dsn_drops_query_parameters_that_may_carry_a_password():
+    from app.db import redact_dsn
+
+    redacted = redact_dsn("postgresql://u:pw@db.example.com/app?password=also-secret&sslmode=require")
+    assert "pw@" not in redacted
+    assert "also-secret" not in redacted
+
+
+def test_redact_dsn_leaves_a_passwordless_dsn_unchanged():
+    from app.db import redact_dsn
+
+    assert redact_dsn("postgresql://sentinel@127.0.0.1:5432/sentinel") == (
+        "postgresql://sentinel@127.0.0.1:5432/sentinel"
+    )
+
+
+def test_redact_dsn_handles_an_ipv6_host_and_never_raises():
+    from app.db import redact_dsn
+
+    assert redact_dsn("postgresql://u:pw@[::1]:5432/db") == "postgresql://u:***@[::1]:5432/db"
+    assert "pw" not in redact_dsn("postgresql://u:pw@[not-closed/db")
+    assert redact_dsn("") == ""
+
+
+def test_unreachable_database_warning_does_not_log_the_password(monkeypatch, reset_db_pool, caplog):
+    import logging
+
+    from app import db
+
+    monkeypatch.setattr(db, "DATABASE_URL", "postgresql://sentinel:TOP-SECRET-PW@127.0.0.1:9/sentinel")
+    with caplog.at_level(logging.WARNING, logger="app.db"):
+        assert asyncio.run(db.acquire_pool_or_none()) is None
+
+    messages = [record.getMessage() for record in caplog.records if record.name == "app.db"]
+    assert messages, "the unavailable-pool warning must still be logged"
+    assert all("TOP-SECRET-PW" not in message for message in messages)
+    assert any("127.0.0.1:9" in message for message in messages)

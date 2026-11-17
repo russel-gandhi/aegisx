@@ -66,8 +66,47 @@ def check_rbac(role: str, agent_id: str) -> bool:
 # second copy drifting from it is the same failure mode
 # `opa_client.py`'s own docstring already warns against for duplicated
 # Rego logic. Compiled once at import.
+#
+# Deviation 21 (backend/README.md, 2026-11-16): the Bible's pattern is kept
+# verbatim as the FIRST entry, and four more follow it. The literal pattern
+# matches three exact strings and nothing else, so it let through the single
+# most common jailbreak wording there is -- "ignore ALL previous
+# instructions" -- along with "disregard your rules", a doubled space, and
+# every other one-word variation (verified against `detect_injection`
+# directly before this change). The additions are still plain compiled
+# regexes evaluated in Python: no model is consulted, so Section 1.3 is
+# untouched. They are deliberately narrow -- each needs an override verb
+# AND an object that only makes sense when addressing a language model
+# ("previous instructions", "system prompt", "your rules") within a couple
+# of words of each other -- because `routes/documents.py` runs this same
+# function over uploaded document text, where a loose pattern would
+# quarantine an SOP for saying "do not bypass safety controls".
+_OVERRIDE_VERBS = "ignore|disregard|forget|override|bypass"
+_OVERRIDE_VERB = "(?:" + _OVERRIDE_VERBS + ")"
 JAILBREAK_PATTERNS: Tuple[re.Pattern, ...] = (
     re.compile(r"(?i)(ignore previous instructions|override system prompt|disregard rules)"),
+    # "ignore all previous instructions", "disregard the prior rules", ...
+    re.compile(
+        r"(?i)\b" + _OVERRIDE_VERB + r"\s+(?:(?:all|any|the|your|my|these|those|of)\s+){0,3}"
+        r"(?:previous|prior|above|earlier|preceding|foregoing)\s+(?:\w+\s+)?"
+        r"(?:instructions?|prompts?|rules|guidelines|directions|messages|context)\b"
+    ),
+    # "override the system prompt", "reveal your system prompt", ...
+    re.compile(
+        r"(?i)\b(?:" + _OVERRIDE_VERBS + r"|reveal|print|show|repeat|leak)\s+"
+        r"(?:(?:all|any|the|your|my)\s+){0,2}"
+        r"(?:system\s+prompt|system\s+instructions?|hidden\s+instructions?|initial\s+prompt)\b"
+    ),
+    # "disregard your rules", "ignore all your instructions", ...
+    re.compile(
+        r"(?i)\b" + _OVERRIDE_VERB + r"\s+(?:all\s+(?:of\s+)?)?your\s+(?:own\s+)?"
+        r"(?:rules|instructions|guidelines|programming|training|restrictions)\b"
+    ),
+    # "you are now DAN", "forget everything above", ...
+    re.compile(
+        r"(?i)\b(?:you\s+are\s+now\s+(?:in\s+)?(?:dan\b|developer\s+mode|jailbroken|unrestricted)"
+        r"|forget\s+everything\s+(?:above|before|you\s+(?:were|have\s+been)\s+told))"
+    ),
 )
 
 # Bible Section 2 specifies "Shannon entropy calculations" but supplies no
@@ -97,10 +136,34 @@ def shannon_entropy(text: str) -> float:
     return -sum((n / length) * math.log2(n / length) for n in counts.values())
 
 
+# A token that is a URL is entropy-checked per segment, not as one string
+# (2026-11-16). An ordinary link easily carries 23+ distinct characters --
+# scheme, dots, slashes, a few path words -- which is all it takes to clear
+# 4.5 bits/char, so any question or uploaded document containing one was
+# flagged as an obfuscated payload. Splitting on the characters that
+# structure a URL leaves its words to be judged as words. It does not open
+# a hiding place: a base64/hex blob placed inside a URL survives as one
+# long segment and is judged exactly as it would be on its own. `-` and `_`
+# are deliberately NOT separators -- they are part of the base64url
+# alphabet, and splitting on them would cut such a blob into pieces short
+# enough to pass.
+_URL_TOKEN_RE = re.compile(r"(?i)^[\(\[<\"\']*(?:https?://|www\.)")
+_URL_SEGMENT_SEPARATORS_RE = re.compile(r"[/?&=#:.@]+")
+
+
+def _entropy_candidates(token: str) -> Tuple[str, ...]:
+    """The strings the entropy leg evaluates for one whitespace-split token:
+    the token itself, or its segments when it is a URL."""
+    if _URL_TOKEN_RE.match(token):
+        return tuple(part for part in _URL_SEGMENT_SEPARATORS_RE.split(token) if part)
+    return (token,)
+
+
 def detect_injection(text: str) -> Optional[str]:
     """Returns a reason string when injection is suspected, else None.
 
-    Regex leg first: catches the Bible's literal jailbreak phrasing.
+    Regex leg first: the Bible's literal jailbreak phrasing, then the
+    narrow extensions recorded as Deviation 21 (see `JAILBREAK_PATTERNS`).
     Entropy leg second: catches high-entropy tokens (base64/hex blobs)
     used to smuggle instructions past the regex. Both legs are
     deterministic Python -- no model call occurs anywhere in this
@@ -116,11 +179,12 @@ def detect_injection(text: str) -> Optional[str]:
             return f"regex_match:{pattern.pattern}"
 
     for token in text.split():
-        if (
-            len(token) >= MIN_TOKEN_LENGTH_FOR_ENTROPY
-            and shannon_entropy(token) >= ENTROPY_THRESHOLD_BITS_PER_CHAR
-        ):
-            return f"high_entropy_token:{token[:16]}..."
+        for candidate in _entropy_candidates(token):
+            if (
+                len(candidate) >= MIN_TOKEN_LENGTH_FOR_ENTROPY
+                and shannon_entropy(candidate) >= ENTROPY_THRESHOLD_BITS_PER_CHAR
+            ):
+                return f"high_entropy_token:{candidate[:16]}..."
 
     return None
 

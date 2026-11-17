@@ -50,6 +50,12 @@ from app.agents.a2_compliance import (
 )
 from app.llm_router import FALLBACK_CASCADE, PROVIDER_CONFIG
 
+# 2026-11-16: three `PROVIDER_CONFIG` entries share the Groq endpoint (one
+# per model, each with its own rate-limit bucket), so a Groq route that keeps
+# failing with a per-model error (429 / 5xx / timeout) is hit once per entry
+# before the cascade leaves the provider.
+GROQ_ENTRY_COUNT = sum(1 for entry in PROVIDER_CONFIG.values() if entry["provider"] == "groq")
+
 # 2026-09-01: `gemini_flash_thinking`/`deepseek_r1` removed from
 # PROVIDER_CONFIG entirely (see llm_router.py's own comment for the live
 # evidence). `FALLBACK_CASCADE` is now 3 hops, not 4:
@@ -316,7 +322,7 @@ def test_cascade_falls_all_the_way_through_to_openrouter_as_true_last_resort(mon
         (text, model_id), groq_route, ollama_route, openrouter_route,
     ) = asyncio.run(_run())
 
-    assert groq_route.call_count == 1
+    assert groq_route.call_count == GROQ_ENTRY_COUNT
     assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 1
     assert model_id == "openrouter/auto"
@@ -358,7 +364,7 @@ def test_genuine_multi_hop_cascade_groq_fails_ollama_succeeds(monkeypatch):
 
     # Exactly the two attempted hops, in cascade order; openrouter is
     # never reached because ollama already succeeded.
-    assert groq_route.call_count == 1
+    assert groq_route.call_count == GROQ_ENTRY_COUNT
     assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 0
 
@@ -406,7 +412,7 @@ def test_genuine_per_hop_timeout_exception_cascades_not_just_http_error_status(m
 
     (text, model_id), elapsed, groq_route, ollama_route = asyncio.run(_run())
 
-    assert groq_route.call_count == 1
+    assert groq_route.call_count == GROQ_ENTRY_COUNT
     assert ollama_route.call_count == 1
     assert model_id == "qwen2.5:7b-instruct"
     assert text == "Ollama rescued this."
@@ -438,7 +444,7 @@ def test_all_three_providers_exhausted_degrades_without_raising(monkeypatch):
         (text, model_id), groq_route, ollama_route, openrouter_route,
     ) = asyncio.run(_run())
 
-    assert groq_route.call_count == 1
+    assert groq_route.call_count == GROQ_ENTRY_COUNT
     assert ollama_route.call_count == 1
     assert openrouter_route.call_count == 1  # cascade reaches and stops at the true last resort
 

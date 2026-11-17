@@ -1,0 +1,3852 @@
+[
+ {
+  "q_id": "DA-01-001",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-002",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-003",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-004",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-005",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-006",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-007",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-008",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-009",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-010",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-011",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-012",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-013",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-014",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-015",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-016",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-017",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-018",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-019",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-020",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-021",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-022",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-023",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-024",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-01-025",
+  "phase_no": "01",
+  "phase": "Concept & Business Case",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-001",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-002",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-003",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-004",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-005",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-006",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-007",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-008",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-009",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-010",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-011",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-012",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-013",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-014",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-015",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-016",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-017",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-018",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-019",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-020",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-021",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-022",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-023",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-024",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-02-025",
+  "phase_no": "02",
+  "phase": "User Requirements (URS)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-001",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-002",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-003",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-004",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-005",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-006",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-007",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-008",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-009",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-010",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-011",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-012",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-013",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-014",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-015",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-016",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-017",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-018",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-019",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-020",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-021",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-022",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-023",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IRP-IT Recovery Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-024",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-03-025",
+  "phase_no": "03",
+  "phase": "Risk Assessment & GAMP Categorisation",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-001",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-002",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-003",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-004",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-005",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-006",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-007",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-008",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-009",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-010",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-011",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-012",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-013",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-014",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-015",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-016",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-017",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-018",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-019",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-020",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-021",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-022",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-023",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-024",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-04-025",
+  "phase_no": "04",
+  "phase": "Supplier Assessment & Qualification",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-001",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-002",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-003",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-004",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-005",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-006",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-007",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-008",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-009",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-010",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-011",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-012",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-013",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-014",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-015",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-016",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-017",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-018",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-019",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-020",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-021",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-022",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-023",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-024",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-05-025",
+  "phase_no": "05",
+  "phase": "Functional / Design Specifications",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-001",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-002",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-003",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-004",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-005",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-006",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-007",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-008",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-009",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-010",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-011",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-012",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-013",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-014",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-015",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-016",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-017",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-018",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-019",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-020",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-021",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-022",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-023",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-024",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-06-025",
+  "phase_no": "06",
+  "phase": "Configuration & Development",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-001",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-002",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-003",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-004",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-005",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-006",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-007",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-008",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-009",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-010",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-011",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-012",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-013",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-014",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-015",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-016",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-017",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-018",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-019",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-020",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-021",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-022",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-023",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-024",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-07-025",
+  "phase_no": "07",
+  "phase": "Installation Qualification (IQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-001",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-002",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-003",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-004",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-005",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-006",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-007",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-008",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-009",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-010",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-011",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-012",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-013",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-014",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-015",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-016",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-017",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-018",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-019",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-020",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-021",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-022",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-023",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-024",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-08-025",
+  "phase_no": "08",
+  "phase": "Operational Qualification (OQ)",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-001",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-002",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-003",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-004",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-005",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-006",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-007",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-008",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IRP-IT Recovery Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-009",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-010",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-011",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-012",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-013",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-014",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-015",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DRR-Design Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQR-IQ Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-016",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-017",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-018",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-019",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-020",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-021",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-022",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-023",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-024",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-09-025",
+  "phase_no": "09",
+  "phase": "Performance Qualification (PQ) / UAT",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IREP-IT Implementation Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-001",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-002",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-003",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQR-IQ Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-004",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-005",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-006",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IRP-IT Recovery Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IRP-IT Recovery Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-007",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-008",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-009",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-010",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-011",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-012",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-013",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IREP-IT Implementation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-014",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-015",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-016",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-017",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-018",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-019",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-020",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-021",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-022",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-MLGP-Master Lifecycle Generation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-023",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IREP-IT Implementation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IREP-IT Implementation Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-024",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-10-025",
+  "phase_no": "10",
+  "phase": "Go-Live, Release & Handover",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-001",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-002",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 11,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-003",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-004",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-005",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-006",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-007",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-008",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-009",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-010",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-011",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-012",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-013",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-014",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-015",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-016",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-017",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-018",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-019",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-020",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-021",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-022",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-023",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-024",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-11-025",
+  "phase_no": "11",
+  "phase": "Operations & Periodic Review",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-001",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-002",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 10,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-003",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-004",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-005",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-006",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-007",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-008",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-009",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-010",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IRP-IT Recovery Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-011",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-VSR-Final Validation Summary Report and Release Recommendation-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-012",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-013",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-014",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-015",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-016",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-017",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IQP-Installation Qualification Protocol-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-018",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-019",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-020",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IPLAN-IT Implementation Plan-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-021",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-022",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-023",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-024",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-12-025",
+  "phase_no": "12",
+  "phase": "Change & Configuration Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IREP-IT Implementation Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-001",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-002",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-003",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-004",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-005",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-006",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-007",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-008",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-009",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-010",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-011",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-012",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-013",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-014",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRN-Training Matrix and Training Evidence Index-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-015",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-016",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-017",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-018",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-019",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-020",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-021",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-BRVR-Backup and Restore Verification Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-022",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-023",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-024",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-INC-Incident Sample Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-13-025",
+  "phase_no": "13",
+  "phase": "Incident, Problem & Deviation Management",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SLA-Service Level Agreement-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-001",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-002",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-003",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-004",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEVL-Deviation Log-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-005",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-006",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-007",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-CHG-Change Record Pack-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-008",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-UG-User Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-009",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-010",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DEFL-Defect Log-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-011",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITPSE-IT Periodic System Evaluation Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AMRR-Access Management Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-012",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-013",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-TRM-Traceability Matrix-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-014",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-FS-Functional Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-015",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRRA-IT Requirement Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-016",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DS-Design Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-017",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-ITRA-IT Risk Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-ATR-Audit Trail Review SOP and Baseline Review Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-018",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-019",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-OMSOP-Operation and Maintenance SOP-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-CS-Configuration Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-020",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-021",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 12,
+  "top_titles": [
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-022",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-AG-Administrator Guide-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-023",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 10,
+  "top_titles": [
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SUPA-Supplier Assessment Report-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-024",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-SYS-System Overview and Description-v0.1-DUMMY.docx"
+  ]
+ },
+ {
+  "q_id": "DA-14-025",
+  "phase_no": "14",
+  "phase": "Decommissioning, Data Retention & Migration",
+  "evidence_count": 13,
+  "top_titles": [
+   "NOVOLIFE-MES-IS-Integration Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-URS-User Requirement Specification-v0.1-DUMMY.docx",
+   "NOVOLIFE-MES-DIA-Data Integrity Assessment-v0.1-DUMMY.docx"
+  ]
+ }
+]

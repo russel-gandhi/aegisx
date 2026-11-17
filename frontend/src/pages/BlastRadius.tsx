@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import EvidenceGraphCanvas from '../components/EvidenceGraphCanvas'
+import ChromeSlot from '../components/ChromeSlot'
 import NodeDetailPanel from '../components/NodeDetailPanel'
 import BlastRadiusPanel from '../components/BlastRadiusPanel'
+import AddChangeAffectsForm from '../components/AddChangeAffectsForm'
+import { useIdentity } from '../lib/identity'
 import {
   fetchEvidenceGraph,
   fetchBlastRadius,
@@ -12,12 +15,19 @@ import {
 
 const SYSTEM_OPTIONS = [
   { id: 'GXP-MFG-DEMO-01', label: 'GXP-MFG-DEMO-01 (NovaSynth MES)' },
+  // Quick task 260908-qtm: seeded by infra/postgres/seed/004-007_novolife_*.sql.
+  // This is the system with a graph worth traversing -- 004-006 seed the
+  // requirements, test cases, test results, design elements and
+  // change_affects rows that evidence_graph.py's VERIFIED_BY, HAS_RESULT and
+  // AFFECTS edges need, three of which had no rows at all before.
+  { id: 'GXP-MES-NOVOLIFE-01', label: 'GXP-MES-NOVOLIFE-01 (Novo Life MES PAS-X)' },
   { id: 'BUS-IT-DEMO-02', label: 'BUS-IT-DEMO-02 (non-GxP)' },
 ]
 
 type LoadState = 'loading' | 'error' | 'ready'
 
 export default function BlastRadius() {
+  const identity = useIdentity()
   const [searchParams, setSearchParams] = useSearchParams()
   // Plan 06.1-08 (D-13): `?system=` is read only as an initial value and
   // validated against SYSTEM_OPTIONS, because a node id from one system's
@@ -155,7 +165,10 @@ export default function BlastRadius() {
         model ever invents, infers, or ranks a relationship shown here (Bible Section 1.3).
       </p>
 
-      <div className="mt-4 flex items-center gap-2">
+      {/* Painted into the role bar's right-hand chrome slot (quick UI
+          change 2026-09-08). State, option list and the graph reset in `onChange` are
+          unchanged -- only the DOM position moves. */}
+      <ChromeSlot>
         <label htmlFor="blast-radius-system" className="text-sm text-ink-muted">
           System
         </label>
@@ -175,7 +188,7 @@ export default function BlastRadius() {
             </option>
           ))}
         </select>
-      </div>
+      </ChromeSlot>
 
       <div className="mt-6">
         {state === 'loading' && <p className="text-ink-muted">Loading evidence graph...</p>}
@@ -190,7 +203,7 @@ export default function BlastRadius() {
           </p>
         )}
         {state === 'ready' && data && data.nodes.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div data-tour="blast-radius-canvas" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <EvidenceGraphCanvas
                 nodes={data.nodes}
@@ -202,6 +215,11 @@ export default function BlastRadius() {
             </div>
             <div className="space-y-4">
               <NodeDetailPanel node={selectedNode} />
+              {selectedNode &&
+                selectedNode.node_type === 'CHANGE' &&
+                identity.role === 'IT System Manager' && (
+                  <AddChangeAffectsForm changeId={selectedNode.entity_id} />
+                )}
               <BlastRadiusPanel result={blastResult} loading={blastLoading} error={blastError} />
             </div>
           </div>

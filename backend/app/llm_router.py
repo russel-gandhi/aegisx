@@ -64,7 +64,14 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel
 
-from app.circuit_breaker import is_available, record_rate_limited, record_success, record_timeout
+from app.circuit_breaker import (
+    is_available,
+    record_probe_failure,
+    record_rate_limited,
+    record_success,
+    record_timeout,
+    release_probe,
+)
 from app.concurrency_gate import GateBusyError, acquire_slot
 from app.http_client import get_shared_client
 from app.rate_limiter import TokenBudgetExceededError, acquire_rate_limit, record_token_usage
@@ -87,26 +94,97 @@ GROQ_MAX_COMPLETION_TOKENS_JSON = 2048
 # previous one failed/rate-limited. Not applied before the first attempt.
 LLM_CASCADE_DELAY_SECONDS = float(os.getenv("LLM_CASCADE_DELAY_SECONDS", "1.0"))
 
-# Bible Section 8.1, transcribed with the corrections documented in this
-# module's docstring and in backend/README.md Deviations 4-6, 10-13.
+# Bible Section 8.1, with the corrections documented in this module's
+# docstring and in backend/README.md Deviations 4-6, 10-13, 20.
 #
-# 2026-09-01: `gemini_flash_thinking`, `gemini_flash_fast`, and
-# `deepseek_r1` removed, not merely deprioritized. Live evidence, not
-# speculation: Gemini's real 429 response body named the exact quota --
-# `embed_content_free_tier_requests`, `EmbedContentRequestsPerMinutePerUserPerProjectPerModel-FreeTier`
-# -- and the AI Studio rate-limits console showed `gemini-3.6-flash` at
-# 8/5 RPM (peak usage already over its own free-tier limit). Billing on
-# this Google Cloud project reads "inactive or unsupported" directly in
-# its own billing page, not merely unconfigured. DeepSeek returned a
-# live `402 Payment Required`. Both are structurally broken until
-# someone adds real billing, not transiently rate-limited. `ollama_qwen`
-# (local, `qwen2.5:7b-instruct`, GPU-verified at 1.74s warm / 7.6s cold)
-# replaces all seven tasks these three entries used to serve.
-# `groq_gpt_oss` and `openrouter_fallback` are UNCHANGED below -- Groq
-# had zero failures all session and OpenRouter is the designed
-# last-resort; scrapping providers with no evidence against them would
-# throw away real resilience for no reason (see LOCAL-MODELS-BUILD-MAP.md).
+# 2026-11-16 (Deviation 20): hosted-first, split across Groq models.
+#
+# History that still matters: Gemini and DeepSeek were removed on 2026-09-01
+# (free-tier quota / no billing -- structurally broken, not transiently
+# rate-limited), and local Ollama took over as the first hop for seven tasks.
+# That made every one of those tasks depend on a local model answering inside
+# budgets it could not meet: A0's hard 2000ms ceiling against a 1.7s-warm /
+# 7.6s-cold model, and -- on any machine where Ollama is not running -- a
+# ~2s refused TCP connect before the cascade could even start. Measured
+# 2026-11-16: `orchestrator` never completed inside A0's budget while Ollama
+# led, and completed in ~0.6s the moment its breaker opened and Groq answered
+# instead. So no task leads with Ollama any more; it stays in the cascade as a
+# local hop behind the hosted ones.
+#
+# Capacity: Groq's limit is 8,000 tokens per minute PER MODEL, not per
+# account. Confirmed live 2026-11-16 from each model's own
+# `x-ratelimit-limit-tokens` / `x-ratelimit-remaining-tokens` headers --
+# `openai/gpt-oss-120b`, `qwen/qwen3.8-27b` and `openai/gpt-oss-20b` each
+# reported an independent 8,000 budget on the same key. One Copilot question
+# costs ~2,300 tokens, so a single-model setup is exhausted by the fourth
+# question in a minute. Spreading tasks over three entries gives three
+# buckets:
+#   - `groq_gpt_oss` (120b, reasoning): the judgment and user-facing writing
+#     tasks -- routing, answer synthesis, CAPA drafting, risk and compliance.
+#   - `groq_qwen` (27b, reasoning off): the one-sentence narration tasks and
+#     rerank. With `reasoning_effort: "none"` an identical narration prompt
+#     measured 73 total tokens here against 169 on a gpt-oss model, which
+#     always spends reasoning tokens.
+#   - `groq_gpt_oss_20b`: leads no task. It is the next hosted hop when
+#     either of the above is out of budget.
+#
+# Not every limit is visible in the headers. `qwen/qwen3.8-27b` also carries
+# an OUTPUT-token limit the `x-ratelimit-*` headers never mention -- its 429
+# body reads "output tokens per minute (OTPM): Limit 1000" (captured live
+# 2026-11-16, at a moment the headers still reported 3,909 of 8,000 tokens
+# remaining). At ~65 output tokens per narration that is roughly 15
+# narrations a minute before `groq_qwen` 429s and the cascade moves on, so
+# `tpm_limit` below is the ceiling the limiter can pre-check, not a promise.
+# This is survivable only because a 429's cooldown now comes from
+# `Retry-After` (3s here) -- see `_cooldown_seconds_from_429_headers`.
 PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
+    "groq_gpt_oss": {
+        "provider": "groq",
+        # Deviation 12: retired Llama 3.3 70B id corrected.
+        "model": "openai/gpt-oss-120b",
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": ("GROQ_API_KEY",),
+        "rpm_limit": 300,
+        # SENT-8-01: the binding constraint is tokens, not requests. `None`
+        # on an entry means "no known token constraint" and makes the
+        # limiter's token check a no-op for it.
+        "tpm_limit": 8000,
+        # A documented gpt-oss field. `reasoning_format` is NOT supported for
+        # these models -- do not add it.
+        "reasoning_effort": "low",
+        "use_for": [
+            "orchestrator", "synthesis", "findings_synthesis", "remediation",
+            "risk_assessment", "compliance",
+        ],
+    },
+    "groq_qwen": {
+        "provider": "groq",
+        "model": "qwen/qwen3.8-27b",
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": ("GROQ_API_KEY",),
+        "rpm_limit": 300,
+        "tpm_limit": 8000,
+        # Verified live 2026-11-16: accepted by this model, and returns the
+        # answer with no reasoning trace and no reasoning-token charge.
+        "reasoning_effort": "none",
+        # `hybrid_search.RERANK_EXCERPT_MAX_CHARS` (250) keeps a rerank prompt
+        # at ~3,700 estimated tokens; anything that grows it needs re-checking
+        # against this entry's `tpm_limit`.
+        "use_for": [
+            "narration", "incident", "access", "change", "knowledge",
+            "high_volume", "rerank",
+        ],
+    },
+    "groq_gpt_oss_20b": {
+        "provider": "groq",
+        "model": "openai/gpt-oss-20b",
+        "base_url": "https://api.groq.com/openai/v1",
+        "api_key_env": ("GROQ_API_KEY",),
+        "rpm_limit": 300,
+        "tpm_limit": 8000,
+        "reasoning_effort": "low",
+        "use_for": [],
+    },
     "ollama_qwen": {
         "provider": "ollama",
         "model": "qwen2.5:7b-instruct",
@@ -118,29 +196,7 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
         # guard rather than a calibrated ceiling, mirroring
         # `embeddings.EMBEDDING_PROVIDER_CONFIG["ollama_embedding"]`.
         "rpm_limit": 6000,
-        "use_for": [
-            "orchestrator", "synthesis",  # was gemini_flash_thinking
-            "compliance", "knowledge", "change", "rerank",  # was gemini_flash_fast
-            "risk_assessment",  # was deepseek_r1
-        ],
-    },
-    "groq_gpt_oss": {
-        "provider": "groq",
-        # Deviation 12: retired Llama 3.3 70B id corrected.
-        "model": "openai/gpt-oss-120b",
-        "base_url": "https://api.groq.com/openai/v1",
-        "api_key_env": ("GROQ_API_KEY",),
-        "rpm_limit": 300,
-        # SENT-8-01, confirmed live 2026-09-02 via the real
-        # `x-ratelimit-limit-tokens` response header: this account's real
-        # binding constraint on `openai/gpt-oss-120b` is 8,000 tokens per
-        # minute, not the 300-request rpm_limit above -- a reasoning model
-        # burns hidden reasoning tokens on every call, so request count
-        # alone massively understates real load. `None` here (every other
-        # entry) means "no known token constraint, request-count limiting
-        # only" -- the acquire_rate_limit token check is a no-op for them.
-        "tpm_limit": 8000,
-        "use_for": ["incident", "access", "high_volume", "narration", "remediation"],
+        "use_for": [],
     },
     "openrouter_fallback": {
         "provider": "openrouter",
@@ -155,27 +211,32 @@ PROVIDER_CONFIG: Dict[str, Dict[str, Any]] = {
 }
 
 
-# Deviation 18 (backend/README.md): Bible Section 8.2 specifies a single
-# hop -- any failing provider cascades exactly once to `openrouter_fallback`
-# and stops. User directive 2026-08-29 (live demo hit repeated Groq 429s
-# with GEMINI/DEEPSEEK/OPENROUTER keys all genuinely configured and idle)
-# changed this to a full multi-provider cascade: on failure, walk this list
-# in order, skipping any entry whose underlying `provider` was already
-# attempted, ending at `openrouter_fallback` as the guaranteed last resort.
+# Deviation 18 (backend/README.md): Bible Section 8.2 specifies a single hop
+# to `openrouter_fallback`; this is a full cascade instead. On failure, walk
+# this list in order, skipping entries already attempted, ending at
+# `openrouter_fallback` as the last resort.
 #
-# 2026-09-01: reordered local-first. `ollama_qwen` now covers every task
-# `gemini_flash_fast`/`gemini_flash_thinking`/`deepseek_r1` used to (see
-# PROVIDER_CONFIG's own comment for why those three were removed, not
-# just reordered), so it leads the cascade the same way the fastest,
-# most-likely-to-succeed hop always has. Groq and OpenRouter are
-# unchanged and keep their same relative order -- both proven working
-# this session, both still the cascade's hosted safety net if the local
-# server is ever down.
+# 2026-11-16: hosted entries first (three independent Groq token buckets),
+# then the local model, then OpenRouter. Entries are skipped by KEY, not by
+# provider -- three entries share the `groq` provider precisely because they
+# do not share a rate limit, so one being out of budget says nothing about
+# the next. A whole provider is skipped only on an account-level failure
+# (`_PROVIDER_WIDE_FAILURE_PREFIXES`): a missing or rejected key fails
+# identically for every entry that uses it.
 FALLBACK_CASCADE: tuple[str, ...] = (
-    "ollama_qwen",
     "groq_gpt_oss",
+    "groq_qwen",
+    "groq_gpt_oss_20b",
+    "ollama_qwen",
     "openrouter_fallback",
 )
+
+# A refused connection to a local port can take ~2s to fail on Windows (the
+# OS retries the SYN before giving up), measured 2026-11-16 at 2.27s against
+# an absent Ollama. A local server that is up accepts in milliseconds, so the
+# connect phase gets its own short ceiling instead of sharing the per-hop
+# generation timeout.
+OLLAMA_CONNECT_TIMEOUT_SECONDS = 0.75
 
 
 # SENT-8-01: rough per-task completion-token budgets, used only to build a
@@ -191,6 +252,7 @@ _TASK_COMPLETION_TOKEN_BUDGET: Dict[str, int] = {
     "rerank": 150,
     "orchestrator": 400,
     "synthesis": 400,
+    "findings_synthesis": 500,
     "compliance": 500,
     "knowledge": 500,
     "change": 500,
@@ -240,25 +302,45 @@ def _parse_reset_duration_seconds(value: Optional[str]) -> Optional[float]:
 
 
 def _cooldown_seconds_from_429_headers(headers: "httpx.Headers") -> Optional[float]:
-    """Best-effort cooldown for the circuit breaker's OPEN state on a 429:
-    prefers the token-reset window (usually the actually-binding
-    constraint, per SENT-8-01's own finding) over the request-reset
-    window, then falls back to a plain `Retry-After` seconds header (a
-    different provider's convention) if present. `None` when nothing
-    parses, letting the caller fall back to `DEFAULT_COOLDOWN_SECONDS`."""
-    reset_tokens = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens"))
-    if reset_tokens is not None:
-        return reset_tokens
-    reset_requests = _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-requests"))
-    if reset_requests is not None:
-        return reset_requests
+    """Best-effort cooldown for the circuit breaker's OPEN state on a 429.
+    `None` when nothing parses, letting the caller fall back to
+    `DEFAULT_COOLDOWN_SECONDS`.
+
+    `Retry-After` first (2026-11-16). It is the provider's direct answer to
+    "when may THIS request be retried", for whichever limit it actually hit.
+    The `x-ratelimit-reset-*` headers answer a different question -- how long
+    until that bucket is completely full again -- and were being used as the
+    cooldown. Captured live from Groq on the same 429:
+
+        retry-after: 3
+        x-ratelimit-reset-tokens: 59.28s
+        x-ratelimit-reset-requests: 48m57.6s
+
+    with the body naming a limit none of those headers describe at all
+    ("output tokens per minute (OTPM): Limit 1000 ... try again in 2.34s").
+    So a model that would have answered again in 3 seconds was skipped for a
+    minute, and would have been skipped for 49 minutes had the token-reset
+    header been absent. The reset headers remain the fallback for a provider
+    that sends no `Retry-After`; of the two, the shorter is used, since
+    either bucket refilling partially is enough for a retry to be worth it.
+    """
     retry_after = headers.get("retry-after")
     if retry_after is not None:
         try:
-            return float(retry_after)
+            seconds = float(retry_after)
         except ValueError:
-            return None
-    return None
+            seconds = None
+        if seconds is not None and seconds > 0:
+            return seconds
+    resets = [
+        value
+        for value in (
+            _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-tokens")),
+            _parse_reset_duration_seconds(headers.get("x-ratelimit-reset-requests")),
+        )
+        if value is not None
+    ]
+    return min(resets) if resets else None
 
 
 def _record_token_headers(entry_key: str, headers: "httpx.Headers") -> None:
@@ -361,17 +443,43 @@ def _build_openai_compatible_request(entry: Dict[str, Any], api_key: str, prompt
         # provider=="groq": OpenRouter shares this same builder and may 400
         # on an unrecognized field (unlike `response_format` above, which is
         # the standard field, not a vendor extension).
-        body["reasoning_effort"] = "low"
+        #
+        # 2026-11-16: the value is per entry, not one constant for the
+        # provider -- `"low"` is the floor a gpt-oss model accepts, while
+        # `groq_qwen` takes `"none"` and then spends no reasoning tokens at
+        # all. An entry without the key sends no `reasoning_effort`.
+        if entry.get("reasoning_effort") is not None:
+            body["reasoning_effort"] = entry["reasoning_effort"]
         body["max_completion_tokens"] = (
             GROQ_MAX_COMPLETION_TOKENS_JSON if json_output else GROQ_MAX_COMPLETION_TOKENS_DEFAULT
         )
+    if entry["provider"] == "ollama":
+        # Ollama unloads a model from memory ~5 minutes after its last
+        # request (its own default `keep_alive`), so any two calls spaced
+        # further apart than that pay a real ~15s cold-start reload before
+        # generation even begins -- live-measured on this project's own
+        # hardware: a trivial 2-token completion took 15.1s cold vs 0.8s
+        # warm. Against `rerank_batch`'s 20s call_llm timeout (itself
+        # bounded by the whole graph's 45s `GRAPH_INVOKE_TIMEOUT_SECONDS`
+        # budget, so raising the timeout instead would eat every other
+        # agent's share of it), a cold load alone can exhaust the budget
+        # before a single token of the actual rerank output is produced.
+        # Ollama's OpenAI-compatible endpoint honors the same `keep_alive`
+        # field its native API does; requesting 30 minutes keeps the model
+        # resident across the gap between one query and the next in normal
+        # (non-idle-for-half-an-hour) operation, which is the actual fix --
+        # this is a real infra cause, not a timeout tuning problem.
+        body["keep_alive"] = "30m"
     url = f"{entry['base_url']}/chat/completions"
     headers = {"Authorization": f"Bearer {api_key}", "content-type": "application/json"}
     return {"url": url, "headers": headers, "json": body}
 
 
 def _parse_google_response(entry: Dict[str, Any], data: Dict[str, Any]) -> LLMResponse:
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    try:
+        text = data["candidates"][0]["content"]["parts"][0]["text"]
+    except (KeyError, IndexError, TypeError) as exc:
+        raise _MalformedResponseError(entry["provider"]) from exc
     return LLMResponse(text=text, model_id=entry["model"], provider=entry["provider"])
 
 
@@ -382,7 +490,28 @@ def _parse_openai_compatible_response(entry: Dict[str, Any], data: Dict[str, Any
     # rather than letting a null propagate into LLMResponse's `text: str`
     # field, which would raise a Pydantic ValidationError that call_llm does
     # not catch and that would surface to the route as an uncaught 500.
-    text = data["choices"][0]["message"]["content"] or ""
+    #
+    # A 2xx response is not a guarantee the body is actually the expected
+    # `choices[0].message.content` shape -- an OpenAI-compatible proxy
+    # (OpenRouter's fallback route observed doing exactly this live) can
+    # return an error payload (e.g. `{"error": {...}}`) with a 200 status.
+    # `raise_for_status()` in `_send_one` cannot catch that, so this parser
+    # must, and it must raise something `_classify_failure` recognizes --
+    # an unguarded KeyError here would violate `call_llm`'s documented
+    # "never raises" contract exactly like a missing API key would.
+    try:
+        text = data["choices"][0]["message"]["content"] or ""
+    except (KeyError, IndexError, TypeError) as exc:
+        raise _MalformedResponseError(entry["provider"]) from exc
+    # 2026-11-16: an empty completion is a failed call, not a successful one.
+    # It used to be returned as `text=""` with `degraded=False`, which every
+    # caller then had to remember to re-check -- and the Copilot's evidence
+    # path did not, so a reasoning model that spent its whole budget thinking
+    # (`finish_reason: "length"`, null content) produced a blank answer
+    # attributed to a real model id. Raising here sends it down the same
+    # cascade a malformed body takes, so the next entry gets a turn.
+    if not isinstance(text, str) or not text.strip():
+        raise _MalformedResponseError(entry["provider"], detail="empty_completion")
     model_id = data.get("model") or entry["model"]
     return LLMResponse(text=text, model_id=model_id, provider=entry["provider"])
 
@@ -439,9 +568,11 @@ async def _send_one(entry_key: str, task: str, prompt: str, system_instruction: 
     # moving on to the next hop instead of piling onto an already
     # saturated local GPU.
     if entry["provider"] == "ollama":
+        # Connect phase capped separately -- see OLLAMA_CONNECT_TIMEOUT_SECONDS.
+        ollama_timeout = httpx.Timeout(timeout, connect=min(timeout, OLLAMA_CONNECT_TIMEOUT_SECONDS))
         async with acquire_slot("ollama"):
             response = await client.post(
-                request["url"], headers=request["headers"], json=request["json"], timeout=timeout,
+                request["url"], headers=request["headers"], json=request["json"], timeout=ollama_timeout,
             )
     else:
         response = await client.post(
@@ -453,7 +584,16 @@ async def _send_one(entry_key: str, task: str, prompt: str, system_instruction: 
     # not skip recording them just because this particular call failed.
     _record_token_headers(entry_key, response.headers)
     response.raise_for_status()
-    data = response.json()
+    # A 2xx whose body is not JSON at all (an HTML error page from a proxy or
+    # captive portal) raises `ValueError` from `.json()`, which none of
+    # `call_llm`'s `except` clauses name -- it escaped as an unhandled
+    # exception, breaking the "never raises" contract (2026-11-16). It is the
+    # same condition as a JSON body of the wrong shape, so it takes the same
+    # path.
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise _MalformedResponseError(entry["provider"], detail="non_json_body") from exc
 
     if entry["provider"] == "google":
         return _parse_google_response(entry, data)
@@ -467,6 +607,20 @@ class _MissingKeyError(Exception):
     def __init__(self, entry_key: str):
         self.entry_key = entry_key
         super().__init__(f"No API key configured for {entry_key!r}")
+
+
+class _MalformedResponseError(Exception):
+    """Module-private: raised by `_parse_google_response`/
+    `_parse_openai_compatible_response` when a 2xx response body does not
+    contain the expected shape (e.g. an error payload returned with a 200
+    status). Caught only inside `call_llm()`, classified as cascadable by
+    `_classify_failure` -- the same treatment as a real 5xx, since this
+    provider clearly did not produce a usable answer."""
+
+    def __init__(self, provider: str, detail: str = "unexpected_shape"):
+        self.provider = provider
+        self.detail = detail
+        super().__init__(f"Malformed response body from provider {provider!r} ({detail})")
 
 
 # Status codes that mean "this provider's account/credentials are broken
@@ -519,6 +673,8 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
     """
     if isinstance(exc, _MissingKeyError):
         return f"missing_key:{exc.entry_key}", True
+    if isinstance(exc, _MalformedResponseError):
+        return f"malformed_response:{exc.provider}", True
     if isinstance(exc, TokenBudgetExceededError):
         return f"token_budget_exceeded:{entry_key}", True
     if isinstance(exc, GateBusyError):
@@ -535,101 +691,150 @@ def _classify_failure(entry_key: str, exc: Exception) -> tuple[Optional[str], bo
     return None, False
 
 
+def _is_provider_wide_failure(exc: Exception) -> bool:
+    """True when `exc` would repeat identically for every `PROVIDER_CONFIG`
+    entry that shares this entry's provider: no key configured, or the
+    provider rejected the key/account (401/402/403). Everything else -- a
+    429, an exhausted token budget, a timeout, a 5xx, an unusable body -- is
+    a property of the one model that was called, and a sibling entry on the
+    same provider (its own model, its own rate-limit bucket) is still worth
+    trying."""
+    if isinstance(exc, _MissingKeyError):
+        return True
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code in _ACCOUNT_SPECIFIC_CASCADABLE_STATUSES
+    return False
+
+
+def _next_cascade_key(tried_keys: set, dead_providers: set) -> Optional[str]:
+    return next(
+        (
+            key for key in FALLBACK_CASCADE
+            if key not in tried_keys and PROVIDER_CONFIG[key]["provider"] not in dead_providers
+        ),
+        None,
+    )
+
+
+def _record_breaker_outcome(entry_key: str, exc: Exception, cascadable: bool) -> None:
+    """Feed one failed attempt to the circuit breaker. Every branch resolves
+    a HALF_OPEN probe one way or another -- before 2026-11-16 only the 429
+    and timeout branches did, so a probe that ended in anything else (a 400,
+    a 5xx, a missing key, an unusable body) left `half_open_probe_in_flight`
+    set and the provider skipped until the process restarted.
+
+    - 429 / pre-flight token rejection: authoritative, trip OPEN.
+    - timeout / connection error / local gate busy: count toward a trip.
+    - any other cascadable failure (5xx, 401/402/403, unusable body): no
+      effect while CLOSED, re-opens a HALF_OPEN breaker.
+    - a non-cascadable 4xx: the provider answered and objected to the
+      request, which says nothing about its health -- hand the probe back.
+    - a missing key: nothing was sent at all -- hand the probe back.
+    """
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
+        record_rate_limited(entry_key, _cooldown_seconds_from_429_headers(exc.response.headers))
+    elif isinstance(exc, TokenBudgetExceededError):
+        record_rate_limited(entry_key, exc.retry_after_seconds)
+    elif isinstance(exc, (httpx.TimeoutException, httpx.RequestError, GateBusyError)):
+        record_timeout(entry_key)
+    elif isinstance(exc, _MissingKeyError) or not cascadable:
+        release_probe(entry_key)
+    else:
+        record_probe_failure(entry_key)
+
+
+# Failures decided before any request left this process. The inter-hop
+# delay exists so a provider that just failed is not followed by an
+# immediate second burst; when nothing was sent there is nothing to space
+# out, and sleeping only burns the caller's budget (A0 has 2000ms in total).
+_PREFLIGHT_FAILURES = (_MissingKeyError, TokenBudgetExceededError, GateBusyError)
+
+
 async def call_llm(
     task: str,
     prompt: str,
     system_instruction: str = "",
     timeout: float = 10.0,
     json_output: bool = False,
+    allow_open_circuit: bool = False,
 ) -> LLMResponse:
     """Route `task` to its configured provider, call it, and return a
     typed `LLMResponse`.
 
-    Never raises to its caller. On a missing API key, `httpx.TimeoutException`,
-    a connection-level `httpx.RequestError` (DNS failure, refused
-    connection — the local Ollama process not running is the concrete
-    case this exists for), an `httpx.HTTPStatusError` with status 429, any
-    5xx status, or an account-specific 401/402/403 (see
-    `_ACCOUNT_SPECIFIC_CASCADABLE_STATUSES` — one provider's bad key or
-    billing issue must not take the others off the table), cascades
-    through `FALLBACK_CASCADE` in order — skipping
-    any entry whose underlying `provider` was already attempted (Deviation
-    18: this is a genuine multi-hop cascade, not the Bible's original
-    single hop to `openrouter_fallback`) — until one succeeds or every
-    entry has been tried, including `openrouter_fallback` as the
-    guaranteed last resort. A non-cascadable error (400/404/422/... —
-    request-shape problems the next provider isn't expected to handle any
-    differently) returns a degraded response immediately without
-    cascading. If every reachable entry fails,
-    returns a degraded `LLMResponse` (`degraded=True`, `failure_reason`
-    a `;`-joined trail of every hop's reason) instead of raising.
+    Never raises to its caller for any provider outcome. On a missing API
+    key, `httpx.TimeoutException`, a connection-level `httpx.RequestError`,
+    an `httpx.HTTPStatusError` with status 429, any 5xx, an account-specific
+    401/402/403, a 2xx whose body is unusable (not JSON, wrong shape, or an
+    empty completion), a pre-flight token-budget rejection, or a busy local
+    concurrency gate, it cascades through `FALLBACK_CASCADE` in order --
+    skipping entries already attempted, and skipping every entry of a
+    provider whose key or account was rejected (`_is_provider_wide_failure`)
+    -- until one succeeds or the list is exhausted. A non-cascadable error
+    (400/404/422/... -- request-shape problems the next entry is not expected
+    to handle any differently) returns a degraded response immediately. If
+    every reachable entry fails, returns a degraded `LLMResponse`
+    (`degraded=True`, `failure_reason` a `;`-joined trail of every hop's
+    reason) instead of raising.
 
-    Every hop shares the same per-request `timeout` budget the caller
-    passed in — a caller wrapping this in its own `asyncio.wait_for` must
-    size that outer ceiling for the worst case of `len(FALLBACK_CASCADE)`
-    sequential attempts plus `(len(FALLBACK_CASCADE) - 1) *
-    LLM_CASCADE_DELAY_SECONDS`, not a single attempt's timeout alone (see
-    `a2_compliance.narrate_gap` and `a7_remediation.synthesize_capa` for
-    the two call sites that do). `LLM_CASCADE_DELAY_SECONDS` (env
-    `LLM_CASCADE_DELAY_SECONDS`, default 1.0s) is slept between a failed
-    hop and the next cascade attempt only — never before the first
-    attempt — to avoid immediately hammering the next provider.
+    The one thing that does propagate is cancellation (`CancelledError` from
+    a caller's own `asyncio.wait_for`), as it must -- but not before the
+    circuit breaker's probe slot is released, so an abandoned attempt can
+    never leave a provider permanently skipped.
+
+    Every hop shares the same per-request `timeout` the caller passed in. A
+    caller wrapping this in its own `asyncio.wait_for` must size that outer
+    ceiling for `len(FALLBACK_CASCADE)` sequential attempts plus
+    `(len(FALLBACK_CASCADE) - 1) * LLM_CASCADE_DELAY_SECONDS`, or pass a
+    per-hop `timeout` small enough that a cascade fits inside its ceiling
+    (`a0_orchestrator.classify_intent` does the latter).
+    `LLM_CASCADE_DELAY_SECONDS` (default 1.0s) is slept between a hop that
+    sent a request and failed and the next attempt -- never before the first
+    attempt, and never after a hop that was skipped or rejected pre-flight.
     """
-    entry_key = select_provider(task)
-    tried_providers: set[str] = set()
+    current_key: Optional[str] = select_provider(task)
+    tried_keys: set = set()
+    dead_providers: set = set()
     reasons: list[str] = []
-    current_key = entry_key
 
-    while True:
+    while current_key is not None:
+        tried_keys.add(current_key)
+
         # SENT-8-02: a provider the circuit breaker already knows is
         # rate-limited/unhealthy is skipped without ever calling
         # `_send_one` -- every concurrent agent call in the same burst
         # that discovers the same failure independently would otherwise
         # each pay a full wasted round trip to re-learn it.
-        if not is_available(current_key):
-            reason = f"circuit_open:{current_key}"
-            reasons.append(reason)
-            tried_providers.add(PROVIDER_CONFIG[current_key]["provider"])
-            next_key = next(
-                (
-                    key for key in FALLBACK_CASCADE
-                    if key != current_key and PROVIDER_CONFIG[key]["provider"] not in tried_providers
-                ),
-                None,
-            )
+        #
+        # `allow_open_circuit` callers try the provider anyway (2026-09-08):
+        # the breaker is right for the specialist narrations, every one of
+        # which has a deterministic fallback sentence, and wrong for the
+        # single call that writes the answer a user reads. One real attempt
+        # is worth more than a saved round trip when the alternative is the
+        # user getting no answer at all.
+        if not is_available(current_key) and not allow_open_circuit:
+            reasons.append(f"circuit_open:{current_key}")
+            next_key = _next_cascade_key(tried_keys, dead_providers)
             if next_key is None:
                 logger.warning(
                     "LLM call skipped (provider=%s): circuit open. No more providers to cascade to.",
                     current_key,
                 )
-                return _degraded(";".join(reasons))
-            logger.warning(
-                "LLM call skipped (provider=%s): circuit open. Cascading to %s.",
-                current_key, next_key,
-            )
+            else:
+                logger.warning(
+                    "LLM call skipped (provider=%s): circuit open. Cascading to %s.",
+                    current_key, next_key,
+                )
             current_key = next_key
             continue
 
         try:
             response = await _send_one(current_key, task, prompt, system_instruction, timeout, json_output)
-            record_success(current_key)
-            return response
         except (
-            _MissingKeyError, TokenBudgetExceededError, GateBusyError, httpx.TimeoutException,
-            httpx.HTTPStatusError, httpx.RequestError,
+            _MissingKeyError, _MalformedResponseError, TokenBudgetExceededError, GateBusyError,
+            httpx.TimeoutException, httpx.HTTPStatusError, httpx.RequestError,
         ) as exc:
             reason, cascadable = _classify_failure(current_key, exc)
-
-            # Feed the breaker regardless of cascadability -- a 429 or
-            # timeout is informative about this provider's health even in
-            # the (currently theoretical, since 429/5xx/timeout are all
-            # cascadable) case a non-cascadable path reaches here.
-            if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code == 429:
-                record_rate_limited(current_key, _cooldown_seconds_from_429_headers(exc.response.headers))
-            elif isinstance(exc, TokenBudgetExceededError):
-                record_rate_limited(current_key, exc.retry_after_seconds)
-            elif isinstance(exc, (httpx.TimeoutException, httpx.RequestError, GateBusyError)):
-                record_timeout(current_key)
+            _record_breaker_outcome(current_key, exc, cascadable)
 
             if not cascadable:
                 logger.warning(
@@ -639,26 +844,32 @@ async def call_llm(
                 return _degraded(reason)
 
             reasons.append(reason)
-            tried_providers.add(PROVIDER_CONFIG[current_key]["provider"])
+            if _is_provider_wide_failure(exc):
+                dead_providers.add(PROVIDER_CONFIG[current_key]["provider"])
 
-            next_key = next(
-                (
-                    key for key in FALLBACK_CASCADE
-                    if key != current_key and PROVIDER_CONFIG[key]["provider"] not in tried_providers
-                ),
-                None,
-            )
+            next_key = _next_cascade_key(tried_keys, dead_providers)
             if next_key is None:
                 logger.warning(
                     "LLM call failed (provider=%s): %s. No more providers to cascade to.",
                     current_key, reason,
                 )
-                return _degraded(";".join(reasons))
-
-            logger.warning(
-                "LLM call failed (provider=%s): %s. Cascading to %s.",
-                current_key, reason, next_key,
-            )
-            if LLM_CASCADE_DELAY_SECONDS > 0:
-                await asyncio.sleep(LLM_CASCADE_DELAY_SECONDS)
+            else:
+                logger.warning(
+                    "LLM call failed (provider=%s): %s. Cascading to %s.",
+                    current_key, reason, next_key,
+                )
+                if LLM_CASCADE_DELAY_SECONDS > 0 and not isinstance(exc, _PREFLIGHT_FAILURES):
+                    await asyncio.sleep(LLM_CASCADE_DELAY_SECONDS)
             current_key = next_key
+        except BaseException:
+            # Cancellation (a caller's `asyncio.wait_for` expiring mid-request)
+            # or anything this function does not classify. Neither is a
+            # verdict on the provider, and neither may strand a HALF_OPEN
+            # probe -- see `circuit_breaker.release_probe`.
+            release_probe(current_key)
+            raise
+        else:
+            record_success(current_key)
+            return response
+
+    return _degraded(";".join(reasons))

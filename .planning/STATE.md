@@ -32,7 +32,7 @@ See: .planning/PROJECT.md (updated 2026-08-19)
 Phase: 06.1 (Advanced Retrieval & Real Copilot) — EXECUTING
 Plan: 1 of 8
 Status: Executing Phase 06.1
-Last activity: 2026-08-29 — Phase 06.1 execution started
+Last activity: 2026-11-17 - Completed quick task 261116-ul4: Fix audit bugs: LLM routing fallback, approval race, C2 detector, upload retry, RBAC, frontend build
 
 Progress: [█████░░░░░] 50%
 
@@ -90,6 +90,13 @@ Items acknowledged and deferred at milestone close, most recent first:
 | Category | Item | Status | Deferred At | Milestone |
 |----------|------|--------|-------------|-----------|
 | Architecture direction | ~~User raised pivoting toward a multimodal RAG system~~ — **resolved 2026-08-28: scoped into Phase 06.1 (Advanced Retrieval & Real Copilot)**, inserted after Phase 6. See Roadmap Evolution entry above for the approved scope (Bible Section 15 hybrid retrieval, AGT-01/HARD-04 scope override, hosted-embedding decision, schema deviation, format list). | scoped → Phase 06.1 | 2026-08-28 | v1 (current) |
+
+## Quick Tasks Completed
+
+| ID | Task | Date | Status |
+|----|------|------|--------|
+| 260908-qtm | Seed the NOVOLIFE MES PAS-X demo dataset (384 rows) from the 34-document source package, so Evidence Investigation, CAPA and Blast Radius render document-grounded content | 2026-09-08 | complete |
+| 261116-ul4 | Fix the 2026-11-16 audit bugs: LLM routing no longer collapses to deterministic-fallback (circuit breaker, rate limiter, hosted-first three-model Groq cascade, A0 budget, narration cache), approve/reject atomicity, C2 detector gaps, failed-upload retry, assurance-card RBAC, DSN redaction, frontend build (code commits 13dc7f4..75d1b37) | 2026-11-17 | complete |
 
 ## Session Continuity
 

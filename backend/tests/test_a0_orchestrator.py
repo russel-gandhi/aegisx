@@ -219,3 +219,69 @@ def test_classify_intent_directly_raises_valueerror_on_degraded_response(monkeyp
 def test_a0_system_prompt_contains_all_six_agent_capability_lines():
     for agent_id in ("A1", "A2", "A3", "A4", "A5", "A6"):
         assert f'"{agent_id}"' in A0_SYSTEM_PROMPT
+
+
+# --- 2026-11-16: the per-hop budget fits inside the 2000ms ceiling ---------
+
+
+def test_classification_passes_a_per_hop_timeout_below_the_total_budget(monkeypatch):
+    """`classify_intent` used to inherit `call_llm`'s 10s per-hop default, so
+    a slow first hop could only end in the outer 2000ms `wait_for` cancelling
+    it -- no other provider was ever tried and A0 fell back to the full agent
+    set on every query."""
+    from app.agents import a0_orchestrator
+    from app.llm_router import LLMResponse
+
+    seen = {}
+
+    async def _fake_call_llm(**kwargs):
+        seen.update(kwargs)
+        return LLMResponse(
+            text='{"active_agents": ["A2"], "intent_category": "audit_readiness"}',
+            model_id="m", provider="groq",
+        )
+
+    monkeypatch.setattr(a0_orchestrator, "call_llm", _fake_call_llm)
+    result = asyncio.run(a0_orchestrator.classify_intent("q", "GXP-MFG-DEMO-01"))
+    assert result.active_agents == ["A2"]
+    assert seen["timeout"] == a0_orchestrator.A0_PER_HOP_TIMEOUT_SECONDS
+    assert 0 < a0_orchestrator.A0_PER_HOP_TIMEOUT_SECONDS < A0_TIMEOUT_SECONDS
+
+
+def test_slow_first_hop_times_out_in_the_router_and_the_next_hop_classifies(monkeypatch):
+    """End to end through the real router: the first Groq model hangs past
+    the per-hop budget, the router times it out (a recorded timeout, not a
+    cancellation) and the next entry answers inside A0's 2000ms."""
+    import json as _json
+
+    from app import llm_router
+    from app.agents import a0_orchestrator
+
+    monkeypatch.setenv("GROQ_API_KEY", "test-groq-key")
+    monkeypatch.setattr(a0_orchestrator, "A0_PER_HOP_TIMEOUT_SECONDS", 0.2)
+    monkeypatch.setattr(llm_router, "LLM_CASCADE_DELAY_SECONDS", 0.0)
+    models = []
+
+    async def _handler(request):
+        model = _json.loads(request.content)["model"]
+        models.append(model)
+        if model == "openai/gpt-oss-120b":
+            raise httpx.ReadTimeout("slow first hop")
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": '{"active_agents": ["A2", "A6"], "intent_category": "access"}'}}],
+                "model": model,
+            },
+        )
+
+    async def _run():
+        with respx.mock:
+            respx.post("https://api.groq.com/openai/v1/chat/completions").mock(side_effect=_handler)
+            return await a0_orchestrator.run_a0(
+                {"messages": [HumanMessage(content="who has access?")], "system_id": "GXP-MFG-DEMO-01"}
+            )
+
+    result = asyncio.run(_run())
+    assert models[0] == "openai/gpt-oss-120b" and len(models) == 2
+    assert result == {"active_agents": ["A2", "A6"], "user_intent": "access"}

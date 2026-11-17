@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLocation } from 'react-router-dom'
-import AgentTopologyCanvas, { type NodeStatusValue } from '../components/AgentTopologyCanvas'
+import { Loader2, Maximize2, SendHorizontal, Sparkles, X } from 'lucide-react'
 import ChatMessage, { type ChatMessageData } from '../components/ChatMessage'
 import { connectCopilotStream } from '../lib/ws'
 import { investigateCopilot, streamAssuranceCards } from '../lib/api'
@@ -28,6 +28,46 @@ const AUDIT_READY_PATTERN = /audit[-\s]+ready/i
 // the hero-query gate and this selector are independent contracts that
 // happen to share the same seeded values today.
 export const COPILOT_SYSTEM_IDS = ['GXP-MFG-DEMO-01', 'BUS-IT-DEMO-02']
+
+// Module-scoped, not component state: React unmounts this page on every
+// route change (it's rendered through <Routes>), which would otherwise
+// wipe the conversation each time the operator tabs over to another page
+// and back. A plain module-level object survives remounts within the same
+// SPA session because the module itself isn't re-evaluated -- but it IS
+// re-evaluated on a hard refresh (new page load, new module graph), so
+// "only a refresh clears it" falls out for free without reaching for
+// localStorage/sessionStorage, which would survive a refresh too.
+type CopilotCache = {
+  sessionId: string
+  messages: ChatMessageData[]
+  inputValue: string
+  selectedSystemId: string
+  navigationCancelled: Record<string, boolean>
+  isFullScreen: boolean
+}
+
+const copilotCache: CopilotCache = {
+  sessionId: generateSessionId(),
+  messages: [],
+  inputValue: '',
+  selectedSystemId: COPILOT_SYSTEM_IDS[0],
+  navigationCancelled: {},
+  isFullScreen: false,
+}
+
+// Test-only escape hatch: the module-level cache is what makes conversation
+// state survive a route navigation, but that same persistence would leak
+// state between otherwise-independent test cases rendering <Copilot />
+// back to back (RTL unmounts between tests, the module doesn't reload).
+// Production code never calls this.
+export function __resetCopilotCacheForTests(): void {
+  copilotCache.sessionId = generateSessionId()
+  copilotCache.messages = []
+  copilotCache.inputValue = ''
+  copilotCache.selectedSystemId = COPILOT_SYSTEM_IDS[0]
+  copilotCache.navigationCancelled = {}
+  copilotCache.isFullScreen = false
+}
 
 export function matchHeroQuery(text: string): string | null {
   if (!AUDIT_READY_PATTERN.test(text)) {
@@ -67,27 +107,55 @@ export function injectionDetectedCopy(reason: string): string {
 
 export default function Copilot() {
   const location = useLocation()
-  const [messages, setMessages] = useState<ChatMessageData[]>([])
+  const [messages, setMessages] = useState<ChatMessageData[]>(() => copilotCache.messages)
   // Seam for 06-03's Guided Tour: pre-fills the textarea without
   // auto-submitting, so a later plan can navigate here with
   // `state: { prefillQuery: '...' }` and no further Copilot.tsx change.
+  // A prefill from tour navigation takes priority over a cached draft;
+  // otherwise the draft the operator was mid-typing survives the trip to
+  // another page and back.
   const [inputValue, setInputValue] = useState(
-    () => (location.state as { prefillQuery?: string } | null)?.prefillQuery ?? '',
+    () => (location.state as { prefillQuery?: string } | null)?.prefillQuery ?? copilotCache.inputValue,
   )
   const [isStreaming, setIsStreaming] = useState(false)
-  const [selectedSystemId, setSelectedSystemId] = useState(COPILOT_SYSTEM_IDS[0])
+  const [selectedSystemId, setSelectedSystemId] = useState(() => copilotCache.selectedSystemId)
   // Phase 06.1 plan 06.1-08 (D-13): tracks which assistant messages have had
   // their pending auto-navigate cancelled -- keyed by message id so
   // cancellation is permanent for that message and never re-arms. Exists
   // because WCAG 2.2.1 (Timing Adjustable) requires a non-essential timing
   // limit to be cancellable; "Stay here" and typing in the composer are the
   // two cancel triggers.
-  const [navigationCancelled, setNavigationCancelled] = useState<Record<string, boolean>>({})
-  const [nodeStatus, setNodeStatus] = useState<Record<string, NodeStatusValue>>({})
-  const [disconnected, setDisconnected] = useState(false)
-  const sessionIdRef = useRef(generateSessionId())
+  const [navigationCancelled, setNavigationCancelled] = useState<Record<string, boolean>>(
+    () => copilotCache.navigationCancelled,
+  )
+  // Expands the chat panel to fill the viewport once a question has been
+  // asked, so the conversation and evidence cards get the reading room a
+  // 32rem-tall inline panel can't give them. Collapses back on demand via
+  // the panel's own close control -- never auto-collapses mid-conversation.
+  const [isFullScreen, setIsFullScreen] = useState(() => copilotCache.isFullScreen)
+  const sessionIdRef = useRef(copilotCache.sessionId)
   const controllerRef = useRef<AbortController | null>(null)
   const messagesContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Mirror every piece of conversation state into the module-level cache as
+  // it changes, so the next mount (a route navigation away and back) picks
+  // up exactly where this one left off. Each effect is independent -- a
+  // change to just the input draft shouldn't force a re-write of messages.
+  useEffect(() => {
+    copilotCache.messages = messages
+  }, [messages])
+  useEffect(() => {
+    copilotCache.inputValue = inputValue
+  }, [inputValue])
+  useEffect(() => {
+    copilotCache.selectedSystemId = selectedSystemId
+  }, [selectedSystemId])
+  useEffect(() => {
+    copilotCache.navigationCancelled = navigationCancelled
+  }, [navigationCancelled])
+  useEffect(() => {
+    copilotCache.isFullScreen = isFullScreen
+  }, [isFullScreen])
 
   // 06-UI-SPEC.md UI Considerations, "overflow" row: the message list
   // scrolls inside a fixed-height panel and auto-scrolls to bottom on
@@ -133,14 +201,9 @@ export default function Copilot() {
       ...prev,
       { id: assistantId, role: 'assistant', kind: 'cards', status: 'investigating', cards: [] },
     ])
-    setDisconnected(false)
     setIsStreaming(true)
-    setNodeStatus({ A0: 'running', A2: 'running' })
-
-    let sawFirstCard = false
 
     const failStream = () => {
-      setDisconnected(true)
       setIsStreaming(false)
       setMessages((prev) =>
         prev.map((message) =>
@@ -155,10 +218,6 @@ export default function Copilot() {
       systemId,
       {
         onCard: (card) => {
-          if (!sawFirstCard) {
-            sawFirstCard = true
-            setNodeStatus((prev) => ({ ...prev, C1: 'running' }))
-          }
           setMessages((prev) =>
             prev.map((message) =>
               message.id === assistantId
@@ -168,8 +227,6 @@ export default function Copilot() {
           )
         },
         onDone: () => {
-          // Single terminal transition, not one per check (D-02).
-          setNodeStatus({ A0: 'complete', A2: 'complete', C1: 'complete' })
           setIsStreaming(false)
           setMessages((prev) =>
             prev.map((message) =>
@@ -205,6 +262,7 @@ export default function Copilot() {
       { id: crypto.randomUUID(), role: 'user', kind: 'text', text: trimmed },
     ])
     setInputValue('')
+    setIsFullScreen(true)
 
     const systemId = matchHeroQuery(trimmed)
     if (systemId !== null) {
@@ -282,8 +340,7 @@ export default function Copilot() {
       <p className="mt-2 max-w-2xl text-[13.5px] text-ink-muted">
         Questions are answered from the indexed knowledge base with inspectable evidence -- every
         answer names the source document, section/page, and retrieval method behind it, backed by
-        the C2 → A0 → [A1…A6] → C1 → A7 → C3 agent pipeline. The canvas below visualizes live
-        agent execution state for a system-readiness question.
+        the C2 → A0 → [A1…A6] → C1 → A7 → C3 agent pipeline.
       </p>
 
       <div className="mt-4 flex items-center gap-2">
@@ -304,79 +361,149 @@ export default function Copilot() {
         </select>
       </div>
 
-      <div className="mt-6">
-        <AgentTopologyCanvas nodeStatus={nodeStatus} disconnected={disconnected} />
-      </div>
-
-      <div className="card mt-6 p-4">
-        {messages.length === 0 ? (
-          <div data-testid="copilot-empty-state">
-            <p className="text-lg font-semibold text-ink">{EMPTY_STATE_HEADING}</p>
-            <p className="mt-1 text-sm text-ink-muted">{EMPTY_STATE_BODY}</p>
+      <div
+        className={
+          isFullScreen
+            ? 'fixed inset-0 z-50 flex flex-col bg-surface/98 p-4 backdrop-blur-sm sm:p-8'
+            : ''
+        }
+      >
+        {isFullScreen ? (
+          <div className="mb-3 flex shrink-0 items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-ink">Ask GxP Copilot</p>
+              <p className="text-xs text-ink-faint">System: {selectedSystemId}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(false)}
+              className="btn btn-secondary gap-1.5"
+              aria-label="Collapse chat back to inline view"
+            >
+              <X className="size-4" aria-hidden="true" />
+              Collapse
+            </button>
           </div>
         ) : (
-          <div
-            ref={messagesContainerRef}
-            className="max-h-[32rem] space-y-3 overflow-y-auto"
-            data-testid="copilot-messages"
-            data-tour="copilot-messages"
-          >
-            {messages.map((message) => (
-              <ChatMessage
-                key={message.id}
-                message={message}
-                systemId={selectedSystemId}
-                autoNavigateArmed={message.id === latestAssistantId && !navigationCancelled[message.id]}
-                onNavigationCancelled={() =>
-                  setNavigationCancelled((prev) => ({ ...prev, [message.id]: true }))
-                }
-              />
-            ))}
+          // Manual expand affordance: handleSubmit already forces
+          // isFullScreen true on the first question, but until then (or
+          // if the operator collapses back) there was no way to reach the
+          // full-screen chat without asking one. Sits above the card
+          // rather than inside it, so it stays reachable even from the
+          // empty state.
+          <div className="mb-2 flex shrink-0 justify-end">
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(true)}
+              className="btn btn-secondary gap-1.5"
+              aria-label="Expand chat to full screen"
+            >
+              <Maximize2 className="size-4" aria-hidden="true" />
+              Expand
+            </button>
           </div>
         )}
-      </div>
 
-      {/*
-        The Guided Tour's `copilot-input` anchor sits on the FORM, not the
-        textarea. react-joyride's overlay intercepts pointer events everywhere
-        outside the spotlight cut-out, and only the spotlighted element stays
-        interactive (v3 default `blockTargetInteraction: false`). Anchoring on
-        the textarea alone left the "Ask Copilot" submit button underneath the
-        overlay, so the tour step's own instruction ("submit it yourself") was
-        physically impossible -- the click was swallowed, or worse, read as an
-        overlay click that closed the step. The form wraps both controls, so
-        spotlighting it keeps the whole submit affordance reachable.
-      */}
-      <form
-        onSubmit={handleSubmit}
-        data-tour="copilot-input"
-        className="mt-4 flex items-end gap-2"
-      >
-        <textarea
-          value={inputValue}
-          onChange={(event) => {
-            // WCAG 2.2.1 Timing Adjustable: a user who has started typing
-            // their next question has told us they are staying -- mark
-            // navigationCancelled for the newest message the same way
-            // "Stay here" does, before updating the input value.
-            if (latestAssistantId !== null) {
-              setNavigationCancelled((prev) => ({ ...prev, [latestAssistantId]: true }))
-            }
-            setInputValue(event.target.value)
-          }}
-          disabled={isStreaming}
-          placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"'
-          rows={2}
-          className="input-field max-h-40 min-h-[3rem] flex-1 resize-none overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
-        />
-        <button
-          type="submit"
-          disabled={isStreaming || inputValue.trim().length === 0}
-          className="btn btn-success"
+        <div className={`card p-4 ${isFullScreen ? 'flex min-h-0 flex-1 flex-col' : 'mt-6'}`}>
+          {messages.length === 0 ? (
+            <div
+              data-testid="copilot-empty-state"
+              className={isFullScreen ? 'flex flex-1 flex-col items-center justify-center text-center' : ''}
+            >
+              <Sparkles className="mx-auto size-8 text-accent" aria-hidden="true" />
+              <p className="mt-3 text-lg font-semibold text-ink">{EMPTY_STATE_HEADING}</p>
+              <p className="mt-1 max-w-md text-sm text-ink-muted">{EMPTY_STATE_BODY}</p>
+            </div>
+          ) : (
+            <div
+              ref={messagesContainerRef}
+              className={
+                isFullScreen
+                  ? 'min-h-0 flex-1 space-y-3 overflow-y-auto'
+                  : 'max-h-[32rem] space-y-3 overflow-y-auto'
+              }
+              data-testid="copilot-messages"
+              data-tour="copilot-messages"
+            >
+              {messages.map((message) => (
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  systemId={selectedSystemId}
+                  autoNavigateArmed={message.id === latestAssistantId && !navigationCancelled[message.id]}
+                  onNavigationCancelled={() =>
+                    setNavigationCancelled((prev) => ({ ...prev, [message.id]: true }))
+                  }
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/*
+          The Guided Tour's `copilot-input` anchor sits on the FORM, not the
+          textarea. react-joyride's overlay intercepts pointer events everywhere
+          outside the spotlight cut-out, and only the spotlighted element stays
+          interactive (v3 default `blockTargetInteraction: false`). Anchoring on
+          the textarea alone left the "Ask Copilot" submit button underneath the
+          overlay, so the tour step's own instruction ("submit it yourself") was
+          physically impossible -- the click was swallowed, or worse, read as an
+          overlay click that closed the step. The form wraps both controls, so
+          spotlighting it keeps the whole submit affordance reachable.
+        */}
+        <form
+          onSubmit={handleSubmit}
+          data-tour="copilot-input"
+          className={`flex shrink-0 items-end gap-2 ${isFullScreen ? 'mt-3' : 'mt-4'}`}
         >
-          {isStreaming ? 'Investigating…' : 'Ask Copilot'}
-        </button>
-      </form>
+          <textarea
+            value={inputValue}
+            onChange={(event) => {
+              // WCAG 2.2.1 Timing Adjustable: a user who has started typing
+              // their next question has told us they are staying -- mark
+              // navigationCancelled for the newest message the same way
+              // "Stay here" does, before updating the input value.
+              if (latestAssistantId !== null) {
+                setNavigationCancelled((prev) => ({ ...prev, [latestAssistantId]: true }))
+              }
+              setInputValue(event.target.value)
+            }}
+            onKeyDown={(event) => {
+              // Enter sends the question (the standard chat-composer
+              // convention); Shift+Enter still inserts a newline. Guarded by
+              // the same isStreaming/empty-input checks the button already
+              // enforces, via requestSubmit -> handleSubmit.
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                if (!isStreaming && inputValue.trim().length > 0) {
+                  event.currentTarget.form?.requestSubmit()
+                }
+              }
+            }}
+            disabled={isStreaming}
+            placeholder='Ask e.g. "Is GXP-MFG-DEMO-01 audit ready?"  ·  Enter to send, Shift+Enter for a new line'
+            rows={2}
+            className="input-field max-h-40 min-h-[3rem] flex-1 resize-none overflow-y-auto disabled:cursor-not-allowed disabled:opacity-60"
+          />
+          <button
+            type="submit"
+            disabled={isStreaming || inputValue.trim().length === 0}
+            className="btn btn-success gap-1.5"
+          >
+            {isStreaming ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Investigating…
+              </>
+            ) : (
+              <>
+                Ask Copilot
+                <SendHorizontal className="size-4" aria-hidden="true" />
+              </>
+            )}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }

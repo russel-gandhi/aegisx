@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AssuranceCard from '../components/AssuranceCard'
+import ChromeSlot from '../components/ChromeSlot'
 import {
   ApiError,
   fetchEvidenceGraph,
@@ -23,6 +24,14 @@ const PERMISSION_DENIED_MESSAGE =
 
 const SYSTEM_OPTIONS = [
   { id: 'GXP-MFG-DEMO-01', label: 'GXP-MFG-DEMO-01 (NovaSynth MES)' },
+  // Quick task 260908-qtm: seeded by infra/postgres/seed/004-007_novolife_*.sql
+  // from the 35 Novo Life MES PAS-X documents in Dummy_data/. Listed here
+  // because this array is the only way the page can reach a system -- without
+  // an entry the seeded data is unreachable from the UI. Still exactly four
+  // assurance cards, one per A2_CHECKS entry; what changes is that they cite
+  // NL-MES-URS-001, DUMMY-ITPSE-MES-001, URS-MES-001 and NL-MES-DRR-001
+  // instead of the thin DOC-2026-OM-99 / URS-042 fixtures.
+  { id: 'GXP-MES-NOVOLIFE-01', label: 'GXP-MES-NOVOLIFE-01 (Novo Life MES PAS-X)' },
   { id: 'BUS-IT-DEMO-02', label: 'BUS-IT-DEMO-02 (non-GxP)' },
 ]
 
@@ -162,7 +171,10 @@ export default function FindingInvestigation() {
         (EVID-03, Bible Section 1.3).
       </p>
 
-      <div className="mt-4 flex items-center gap-2">
+      {/* Painted into the role bar's right-hand chrome slot (quick UI
+          change 2026-09-08). State, option list and the stream reset in `onChange` are
+          unchanged -- only the DOM position moves. */}
+      <ChromeSlot>
         <label htmlFor="findings-system" className="text-sm text-ink-muted">
           System
         </label>
@@ -182,7 +194,7 @@ export default function FindingInvestigation() {
             </option>
           ))}
         </select>
-      </div>
+      </ChromeSlot>
 
       <div className="mt-6 space-y-4">
         {/* The loading line stays visible for the whole stream, not just

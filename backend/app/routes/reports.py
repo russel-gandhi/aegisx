@@ -16,7 +16,7 @@ would have no path to reach -- this uses `reportlab` instead: a pure-Python
 PDF library with zero native dependencies, so the endpoint is buildable and
 verifiable today rather than shipped untested.
 
-Reuses `app.routes.findings.get_assurance_cards` directly for its data --
+Reuses `app.routes.findings.build_assurance_cards` directly for its data --
 never a second query path, never a second copy of the Claim/Evidence/
 ALCOA+/Confidence/Model-Attribution assembly logic C1's own verification
 flow already produces (Bible Section 11.2's Assurance Card contract).
@@ -28,7 +28,7 @@ import io
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from reportlab.lib import colors
@@ -46,7 +46,8 @@ from reportlab.platypus import (
 
 from app.db import acquire_pool_or_none
 from app.routes.evidence_graph import _system_exists
-from app.routes.findings import get_assurance_cards
+from app.identity import RequestIdentity, require_identity
+from app.routes.findings import build_assurance_cards
 from app.schemas import AssuranceCard
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ _ALCOA_DIMENSION_LABELS = (
 
 def _build_pdf(system_id: str, cards: list[AssuranceCard]) -> bytes:
     """Pure function: no I/O, no model call -- every value it renders was
-    already computed by `get_assurance_cards`'s own real Postgres/OPA
+    already computed by `build_assurance_cards`'s own real Postgres/OPA
     verification before this function ever runs (mirrors
     `app.graph.evidence_graph.build_graph`'s compute-then-write split
     elsewhere in this codebase)."""
@@ -160,14 +161,21 @@ def _render_card(card: AssuranceCard, styles, claim_style) -> list:
 
 
 @router.post("/api/reports/evidence-pack")
-async def generate_evidence_pack(body: EvidencePackRequest):
+async def generate_evidence_pack(
+    body: EvidencePackRequest,
+    identity: RequestIdentity = Depends(require_identity),
+):
+    """Identity is required and the pack is scoped to the caller's role
+    (2026-11-16): it is built from the same cards as the assurance-card
+    routes, so leaving it ungated would have been a second way around the
+    restriction those routes now apply."""
     pool = await acquire_pool_or_none()
     if pool is None:
         raise HTTPException(status_code=503, detail="Postgres pool unavailable")
     if not await _system_exists(pool, body.system_id):
         raise HTTPException(status_code=404, detail=f"Unknown system_id: {body.system_id}")
 
-    cards_response = await get_assurance_cards(body.system_id)
+    cards_response = await build_assurance_cards(body.system_id, identity.role)
     pdf_bytes = _build_pdf(body.system_id, cards_response.cards)
 
     filename = f"evidence-pack-{body.system_id}.pdf"

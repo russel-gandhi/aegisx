@@ -78,6 +78,46 @@ async def query_copilot(request: CopilotQueryRequest) -> CopilotQueryResponse:
 # (T-06.1-11, six concurrent specialists, several LLM calls).
 GRAPH_INVOKE_TIMEOUT_SECONDS: float = 45.0
 
+# Per-hop budget for the findings-synthesis call below. `findings_synthesis`
+# leads with a hosted model (2026-11-16, see `llm_router.PROVIDER_CONFIG`)
+# that answers a findings prompt -- one or two verified findings, not 13
+# document excerpts -- in a second or two. The ceiling stays this large so a
+# cascade that ends at the local model, where a cold load alone costs ~15s,
+# can still finish instead of turning a working answer into a timeout.
+FINDINGS_SYNTHESIS_TIMEOUT_SECONDS: float = 55.0
+
+# Grounding rules for the findings path. Stricter than
+# SYNTHESIS_SYSTEM_PROMPT because the input is not retrieved prose the
+# model may summarize freely -- it is a set of claims C1 already verified
+# against real database records and real OPA evaluation. The model's only
+# job is to say what those findings say, in an inspector-readable way. It
+# must not soften a verified gap, invent a second one, or reach for a
+# regulatory clause that is not already attached to a finding.
+FINDINGS_SYNTHESIS_SYSTEM_PROMPT: str = (
+    "You are AegisX AI's Copilot. Answer the user's compliance question "
+    "using ONLY the verified findings listed below. Each finding has "
+    "already been independently verified against real database records "
+    "and a real policy-engine evaluation, so state its conclusion "
+    "directly and with confidence. Rules: cite only the regulatory "
+    "references already attached to a finding, never any other; never "
+    "invent a finding, a record id, or a regulation; do not hedge a "
+    "verified gap with words like 'may' or 'possibly'; do not mention "
+    "documents, searching, or a knowledge base. Answer in two to four "
+    "short sentences of plain, inspector-readable English."
+)
+
+
+# Per-request budget for the single synthesis `call_llm` below, replacing
+# that function's 10s default (2026-09-08). Sized so a cascade that falls
+# through to the local Ollama hop can actually finish -- measured at 35.8s
+# and 52.7s on the real 13-excerpt prompt -- instead of guaranteeing a
+# timeout. Groq, now the first hop for `task="synthesis"`, answers the same
+# prompt in ~1.7s, so this ceiling is the degraded-path allowance, not the
+# expected latency. Deliberately outside `GRAPH_INVOKE_TIMEOUT_SECONDS`:
+# synthesis happens after `ainvoke()` returns, so the two budgets are
+# sequential, never shared.
+SYNTHESIS_TIMEOUT_SECONDS: float = 55.0
+
 # 06.1-UI-SPEC.md Copywriting Contract, transcribed verbatim (D-09: no
 # evidence above threshold gets this honest sentence, never a
 # model-knowledge answer).
@@ -175,6 +215,71 @@ def _deterministic_fallback_answer(evidence: List[Dict[str, Any]]) -> str:
     )
 
 
+def _findings_synthesis_prompt(
+    query: str, findings: List[Dict[str, Any]], verification_results: Dict[str, Any]
+) -> str:
+    """One line per finding, each carrying C1's own verdict so the model can
+    see which claims are corroborated and how strongly.
+
+    Reads the grade from `verification_results[finding_id]["confidence"]`,
+    never from `finding["confidence_score"]` -- every agent hardcodes that
+    latter field to the literal "UNVERIFIED" placeholder (see the warning
+    on `AgentFinding.confidence_score` in `app.schemas`)."""
+    lines = []
+    for finding in findings:
+        verdict = verification_results.get(finding.get("finding_id")) or {}
+        confidence = verdict.get("confidence", "UNVERIFIED")
+        citations = ", ".join(finding.get("regulatory_citations") or []) or "no citation"
+        corroboration = []
+        if verdict.get("db_record_found"):
+            corroboration.append("database record confirmed")
+        if verdict.get("opa_corroborated"):
+            corroboration.append("policy engine corroborated")
+        suffix = f" [{'; '.join(corroboration)}]" if corroboration else ""
+        lines.append(f"- ({confidence}, {citations}) {finding.get('claim', '')}{suffix}")
+    return (
+        "Verified findings for this system:\n\n"
+        + "\n".join(lines)
+        + f'\n\nQuestion: "{query}"\n\n'
+        "Answer the question using only these verified findings."
+    )
+
+
+def _deterministic_findings_answer(findings: List[Dict[str, Any]]) -> str:
+    """Python-composed answer for the findings path, used when the LLM call
+    fails. Restates the verified claims verbatim rather than claiming a
+    search happened -- never `INSUFFICIENT_EVIDENCE_ANSWER`, which would be
+    false here: these findings came from database and policy checks, and no
+    document search was attempted or needed."""
+    claims = " ".join(
+        (finding.get("claim") or "").strip()
+        for finding in findings
+        if (finding.get("claim") or "").strip()
+    )
+    return f"Verified against system records and policy evaluation: {claims}".strip()
+
+
+async def _safe_findings_synthesis_call(prompt: str) -> Optional[LLMResponse]:
+    """`_safe_synthesis_call`'s sibling for the findings path -- same broad
+    guard and the same `None`-on-any-failure contract, but its own task
+    and its own timeout."""
+    try:
+        return await call_llm(
+            task="findings_synthesis",
+            json_output=False,
+            system_instruction=FINDINGS_SYNTHESIS_SYSTEM_PROMPT,
+            prompt=prompt,
+            timeout=FINDINGS_SYNTHESIS_TIMEOUT_SECONDS,
+            allow_open_circuit=True,
+        )
+    except Exception:  # noqa: BLE001 - mirrors _safe_synthesis_call's own rationale
+        logger.warning(
+            "Findings-synthesis call raised unexpectedly; falling back to deterministic answer.",
+            exc_info=True,
+        )
+        return None
+
+
 async def _safe_synthesis_call(prompt: str) -> Optional[LLMResponse]:
     """`call_llm()` wrapped in a broad exception guard, mirroring
     `app.agents.minimal_specialists._safe_call_llm`'s own rationale: this
@@ -182,13 +287,29 @@ async def _safe_synthesis_call(prompt: str) -> Optional[LLMResponse]:
     host no test explicitly mocks raises `respx.AllMockedAssertionError`,
     a type `call_llm()`'s own `except` clauses do not name. Returns `None`
     on any such failure -- treated identically to a degraded response by
-    the caller below."""
+    the caller below.
+
+    Passes `SYNTHESIS_TIMEOUT_SECONDS` explicitly rather than inheriting
+    `call_llm`'s 10s default (2026-09-08). That default was measured to be
+    unreachable for this call: the real synthesis prompt runs 13 evidence
+    excerpts / ~13k chars, which the local Ollama hop completes in 35.8s
+    to 52.7s, so every synthesis timed out and this route emitted
+    `_deterministic_fallback_answer` every time. Raising it costs the
+    graph nothing -- synthesis runs in this route AFTER `ainvoke()` has
+    already returned (see the module docstring), so it sits outside the
+    `GRAPH_INVOKE_TIMEOUT_SECONDS` budget entirely rather than competing
+    with the six specialists for it."""
     try:
         return await call_llm(
             task="synthesis",
             json_output=False,
             system_instruction=SYNTHESIS_SYSTEM_PROMPT,
             prompt=prompt,
+            timeout=SYNTHESIS_TIMEOUT_SECONDS,
+            # The answer the user reads is worth one real attempt even when
+            # the six specialist narrations have already tripped a
+            # provider's breaker -- see `call_llm`'s own comment.
+            allow_open_circuit=True,
         )
     except Exception:  # noqa: BLE001 - see this function's own docstring
         logger.warning("Synthesis call raised unexpectedly; falling back to deterministic answer.", exc_info=True)
@@ -392,6 +513,63 @@ async def investigate(
         stages.append(_stage_from_trace(stage_id, trace_by_id))
 
     if insufficient_evidence:
+        findings = result.get("findings", [])
+        verification_results = result.get("verification_results", {})
+
+        # A0 routes a targeted compliance question ("is the periodic
+        # evaluation overdue?") to A2/A4/A6 and never activates A1, so no
+        # document search is attempted -- `searching` reports `skipped`, not
+        # `complete`. Returning INSUFFICIENT_EVIDENCE_ANSWER here therefore
+        # told the user "AegisX searched the indexed knowledge base and
+        # found nothing relevant" about a search that never ran, while
+        # sitting on findings C1 had verified against real records and a
+        # real OPA evaluation. Measured across the ten Inspection Simulator
+        # questions: nine of ten took this branch, every one of them with
+        # verified findings. That copy is only honest when there is nothing
+        # to report at all, which is the `else` below.
+        if findings:
+            answer_prompt = _findings_synthesis_prompt(
+                request.query, findings, verification_results
+            )
+            findings_response = await _safe_findings_synthesis_call(answer_prompt)
+            if (
+                findings_response is None
+                or findings_response.degraded
+                or _is_json_shaped(findings_response.text)
+                or not findings_response.text.strip()
+            ):
+                answer = _deterministic_findings_answer(findings)
+                findings_attribution = "deterministic-fallback"
+            else:
+                answer = findings_response.text
+                findings_attribution = findings_response.model_id
+
+            stages.append(
+                InvestigationStage(
+                    stage_id="preparing", label=STAGE_LABELS["preparing"], status="complete", detail=None
+                )
+            )
+            return CopilotInvestigateResponse(
+                answer=answer,
+                # Still true, and still what the Evidence panel keys off:
+                # zero document passages were retrieved. The findings and
+                # their C1 verdicts travel alongside it, and a client must
+                # render those rather than treating this flag as "no answer"
+                # (see `verification_results`).
+                insufficient_evidence=True,
+                blocked=False,
+                blocked_reason=None,
+                evidence=[],
+                stages=stages,
+                findings=findings,
+                verification_results=verification_results,
+                evidence_support="INSUFFICIENT_EVIDENCE",
+                model_attribution=findings_attribution,
+                navigation_target=compute_navigation_target(
+                    retrieval_evidence, request.system_id, insufficient_evidence
+                ),
+            )
+
         stages.append(
             InvestigationStage(
                 stage_id="preparing", label=STAGE_LABELS["preparing"], status="skipped", detail=None
@@ -404,8 +582,8 @@ async def investigate(
             blocked_reason=None,
             evidence=[],
             stages=stages,
-            findings=result.get("findings", []),
-            verification_results=result.get("verification_results", {}),
+            findings=findings,
+            verification_results=verification_results,
             evidence_support="INSUFFICIENT_EVIDENCE",
             model_attribution="deterministic-fallback",
             navigation_target=compute_navigation_target(retrieval_evidence, request.system_id, insufficient_evidence),
@@ -417,6 +595,11 @@ async def investigate(
         response is None
         or response.degraded
         or _is_json_shaped(response.text)
+        # A blank answer attributed to a real model id is worse than the
+        # honest fallback (2026-11-16) -- the findings path above already
+        # checked this; this path did not. `call_llm` now rejects an empty
+        # completion itself, so this is the second line of defence.
+        or not response.text.strip()
         or response.text.strip() == "INSUFFICIENT"
     ):
         answer = _deterministic_fallback_answer(retrieval_evidence)

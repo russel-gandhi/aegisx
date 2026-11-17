@@ -102,6 +102,9 @@ describe('uploadDocument', () => {
         indexed_vector_count: 3,
         status: 'READY',
         failed_stage: null,
+        duplicate: false,
+        quarantined: false,
+        quarantine_reason: null,
       } satisfies DocumentUploadResult),
     )
     vi.stubGlobal('fetch', fetchMock)

@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { AssuranceCardData, CopilotInvestigateResult } from '../lib/api'
 import { motionTokens } from '../lib/motion'
@@ -47,6 +48,15 @@ const DESTRUCTIVE_BUBBLE_STYLE = 'border-red-500/30 bg-red-soft text-ink'
 const DEFAULT_ASSISTANT_BUBBLE_STYLE = 'border-white/[0.08] bg-white/[0.035] text-ink'
 const USER_BUBBLE_STYLE = 'border-accent/30 bg-accent-soft text-ink'
 
+function InvestigatingIndicator({ label }: { label: string }) {
+  return (
+    <p className="flex items-center gap-2 text-ink-muted">
+      <Loader2 className="size-4 animate-spin text-accent" aria-hidden="true" />
+      {label}
+    </p>
+  )
+}
+
 export default function ChatMessage({
   message,
   systemId,
@@ -76,7 +86,7 @@ export default function ChatMessage({
           className={`max-w-2xl space-y-4 rounded-xl border px-4 py-3 text-sm ${DEFAULT_ASSISTANT_BUBBLE_STYLE}`}
         >
           {message.status === 'investigating' && cards.length === 0 && (
-            <p className="text-ink-muted">Investigating…</p>
+            <InvestigatingIndicator label="Investigating…" />
           )}
           {message.status === 'done' && cards.length === 0 && (
             <p className="text-ink-muted">
@@ -118,7 +128,7 @@ export default function ChatMessage({
           data-kind="investigation"
           className={`max-w-2xl space-y-3 rounded-xl border px-4 py-3 text-sm ${DEFAULT_ASSISTANT_BUBBLE_STYLE}`}
         >
-          {investigating && <p className="text-ink-muted">Investigating…</p>}
+          {investigating && <InvestigatingIndicator label="Investigating…" />}
 
           {!investigating && result !== undefined && (
             <>

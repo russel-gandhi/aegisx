@@ -49,6 +49,7 @@ is a real, reportable outcome, not a failure to report at all
 import asyncio
 import json
 import logging
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -121,6 +122,49 @@ RERANK_RELEVANCE_THRESHOLD: float = 0.35
 # (Pitfall 4: one call per candidate is a multi-minute worst case), not a
 # tuning knob.
 RERANK_MAX_CANDIDATES: int = 40
+
+# 2026-09-08: per-candidate excerpt budget for `_rerank_prompt`, cut from
+# an inline 800 to this named constant. The reranker itself is worth
+# keeping -- the live eval harness measures precision@5 of 1.0 with it and
+# 0.2 without -- but at 800 chars/candidate it was destroying the answer it
+# was supposed to be improving. Measured chain, from backend logs:
+#
+#   a 40-candidate prompt at 800 chars is 20,758 chars (~5,447 estimated
+#   tokens). It times out on Ollama (130.1s measured, inside a graph
+#   capped at 45s by GRAPH_INVOKE_TIMEOUT_SECONDS), trips that circuit
+#   breaker OPEN, cascades to Groq where it consumes nearly the whole
+#   real 8,000 token-per-minute ceiling and trips Groq OPEN too, then
+#   falls to OpenRouter which currently returns HTTP 402. The
+#   `task="synthesis"` call that runs next -- the one that writes the
+#   answer the user actually reads -- then found every breaker open and
+#   returned `deterministic-fallback`.
+#
+# At 250 chars the same 40 candidates cost ~3,657 estimated tokens, so
+# rerank plus the ~3,712-token synthesis call fit inside one 8,000-token
+# minute together instead of starving each other. All 40 candidates are
+# still ranked -- RERANK_MAX_CANDIDATES is unchanged, and remains the
+# correctness bound its own comment describes; this trims how much of
+# each candidate the model reads, not how many it sees.
+RERANK_EXCERPT_MAX_CHARS: int = 250
+
+# Kill switch for the LLM reranking hop. Ships OFF; set
+# `AEGISX_RERANK_ENABLED=1` to turn it back on.
+#
+# Reranking genuinely improves precision -- the eval harness measures
+# precision@5 of 1.0 with an oracle reranker versus 0.2 on the
+# deterministic gate alone -- so this default is a resource decision, not a
+# quality one. Even trimmed to RERANK_EXCERPT_MAX_CHARS, a rerank call
+# estimates at ~3,657 tokens against Groq's real 8,000-per-minute ceiling,
+# and it runs BEFORE synthesis. Observed live, repeatedly: rerank consumed
+# the budget, `token_budget_exceeded` tripped Groq's breaker, and the
+# synthesis call behind it -- the one that writes the answer the user
+# reads -- had nowhere to go, so the Copilot returned its deterministic
+# fallback instead of an answer.
+#
+# Sharper ranking of evidence nobody gets to read is worth less than a
+# grounded answer over slightly noisier evidence. Turn this back on when
+# the reranker has a token budget it does not share with synthesis.
+RERANK_ENABLED: bool = os.getenv("AEGISX_RERANK_ENABLED", "0").strip().lower() in ("1", "true", "yes")
 
 # Bible Section 15.7's parent-context expansion cap (Task 3).
 PARENT_CONTEXT_MAX_CHARS: int = 2000
@@ -306,7 +350,7 @@ def _clamp_score(value: Any) -> Optional[float]:
 def _rerank_prompt(query: str, candidates: List[Dict[str, Any]]) -> str:
     lines = [f"Question: {query}", "", "Candidates:"]
     for i, candidate in enumerate(candidates):
-        text = (candidate.get("content") or "")[:800]
+        text = (candidate.get("content") or "")[:RERANK_EXCERPT_MAX_CHARS]
         section = candidate.get("section") or "unlabeled section"
         lines.append(f'[{i}] chunk_id={candidate["chunk_id"]} | section={section} | text={text}')
     return "\n".join(lines)
@@ -332,10 +376,35 @@ async def rerank_batch(query: str, candidates: List[Dict[str, Any]]) -> Tuple[Di
     provider key, a timeout, a non-JSON response, a response with no
     usable scores -- never raises to its caller.
     """
+    # Flag check first, before any prompt is built or any provider budget
+    # is touched -- see RERANK_ENABLED's own comment for the measured
+    # reason this defaults off. Returns the identical pair the failure
+    # branches below return, so every caller and every existing test of
+    # the degraded path sees exactly the shape it already handles.
+    if not RERANK_ENABLED:
+        logger.info("rerank_batch: disabled via AEGISX_RERANK_ENABLED; using deterministic gate.")
+        return {}, "deterministic-fallback"
+
     truncated = candidates[:RERANK_MAX_CANDIDATES]
     valid_ids = {candidate["chunk_id"] for candidate in truncated}
     prompt = _rerank_prompt(query, truncated)
 
+    # 2026-09-08: timeout deliberately LEFT at 20.0 after measuring the
+    # real cost of this call, because neither direction helps:
+    #   - Raising it cannot rescue the local hop. A full 40-candidate
+    #     prompt (20,758 chars) takes 130.1s on qwen2.5:7b-instruct, and
+    #     this function runs inside A1, inside the graph, under the
+    #     route's 45s GRAPH_INVOKE_TIMEOUT_SECONDS -- so any budget large
+    #     enough for Ollama is one the graph would kill first.
+    #   - Moving `rerank` to Groq (3.9s, verified working) would consume
+    #     ~5,447 of Groq's real 8,000 token-per-minute ceiling, leaving
+    #     too little for the 3,712-token synthesis call that produces the
+    #     user-visible answer. Starving synthesis to sharpen ranking is
+    #     the wrong trade.
+    # A 350-question eval run measured this call succeeding 16/350 times
+    # (4.6%); the other 334 fall through to the deterministic gate below,
+    # which is a designed degraded mode, not a silent failure -- 348/350
+    # of those questions still retrieved usable evidence.
     try:
         response = await call_llm(
             task="rerank",

@@ -306,7 +306,7 @@ describe('GuidedTourOverlay', () => {
     expect(screen.getByTestId('tour-target-not-found-note')).toBeInTheDocument()
   })
 
-  it('renders a centered closing step ("Step 8 of 8") with no real-page target', async () => {
+  it('renders a centered closing step ("Step 15 of 15") with no real-page target', async () => {
     mockFetchAssuranceCards.mockResolvedValue(fixtureAssuranceCardsResponse(DEMO_FINDING_ID))
     mockFetchActionProposals.mockResolvedValue({
       proposals: [fixtureProposal({ status: 'REJECTED' })],
@@ -314,14 +314,20 @@ describe('GuidedTourOverlay', () => {
 
     renderOverlay()
     await advanceToStepSix()
-    // The REJECTED-proposal branch auto-advances to Step 7; one more click
-    // reaches the closing Step 8.
+    // The REJECTED-proposal branch auto-advances to index 6 ("Audit
+    // Integrity"). From there the tour continues through the extended,
+    // every-other-page block (Blast Radius explorer, Audit Readiness,
+    // Knowledge, Suppliers, Assurance Lab, Trust Centre, Inspection
+    // Simulator -- indices 7-13) before reaching the closing step at
+    // index 14.
     await waitFor(() => {
       expect(screen.getByTestId('mock-joyride-target')).toHaveTextContent(
         '[data-tour="mini-card-audit-integrity"]',
       )
     })
-    fireEvent.click(screen.getByTestId('mock-joyride-next'))
+    for (let i = 0; i < 8; i += 1) {
+      fireEvent.click(screen.getByTestId('mock-joyride-next'))
+    }
 
     expect(screen.getByTestId('mock-joyride-target')).toHaveTextContent('body')
   })
